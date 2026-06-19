@@ -1,0 +1,15 @@
+name: CI
+# Required check for auto-merge (see .claude/AGENT_SYSTEM.md merge policy).
+# Stack is TBD by the architect; the developer expands these steps (lint/typecheck/test/build + coverage gate)
+# when the stack is chosen. Until then this passes so the pipeline can bootstrap.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder checks (no stack yet)
+        run: echo "No stack chosen yet — CI passes. Architect/developer replace this with lint, typecheck, test, build, and the coverage gate."
