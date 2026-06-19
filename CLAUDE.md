@@ -3,13 +3,24 @@
 Project context for Claude. Agents read this at runtime instead of hardcoding project facts in their prompts.
 
 ## Product
-_(TODO — seed: 2–3 sentences on what FlowScout is, the problem it solves, and who it's for._
-_The Analyst agent expands this into an opportunity backlog + MVP/V1/V2 roadmap.)_
+FlowScout is an **agent-driven mobile-app exploration & test-generation platform**. Given only an app name + a
+build, autonomous agents drive a **simulator via Mobile MCP** to explore *any* mobile app top-to-bottom, discover
+every option (visible and hidden), infer what the app is for, and **map all end-to-end workflows** (including
+hidden/duplicate paths) into a grouped, browsable **HTML report**. Later it derives the **test plans that should
+exist** and **authors + runs human-like automation tests** that act as **release gates**. Users are internal
+**developers and testers** on teams short on coverage, product knowledge, or QA resources. Real data, not mocks;
+it asks for credentials when needed and reuses them. Full brief: `docs/sdlc/vision.md`.
 
-## Status & stack
+## Status & scope
 - **Greenfield.** No code yet.
-- **Stack: undecided by design.** The Architect agent proposes the surface (web/mobile/backend) and stack as
-  part of defining the MVP, recorded here once chosen. Until then, agents must not assume a stack.
+- **MVP = Understand & Document (iOS):** autonomous crawl + workflow map + grouped HTML docs, driven from a web
+  dashboard; user supplies a simulator `.app` build; encrypted credential vault with pause-and-ask on 2FA;
+  real-data, fully-autonomous exploration. **V1:** test-plan generation. **V2:** automated tests + release gates.
+- **FlowScout's own surface:** a **web dashboard** (HTML report is a first-class view). **Target platform: iOS first.**
+- **App stack: undecided** — the architect proposes it (ADR). It must support agent orchestration, **Mobile MCP**,
+  iOS-simulator control, and HTML reporting. Mobile MCP server: architect selects the best-maintained existing one.
+- **Exploration safety:** no in-flow guardrails (owner decision); rely on dedicated test accounts, sandbox envs,
+  and disposable/snapshotted simulator state. Never use production endpoints/data.
 
 ## How this project is built — the Autonomous SDLC
 FlowScout is developed by a **coordinator-led, fully-autonomous** agent loop. The coordinator owns the loop end
