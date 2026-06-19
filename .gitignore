@@ -1,0 +1,29 @@
+# --- Secrets & local env (NEVER commit) ---
+.env
+.env.*
+!.env.example
+*.local
+.env.local
+secrets/
+*.pem
+*.key
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Dependencies / build (stack TBD; common defaults) ---
+node_modules/
+dist/
+build/
+out/
+coverage/
+.cache/
+*.log
+
+# --- Agent system: keep config, ignore transient memory scratch if any ---
+.claude/**/*.tmp
