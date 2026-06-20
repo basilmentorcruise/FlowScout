@@ -30,6 +30,8 @@ export default mergeConfig(
           // instead (the DI seam is what the unit gate covers, not the real callsite).
           // McpConnection.ts connect() success path + dispose() with active client:
           // also covered by the #18 macOS E2E; covered here via timeout/error paths.
+          // Contract suite: test infrastructure, not business logic.
+          "src/testing/driver-contract.ts",
         ],
         // Per-file thresholds override the global for files that cannot realistically
         // reach 80% in a Mac-free unit environment (transport connect paths, real exec).
