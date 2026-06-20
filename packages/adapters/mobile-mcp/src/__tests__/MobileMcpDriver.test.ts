@@ -185,7 +185,8 @@ describe("MobileMcpDriver — facade delegation", () => {
 //
 // As of #14, lifecycle is the real SimulatorLifecycleManager.
 // As of #15, driving is the real DeviceDriver.
-// snapshot (#16) and health (#17) are still stubs.
+// As of #16, snapshot is the real SnapshotManager.
+// health (#17) is still a stub.
 // ---------------------------------------------------------------------------
 
 describe("MobileMcpDriver — default capability behavior", () => {
@@ -228,16 +229,23 @@ describe("MobileMcpDriver — default capability behavior", () => {
     await expect(driver.swipe(udid, "up")).rejects.toBeInstanceOf(McpAdapterError);
   });
 
-  // snapshot (#16 stub) and health (#17 stub) still throw NotImplemented.
-  it("takeSnapshot rejects with not yet implemented", async () => {
-    await expect(driver.takeSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
-      "not yet implemented",
-    );
+  it("takeSnapshot rejects (real SnapshotManager — device not in simctl list)", async () => {
+    // #16 replaced the SnapshotStub with the real SnapshotManager.
+    // With the real exec (no Mac/simctl), the device lookup fails or the exec
+    // throws — either way it rejects with an error (not "not yet implemented").
+    await expect(driver.takeSnapshot(udid, fakeSnapshotName)).rejects.toThrow();
   });
 
-  it("resetToSnapshot rejects with not yet implemented", async () => {
-    await expect(driver.resetToSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
-      "not yet implemented",
-    );
+  it("resetToSnapshot rejects with DeviceNotFoundError (device-first contract — Fix #2, #16 real impl)", async () => {
+    // #16 replaced the SnapshotStub with the real SnapshotManager.
+    // ADR-0003 §2 device-first contract: resetToSnapshot verifies the device exists
+    // BEFORE the registry lookup. Since the fake udid is not in the simctl device list
+    // (no real Mac in unit tests), it throws DeviceNotFoundError — not SnapshotNotFoundError.
+    // T8 (known-device + unknown-snapshot -> SnapshotNotFoundError) is proven in snapshot.test.ts §6.
+    await expect(driver.resetToSnapshot(udid, fakeSnapshotName)).rejects.toThrow();
+  });
+
+  it("shutdownSimulator rejects with not yet implemented", async () => {
+    await expect(driver.shutdownSimulator(udid)).rejects.toThrow("not yet implemented");
   });
 });
