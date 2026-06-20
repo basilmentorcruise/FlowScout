@@ -21,7 +21,6 @@ import {
   SnapshotNotFoundError,
   InvalidInputError,
   runDriverContractSuite,
-  FAKE_CONTRACT_FIXTURES,
 } from "../testing/index.js";
 
 // ---------------------------------------------------------------------------
@@ -40,10 +39,7 @@ const BUNDLE_ID = "com.example.flowscout.fixture";
 // §0 — Wire the shared contract suite against FakeMobileDriver
 // ---------------------------------------------------------------------------
 
-runDriverContractSuite({
-  createDriver: () => new FakeMobileDriver(),
-  fixtures: FAKE_CONTRACT_FIXTURES,
-});
+runDriverContractSuite(() => new FakeMobileDriver());
 
 // ---------------------------------------------------------------------------
 // §1 — FakeMobileDriver-specific: action recording
