@@ -106,20 +106,25 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     expect(_trackedConnections[0]).not.toBe(_trackedConnections[1]);
   });
 
-  it("the injectable exec is passed to lifecycle and snapshot stubs (not driving/health)", async () => {
-    // We verify this structurally: passing a custom exec does not change the
-    // stub behaviour (stubs ignore all args), but after construction the methods
-    // still reject with NotImplemented — confirming each stub was successfully
-    // constructed with our exec arg without error.
-    const distinctExec: Exec = vi.fn().mockResolvedValue({ stdout: "ok", stderr: "" });
+  it("the injectable exec is passed to lifecycle (now real — #14) and snapshot stub", async () => {
+    // Since #14 landed, lifecycle is the real SimulatorLifecycleManager that uses exec.
+    // We verify exec is wired in by confirming listDevices() calls exec (not rejected).
+    // snapshot (#16 not yet landed) still rejects with NotImplemented.
+    // driving and health (no exec) still reject with NotImplemented.
+    const distinctExec: Exec = vi
+      .fn()
+      .mockResolvedValue({ stdout: '{"devices":{}}', stderr: "" });
 
     const { defaultCapabilities } = await import("../connection/capabilities.js");
     const bundle = defaultCapabilities(TEST_CONFIG, distinctExec);
 
-    // lifecycle and snapshot — exec-accepting stubs.
-    await expect(bundle.lifecycle.listDevices()).rejects.toThrow("not yet implemented");
+    // lifecycle (#14 real impl) — exec is called and resolves successfully.
+    await expect(bundle.lifecycle.listDevices()).resolves.toEqual([]);
+    expect(distinctExec).toHaveBeenCalled(); // confirms exec was wired into lifecycle
+
+    // snapshot (#16 stub) — still not yet implemented.
     await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
-    // driving and health — no exec in their constructors.
+    // driving and health — no exec in their constructors; not yet implemented.
     await expect(bundle.driving.screenshot("udid")).rejects.toThrow("not yet implemented");
     await expect(bundle.health.checkReadiness()).rejects.toThrow("not yet implemented");
   });
