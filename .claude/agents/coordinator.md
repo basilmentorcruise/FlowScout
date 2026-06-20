@@ -57,7 +57,9 @@ Repeat until no eligible work:
    for a `SHIP/HOLD` decision. On `SHIP`: ensure the branch is up to date with `main` (rebase; if the developer
    must resolve, re-dispatch), squash-merge the PR, close the issue, move to Done. After each merge, rebase the
    other in-flight branches so concurrent work stays mergeable.
-6. **Backfill** the batch from the eligible set and continue.
+6. **Epic completion:** when an epic's last ticket merges, dispatch `docs` for a comprehensive documentation pass
+   (README + user-facing docs reflect the new capabilities), then `release-coordinator` to cut the tagged release.
+7. **Backfill** the batch from the eligible set and continue.
 
 ## Rules
 

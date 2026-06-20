@@ -9,6 +9,7 @@ State as of this handoff (everything below is committed to `main`):
 - **Agent suite** installed globally (`~/.claude/agents/`); coordinator + `/agent-*` commands in `.claude/`.
 
 ## To continue (in a new window)
+
 From the FlowScout repo, run:
 
 ```
@@ -20,11 +21,13 @@ break down the highest-priority MVP epic (**E1 — Mobile MCP + simulator founda
 `product` agent and start the autonomous build→gate→merge loop.
 
 ### Environment note
+
 Epics **E1/E2** drive a real iOS Simulator via Mobile MCP, so completing their QA/E2E needs **macOS + Xcode +
 iOS Simulator + the mobile-next/Mobile MCP server**. Design, scaffolding, and non-simulator tickets run anywhere;
 simulator-dependent steps need that environment.
 
 ### Autonomy reminder
+
 Fully autonomous: the coordinator merges and ships on its own (CI-green + all gates). The only stop is the
 circuit-breaker (3 gate failures on a ticket → `needs-attention` issue). Branch protection is coordinator-enforced
 (platform protection needs a non-free/private plan).

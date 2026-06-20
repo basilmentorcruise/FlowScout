@@ -47,9 +47,15 @@ Reasoning/gatekeeping roles = `opus`; execution roles = `sonnet`. Least-privileg
 | **code-reviewer**       | opus   | Read, Glob, Grep, Bash                         | no     | global  | Code-review gate: smells, coverage, SOLID/pattern adherence. |
 | **qa**                  | sonnet | Read, Glob, Grep, Bash, Edit, Write, **Agent** | yes    | global  | Unit/integration/coverage + E2E human-sim gate.              |
 | **release-coordinator** | sonnet | Read, Glob, Grep, Bash                         | no     | global  | Final SHIP/HOLD go/no-go across all gates.                   |
+| **docs**                | sonnet | Read, Glob, Grep, Bash, Edit, Write            | no     | global  | Keeps README + user-facing docs in sync; per-epic docs pass. |
 
 `Agent` tool is granted **only** to coordinator (orchestration) and qa (E2E sub-agent fan-out). `Edit/Write`
-only to developer and qa (tests). All gatekeepers are read-only.
+only to developer + qa (tests), docs (docs only), and planner/designer (their spec docs). All gatekeepers are read-only.
+
+**Documentation upkeep (every ticket):** docs are part of the work. The developer updates the README/relevant docs
+when behavior, interfaces, config, or setup change; the **code-review gate blocks (must-fix)** if they didn't. At
+**epic completion** the coordinator runs the **docs** agent for a comprehensive pass, and the release gate confirms
+docs reflect the shipped state. Document only built, merged behavior — never planned features.
 
 ---
 
@@ -114,9 +120,11 @@ Every artifact ends with a fenced **`## Required Output Format`** block defined 
 
 ```
 Analyst → Product → Planner → Architect(plan) → Designer* → Security(threat model)
-  → Developer → [Code-review gate] → [Architecture-review gate] → [Security gate]
-  → [QA + E2E gate] → [Release gate] → coordinator merges & ships
+  → Developer (incl. docs) → [Code-review gate (incl. docs check)] → [Architecture-review gate]
+  → [Security gate] → [QA + E2E gate] → [Release gate] → coordinator merges & ships
         (* Designer only for UI tickets)
+
+Per epic (after the last ticket merges): Docs (comprehensive pass) → Release-coordinator cuts the tagged release.
 ```
 
 **Gate verdict schema** (every gate returns this):
