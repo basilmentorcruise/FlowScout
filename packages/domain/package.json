@@ -1,0 +1,28 @@
+{
+  "name": "@flowscout/domain",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Pure domain layer: state-graph, workflow model, report model, ports. No I/O.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@flowscout/config": "workspace:*",
+    "@vitest/coverage-v8": "^3.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}

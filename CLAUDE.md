@@ -3,8 +3,9 @@
 Project context for Claude. Agents read this at runtime instead of hardcoding project facts in their prompts.
 
 ## Product
+
 FlowScout is an **agent-driven mobile-app exploration & test-generation platform**. Given only an app name + a
-build, autonomous agents drive a **simulator via Mobile MCP** to explore *any* mobile app top-to-bottom, discover
+build, autonomous agents drive a **simulator via Mobile MCP** to explore _any_ mobile app top-to-bottom, discover
 every option (visible and hidden), infer what the app is for, and **map all end-to-end workflows** (including
 hidden/duplicate paths) into a grouped, browsable **HTML report**. Later it derives the **test plans that should
 exist** and **authors + runs human-like automation tests** that act as **release gates**. Users are internal
@@ -12,6 +13,7 @@ exist** and **authors + runs human-like automation tests** that act as **release
 it asks for credentials when needed and reuses them. Full brief: `docs/sdlc/vision.md`.
 
 ## Status & scope
+
 - **Greenfield.** No code yet.
 - **MVP = Understand & Document (iOS):** autonomous crawl + workflow map + grouped HTML docs, driven from a web
   dashboard; user supplies a simulator `.app` build; encrypted credential vault with pause-and-ask on 2FA;
@@ -23,6 +25,7 @@ it asks for credentials when needed and reuses them. Full brief: `docs/sdlc/visi
   and disposable/snapshotted simulator state. Never use production endpoints/data.
 
 ## How this project is built — the Autonomous SDLC
+
 FlowScout is developed by a **coordinator-led, fully-autonomous** agent loop. The coordinator owns the loop end
 to end (including merges and ship); gate failures route back to the developer, not to a human.
 
@@ -34,6 +37,7 @@ Post-impl Architecture review gate → Security gate → QA + E2E gate → Relea
 - Full details: `.claude/AGENT_SYSTEM.md` (governance) — _defined in Item 1._
 
 ## Engineering conventions (the architect enforces; refined per chosen stack)
+
 - SOLID, DI, clear layering, abstraction & encapsulation; design patterns applied by name where they fit.
 - Favor extensibility; world-class scalable architecture; no code smells.
 - MVVM for UI surfaces; layered/hexagonal for backends.
@@ -41,5 +45,6 @@ Post-impl Architecture review gate → Security gate → QA + E2E gate → Relea
 - **Never** commit secrets, real identifiers, or personal absolute paths (see `.gitignore`).
 
 ## Pointers
+
 - Agent system governance: `.claude/AGENT_SYSTEM.md`
 - Build plan / decisions: `../agent_analysis/FLOWSCOUT_PLAN.md`

@@ -45,6 +45,7 @@ Hard forces shaping this ADR (from `vision.md`, `roadmap.md`):
 dashboard.
 
 **Why:**
+
 - **F1 dominates.** Mobile MCP is Node/TS-native; an in-process Node MCP client (`@modelcontextprotocol/sdk`)
   avoids a cross-language bridge and version-skew on the riskiest dependency.
 - **One language, one toolchain** (DRY at the tooling layer): a single linter, type system, test runner, and
@@ -223,14 +224,14 @@ opaque framework:
 
 ## 4. Alternatives considered (summary)
 
-| Area | Chosen | Rejected alternative | Why |
-|------|--------|----------------------|-----|
-| Language | TS/Node end-to-end | Python orchestrator + Node MCP | Avoids 3 toolchains + an IPC seam on the riskiest dep; shared domain types; LLM SDKs are first-class in TS. Python kept as a future policy sidecar behind `DecisionPolicy`. |
-| API framework | Fastify | Express / Nest | Fastify: TS-first, schema validation, low overhead, native streaming; Nest's DI/structure we get via the hexagonal layout without the framework lock-in. |
-| Live updates | SSE | WebSocket | One-way server→client stream is the actual need; SSE is simpler/robust. WS stays available behind `CrawlEventStream`. |
-| Persistence | PostgreSQL + Prisma | Graph DB / document store | Version-diffing needs stable, queryable, migration-tracked schema; relational models the graph adequately; repo port keeps it swappable. |
-| Crawl orchestration | Explicit in-house agent loop | Heavyweight agent framework | Cost-control caps + state-identity + replayability must be first-class and inspectable; a generic framework would hide exactly what carries the risk (F2). |
-| Mobile driver | mobile-next/mobile-mcp behind port | Direct Appium/WDA, or no abstraction | Confirmed iOS-sim capability + best maintained; the port (not the server) is the real commitment, satisfying the swappability/Android-later mandate. |
+| Area                | Chosen                             | Rejected alternative                 | Why                                                                                                                                                                         |
+| ------------------- | ---------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language            | TS/Node end-to-end                 | Python orchestrator + Node MCP       | Avoids 3 toolchains + an IPC seam on the riskiest dep; shared domain types; LLM SDKs are first-class in TS. Python kept as a future policy sidecar behind `DecisionPolicy`. |
+| API framework       | Fastify                            | Express / Nest                       | Fastify: TS-first, schema validation, low overhead, native streaming; Nest's DI/structure we get via the hexagonal layout without the framework lock-in.                    |
+| Live updates        | SSE                                | WebSocket                            | One-way server→client stream is the actual need; SSE is simpler/robust. WS stays available behind `CrawlEventStream`.                                                       |
+| Persistence         | PostgreSQL + Prisma                | Graph DB / document store            | Version-diffing needs stable, queryable, migration-tracked schema; relational models the graph adequately; repo port keeps it swappable.                                    |
+| Crawl orchestration | Explicit in-house agent loop       | Heavyweight agent framework          | Cost-control caps + state-identity + replayability must be first-class and inspectable; a generic framework would hide exactly what carries the risk (F2).                  |
+| Mobile driver       | mobile-next/mobile-mcp behind port | Direct Appium/WDA, or no abstraction | Confirmed iOS-sim capability + best maintained; the port (not the server) is the real commitment, satisfying the swappability/Android-later mandate.                        |
 
 ---
 
@@ -241,15 +242,16 @@ are each isolated behind a port with caps; schema-aware store makes version-diff
 hexagonal layout makes Android and alternate policies additive.
 
 **Risks / open questions for the coordinator:**
+
 - **R1 — State-identity accuracy (E2/E3, Confidence 0.5).** The signature (a11y + embedding + semantic label) is
   research-grade; mis-identification breaks duplicate-path detection. Mitigation: `StateIdentity` is a swappable
-  strategy with its own eval scenarios; tune on a representative real app. *Open: which embedding/model.*
+  strategy with its own eval scenarios; tune on a representative real app. _Open: which embedding/model._
 - **R2 — mobile-mcp gesture/deep-state coverage.** If a target app needs gestures the server can't drive, the
-  adapter is the blast radius, not the engine. *Open: confirm gesture coverage against the chosen pilot app.*
+  adapter is the blast radius, not the engine. _Open: confirm gesture coverage against the chosen pilot app._
 - **R3 — LLM provider choice + budget defaults** are deferred to the per-epic ADR/PRD; the port + caps are fixed
-  here, the concrete model/budget numbers are not. *Open: default model + per-run token budget.*
+  here, the concrete model/budget numbers are not. _Open: default model + per-run token budget._
 - **R4 — Object-storage target for screenshots/HTML** (local FS for dev; S3-compatible later). Deployment target
-  is out of scope (vision), so MVP uses local file storage behind the repository's artifact URI. *Open: prod target.*
+  is out of scope (vision), so MVP uses local file storage behind the repository's artifact URI. _Open: prod target._
 - **R5 — Real-data exploration has no in-flow guardrails (owner decision).** Relies on dedicated test accounts +
   snapshot/reset (E1). Architecturally honored; operationally a standing risk the owner accepted.
 
@@ -265,16 +267,16 @@ Per-epic plans carve disjoint slices from these for concurrent tickets.
 All wired into **both** CI and **local pre-commit / Claude Code PreToolUse-on-commit** hooks so problems are
 caught before CI. Configs live in `packages/config` (DRY) and are referenced by every package.
 
-| Concern | Tool | Gate |
-|---------|------|------|
-| Lint + style | **ESLint** (typescript-eslint, strict) + **Prettier** | zero errors |
-| Types | **tsc --noEmit**, `strict: true` | zero errors |
+| Concern                 | Tool                                                        | Gate                                                                             |
+| ----------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Lint + style            | **ESLint** (typescript-eslint, strict) + **Prettier**       | zero errors                                                                      |
+| Types                   | **tsc --noEmit**, `strict: true`                            | zero errors                                                                      |
 | Architecture boundaries | **eslint-plugin-boundaries** / `import/no-restricted-paths` | enforces the §2.2 dependency rule (no inward adapter deps, no cross-layer leaks) |
-| Circular deps | **dependency-cruiser** | zero cycles (smell guard) |
-| Complexity | ESLint `complexity` + `max-depth`/`max-lines-per-function` | bounded; no magic numbers (`no-magic-numbers`) |
-| Duplication | **jscpd** | under threshold |
-| Tests + coverage | **Vitest** (+ coverage v8) | **≥80% line AND branch** on `domain` + `application` (business/domain logic) |
-| Secrets | **gitleaks** | zero findings (defense alongside `.gitignore`) |
+| Circular deps           | **dependency-cruiser**                                      | zero cycles (smell guard)                                                        |
+| Complexity              | ESLint `complexity` + `max-depth`/`max-lines-per-function`  | bounded; no magic numbers (`no-magic-numbers`)                                   |
+| Duplication             | **jscpd**                                                   | under threshold                                                                  |
+| Tests + coverage        | **Vitest** (+ coverage v8)                                  | **≥80% line AND branch** on `domain` + `application` (business/domain logic)     |
+| Secrets                 | **gitleaks**                                                | zero findings (defense alongside `.gitignore`)                                   |
 
 **Per-layer coverage targets (recorded per the standard):** `domain` ≥ 90% line/branch (pure logic, cheap to
 cover); `application` (crawl engine, policies, use-cases) ≥ 85%; `adapters/*` covered via contract tests + a
@@ -288,7 +290,7 @@ This is the required green check for the coordinator's auto-merge policy.
 
 **Local hooks:** a pre-commit hook (e.g. lefthook/husky) runs `lint-staged` + typecheck + affected tests +
 gitleaks on staged files; the Claude Code **PreToolUse-on-commit** hook runs the same fast subset so an agent
-cannot commit code that would fail CI. Hooks run the *affected* subset (fast); CI runs the full graph.
+cannot commit code that would fail CI. Hooks run the _affected_ subset (fast); CI runs the full graph.
 
 ---
 
@@ -317,7 +319,7 @@ cannot commit code that would fail CI. Hooks run the *affected* subset (fast); C
 
 ## 8. Notes for downstream agents
 
-- **Per-epic ADRs** (ADR-0002+) refine *within* this ADR: E1 details the mobile-mcp adapter + snapshot/reset; E2/E3
+- **Per-epic ADRs** (ADR-0002+) refine _within_ this ADR: E1 details the mobile-mcp adapter + snapshot/reset; E2/E3
   detail the state-identity strategy + policy chain + budgets; E4 the report renderer; E5 the dashboard VMs + SSE;
   E6 the vault crypto + 2FA flow; E7 the schema + diffing model.
 - **Do not** introduce business logic in `api` route handlers or in React views, depend inward on any adapter,

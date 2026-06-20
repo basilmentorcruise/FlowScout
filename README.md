@@ -6,6 +6,7 @@
 ## What is this repo?
 
 FlowScout is two things at once:
+
 1. **The product** — _(TODO: 2–3 line problem statement, to be seeded by the owner / refined by the Analyst.)_
 2. **A testbed** for a **coordinator-led, fully-autonomous SDLC agent system** — a self-driving software
    development lifecycle where a long-running coordinator agent spins up specialist agents (analyst, product,

@@ -16,7 +16,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# --- Dependencies / build (stack TBD; common defaults) ---
+# --- Dependencies / build ---
 node_modules/
 dist/
 build/
@@ -24,6 +24,15 @@ out/
 coverage/
 .cache/
 *.log
+
+# --- Turborepo ---
+.turbo/
+
+# --- pnpm ---
+pnpm-lock.yaml.bak
+
+# --- TypeScript incremental ---
+*.tsbuildinfo
 
 # --- Agent system: keep config, ignore transient memory scratch if any ---
 .claude/**/*.tmp
