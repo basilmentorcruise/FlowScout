@@ -109,8 +109,9 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
   it("the injectable exec is passed to lifecycle (now real — #14) and snapshot stub", async () => {
     // Since #14 landed, lifecycle is the real SimulatorLifecycleManager that uses exec.
     // We verify exec is wired in by confirming listDevices() calls exec (not rejected).
+    // Since #15 landed, driving is the real DeviceDriver that validates UDIDs.
     // snapshot (#16 not yet landed) still rejects with NotImplemented.
-    // driving and health (no exec) still reject with NotImplemented.
+    // health (#17 not yet landed) still rejects with NotImplemented.
     const distinctExec: Exec = vi
       .fn()
       .mockResolvedValue({ stdout: '{"devices":{}}', stderr: "" });
@@ -124,8 +125,10 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
 
     // snapshot (#16 stub) — still not yet implemented.
     await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
-    // driving and health — no exec in their constructors; not yet implemented.
-    await expect(bundle.driving.screenshot("udid")).rejects.toThrow("not yet implemented");
+    // driving (#15 real impl) — rejects "udid" with InvalidInputError (T1 UDID validation).
+    const { InvalidInputError } = await import("../driving/normalization.js");
+    await expect(bundle.driving.screenshot("udid")).rejects.toBeInstanceOf(InvalidInputError);
+    // health (#17 stub) — still not yet implemented.
     await expect(bundle.health.checkReadiness()).rejects.toThrow("not yet implemented");
   });
 

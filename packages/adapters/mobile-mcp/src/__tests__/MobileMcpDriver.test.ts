@@ -181,59 +181,62 @@ describe("MobileMcpDriver — facade delegation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Default deps (stubs) still throw NotImplemented until Wave-1 lands
+// Default capability behavior with real implementations from Wave-1
+//
+// As of #14, lifecycle is the real SimulatorLifecycleManager.
+// As of #15, driving is the real DeviceDriver.
+// snapshot (#16) and health (#17) are still stubs.
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// Default capabilities (stubs still throw NotImplemented for non-#14 capabilities)
-// ---------------------------------------------------------------------------
-// Note: lifecycle methods (#14) are now real implementations that attempt simctl.
-// Non-lifecycle stubs (#15 driving, #16 snapshot, #17 health) still throw.
-// The lifecycle methods now throw adapter-typed errors (not "not yet implemented")
-// because SimulatorLifecycleManager validates input and calls simctl.
-// ---------------------------------------------------------------------------
-
-describe("MobileMcpDriver — default stub capabilities (driving/snapshot — still stubs)", () => {
+describe("MobileMcpDriver — default capability behavior", () => {
+  const driver = new MobileMcpDriver(fakeConfig);
   const udid = fakeUdid;
 
-  it("snapshotAccessibilityTree rejects with not yet implemented", async () => {
-    // Using injected fake deps — test the real driving stub via the facade-spy approach.
-    // Reset to an actual stub that throws.
-    const driver2 = new MobileMcpDriver(fakeConfig, {
-      ...makeFakeDeps(),
-      driving: {
-        snapshotAccessibilityTree: () => Promise.reject(new Error("DrivingCapability.snapshotAccessibilityTree is not yet implemented")),
-        screenshot: () => Promise.reject(new Error("DrivingCapability.screenshot is not yet implemented")),
-        tap: () => Promise.reject(new Error("DrivingCapability.tap is not yet implemented")),
-        typeText: () => Promise.reject(new Error("DrivingCapability.typeText is not yet implemented")),
-        swipe: () => Promise.reject(new Error("DrivingCapability.swipe is not yet implemented")),
-      },
-    });
-    await expect(driver2.snapshotAccessibilityTree(udid)).rejects.toThrow("not yet implemented");
+  // Lifecycle (#14 real impl): real SimulatorLifecycleManager validates + calls simctl.
+  // listDevices with fakeConfig (no real exec injected) calls createDefaultExec at runtime,
+  // but the facade default uses the real createDefaultExec. In the unit environment without
+  // xcrun, we just verify the lifecycle stub is gone — it no longer throws "not yet implemented".
+  // We test lifecycle real behavior thoroughly in lifecycle.contract.test.ts.
+  // Here we verify the facade wiring: lifecycle is no longer the NotImplemented stub.
+
+  // Driving methods (#15 landed): DeviceDriver now tries to connect — no stub error.
+  // Without a real MCP server, they reject with a connection error (not "not yet implemented").
+  it("snapshotAccessibilityTree rejects with a McpAdapterError (DeviceDriver real impl)", async () => {
+    const { McpAdapterError } = await import("../connection/errors.js");
+    await expect(driver.snapshotAccessibilityTree(udid)).rejects.toBeInstanceOf(McpAdapterError);
   });
 
+  it("screenshot rejects with a McpAdapterError (DeviceDriver real impl)", async () => {
+    const { McpAdapterError } = await import("../connection/errors.js");
+    await expect(driver.screenshot(udid)).rejects.toBeInstanceOf(McpAdapterError);
+  });
+
+  it("tap rejects with a McpAdapterError (DeviceDriver real impl)", async () => {
+    const { McpAdapterError } = await import("../connection/errors.js");
+    await expect(driver.tap(udid, { kind: "element", elementId: "x" })).rejects.toBeInstanceOf(
+      McpAdapterError,
+    );
+  });
+
+  it("typeText rejects with a McpAdapterError (DeviceDriver real impl)", async () => {
+    const { McpAdapterError } = await import("../connection/errors.js");
+    await expect(driver.typeText(udid, "text")).rejects.toBeInstanceOf(McpAdapterError);
+  });
+
+  it("swipe rejects with a McpAdapterError (DeviceDriver real impl)", async () => {
+    const { McpAdapterError } = await import("../connection/errors.js");
+    await expect(driver.swipe(udid, "up")).rejects.toBeInstanceOf(McpAdapterError);
+  });
+
+  // snapshot (#16 stub) and health (#17 stub) still throw NotImplemented.
   it("takeSnapshot rejects with not yet implemented", async () => {
-    const driver2 = new MobileMcpDriver(fakeConfig, {
-      ...makeFakeDeps(),
-      snapshot: {
-        takeSnapshot: () => Promise.reject(new Error("SnapshotCapability.takeSnapshot is not yet implemented")),
-        resetToSnapshot: () => Promise.reject(new Error("SnapshotCapability.resetToSnapshot is not yet implemented")),
-      },
-    });
-    await expect(driver2.takeSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
+    await expect(driver.takeSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
       "not yet implemented",
     );
   });
 
   it("resetToSnapshot rejects with not yet implemented", async () => {
-    const driver2 = new MobileMcpDriver(fakeConfig, {
-      ...makeFakeDeps(),
-      snapshot: {
-        takeSnapshot: () => Promise.reject(new Error("SnapshotCapability.takeSnapshot is not yet implemented")),
-        resetToSnapshot: () => Promise.reject(new Error("SnapshotCapability.resetToSnapshot is not yet implemented")),
-      },
-    });
-    await expect(driver2.resetToSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
+    await expect(driver.resetToSnapshot(udid, fakeSnapshotName)).rejects.toThrow(
       "not yet implemented",
     );
   });
