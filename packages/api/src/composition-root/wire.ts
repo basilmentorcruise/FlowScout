@@ -10,7 +10,8 @@ import { AppContext } from "@flowscout/application";
 import type { AppPorts } from "@flowscout/application";
 
 // Adapters — the only files in this package that import concrete adapter classes
-import { MobileMcpDriver } from "@flowscout/adapter-mobile-mcp";
+import { MobileMcpDriver, defaultServerEnv } from "@flowscout/adapter-mobile-mcp";
+import type { MobileMcpDriverConfig } from "@flowscout/adapter-mobile-mcp";
 import { LlmAdapter, LlmDecisionPolicy } from "@flowscout/adapter-llm";
 import {
   PrismaRunRepository,
@@ -52,9 +53,23 @@ class InProcessCrawlEventStream implements CrawlEventStream {
  * Build and return the wired AppContext.
  * Called once at startup (server entry point).
  */
+/**
+ * Default MCP driver config used until E1.7 (#18) wires real env loading.
+ * TODO (E1.7 #18): Replace with real config loaded from env
+ *   (FLOWSCOUT_MCP_SERVER_COMMAND, FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS, etc.).
+ */
+const defaultMcpConfig: MobileMcpDriverConfig = {
+  server: {
+    serverCommand: ["npx", "mobile-mcp"],
+    serverEnv: defaultServerEnv(), // scoped — only PATH forwarded (T5)
+    connectTimeoutMs: 10000, // documented in .env.example; replaced with env config in #18
+    callTimeoutMs: 30000,    // documented in .env.example; replaced with env config in #18
+  },
+};
+
 export function buildAppContext(): AppContext {
   const llm = new LlmAdapter();
-  const mobileDriver = new MobileMcpDriver();
+  const mobileDriver = new MobileMcpDriver(defaultMcpConfig);
 
   const ports: AppPorts = {
     mobileDriver,
