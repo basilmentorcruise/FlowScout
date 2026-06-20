@@ -1,0 +1,36 @@
+{
+  "name": "flowscout",
+  "version": "0.0.1",
+  "private": true,
+  "description": "FlowScout — agent-driven mobile-app exploration & test-generation platform",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,yaml,yml,md}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yaml,yml,md}\" --ignore-path .gitignore",
+    "boundaries": "turbo run boundaries",
+    "depcruise": "depcruise packages --config .dependency-cruiser.cjs",
+    "jscpd": "jscpd packages --config .jscpd.json",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "dependency-cruiser": "^16.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-boundaries": "^5.0.0",
+    "husky": "^9.0.0",
+    "jscpd": "^4.0.0",
+    "prettier": "^3.0.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}

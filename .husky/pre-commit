@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# FlowScout pre-commit hook — fast affected subset.
+# Mirrors the CI pipeline checks but only on staged/affected packages.
+# Full CI still runs all checks; this catches the common cases locally.
+
+set -e
+
+echo "--- FlowScout pre-commit: lint ---"
+pnpm turbo run lint --filter='...[HEAD]' 2>/dev/null || pnpm turbo run lint
+
+echo "--- FlowScout pre-commit: typecheck ---"
+pnpm turbo run typecheck --filter='...[HEAD]' 2>/dev/null || pnpm turbo run typecheck
+
+echo "--- FlowScout pre-commit: test (affected) ---"
+pnpm turbo run test --filter='...[HEAD]' 2>/dev/null || pnpm turbo run test
+
+echo "--- FlowScout pre-commit: gitleaks ---"
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --config .gitleaks.toml
+else
+  echo "gitleaks not installed — skipping secret scan (install via brew install gitleaks)"
+fi
+
+echo "--- FlowScout pre-commit: done ---"
