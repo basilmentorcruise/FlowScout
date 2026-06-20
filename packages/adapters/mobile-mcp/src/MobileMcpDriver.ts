@@ -1,17 +1,26 @@
 /**
- * MobileMcpDriver — adapter implementing MobileDriverPort + SimulatorLifecycle
- * via the mobile-next/mobile-mcp MCP server.
+ * MobileMcpDriver — frozen facade implementing MobileDriverPort + SimulatorLifecycle.
  *
- * THIS IS THE ONLY FILE IN THE ENTIRE MONOREPO THAT MAY IMPORT THE MCP SDK.
- * All imports of @modelcontextprotocol/sdk or mobile-mcp belong here.
+ * THIS FILE IS OWNED AND FROZEN BY TICKET #12.
+ * Wave-1 tickets (#14/#15/#16/#17) MUST NOT edit this file.
+ * They replace only their own capability module (src/<capability>/index.ts).
  *
- * TODO (E1): Implement using @modelcontextprotocol/sdk client (stdio transport)
- *            to launch and connect to the mobile-mcp server, then map each port
- *            method to the corresponding MCP tool call.
+ * Design (ADR-0002 §2.1 — Facade + Delegation + DI):
+ * - This class is a THIN DELEGATION LAYER with ZERO logic.
+ * - Each port method delegates to the injected capability module.
+ * - The MCP SDK is used ONLY in src/connection/McpConnection.ts; never here.
+ * - One instance satisfies BOTH MobileDriverPort AND SimulatorLifecycle
+ *   (preserving the composition-root contract: simulatorLifecycle = mobileDriver).
  *
- * Current state: stub — throws NotImplementedError to satisfy the type contract
- * while the foundation scaffold is in place.
+ * Composition root (packages/api) constructs:
+ *   const driver = new MobileMcpDriver(config);
+ *   // driver satisfies both ports — single instance, no duplication needed.
+ *
+ * THIS IS THE ONLY ADAPTER PACKAGE THAT MAY (INDIRECTLY) USE THE MCP SDK.
+ * The SDK import lives in src/connection/McpConnection.ts exclusively.
+ * See ADR-0001 §2.6, ADR-0002 §2.1.
  */
+
 import type {
   MobileDriverPort,
   SimulatorLifecycle,
@@ -22,69 +31,78 @@ import type {
   ScreenshotBytes,
 } from "@flowscout/domain";
 
-// TODO (E1): import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-// TODO (E1): import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-
-function notImplemented(method: string): Promise<never> {
-  return Promise.reject(
-    new Error(
-      `MobileMcpDriver.${method} is not yet implemented — see TODO (E1) in MobileMcpDriver.ts`,
-    ),
-  );
-}
+import type { MobileMcpDriverConfig, CapabilityBundle } from "./connection/index.js";
+import { defaultCapabilities } from "./connection/index.js";
 
 /**
- * MobileMcpDriver — stub.
- * Wires in the composition root of `packages/api` as the concrete MobileDriverPort.
+ * MobileMcpDriver — the single public class the composition root binds to both ports.
+ *
+ * @param config - server command, env, and timeout config (injected, no magic numbers)
+ * @param deps   - optional capability bundle for DI / testing (defaults to stubs until Wave-1 lands)
  */
 export class MobileMcpDriver implements MobileDriverPort, SimulatorLifecycle {
-  // TODO (E1): constructor should accept MCP server config (path, port, etc.)
+  private readonly deps: CapabilityBundle;
+
+  constructor(
+    config: MobileMcpDriverConfig,
+    deps?: CapabilityBundle,
+  ) {
+    this.deps = deps ?? defaultCapabilities(config.server);
+  }
+
+  // -------------------------------------------------------------------------
+  // MobileDriverPort — driving surface (delegates to DrivingCapability)
+  // -------------------------------------------------------------------------
 
   listDevices(): Promise<readonly DeviceInfo[]> {
-    return notImplemented("listDevices");
+    return this.deps.lifecycle.listDevices();
   }
 
-  snapshotAccessibilityTree(_udid: string): Promise<A11ySnapshot> {
-    return notImplemented("snapshotAccessibilityTree");
+  snapshotAccessibilityTree(udid: string): Promise<A11ySnapshot> {
+    return this.deps.driving.snapshotAccessibilityTree(udid);
   }
 
-  screenshot(_udid: string): Promise<ScreenshotBytes> {
-    return notImplemented("screenshot");
+  screenshot(udid: string): Promise<ScreenshotBytes> {
+    return this.deps.driving.screenshot(udid);
   }
 
-  tap(_udid: string, _target: TapTarget): Promise<void> {
-    return notImplemented("tap");
+  tap(udid: string, target: TapTarget): Promise<void> {
+    return this.deps.driving.tap(udid, target);
   }
 
-  typeText(_udid: string, _text: string): Promise<void> {
-    return notImplemented("typeText");
+  typeText(udid: string, text: string): Promise<void> {
+    return this.deps.driving.typeText(udid, text);
   }
 
-  swipe(_udid: string, _direction: SwipeDirection, _distance?: number): Promise<void> {
-    return notImplemented("swipe");
+  swipe(udid: string, direction: SwipeDirection, distance?: number): Promise<void> {
+    return this.deps.driving.swipe(udid, direction, distance);
   }
 
-  bootSimulator(_udid: string): Promise<void> {
-    return notImplemented("bootSimulator");
+  // -------------------------------------------------------------------------
+  // SimulatorLifecycle — lifecycle + snapshot surface
+  // -------------------------------------------------------------------------
+
+  bootSimulator(udid: string): Promise<void> {
+    return this.deps.lifecycle.bootSimulator(udid);
   }
 
-  installApp(_udid: string, _appBundlePath: string): Promise<void> {
-    return notImplemented("installApp");
+  installApp(udid: string, appBundlePath: string): Promise<void> {
+    return this.deps.lifecycle.installApp(udid, appBundlePath);
   }
 
-  launchApp(_udid: string, _bundleId: string): Promise<void> {
-    return notImplemented("launchApp");
+  launchApp(udid: string, bundleId: string): Promise<void> {
+    return this.deps.lifecycle.launchApp(udid, bundleId);
   }
 
-  takeSnapshot(_udid: string, _snapshotName: string): Promise<void> {
-    return notImplemented("takeSnapshot");
+  takeSnapshot(udid: string, snapshotName: string): Promise<void> {
+    return this.deps.snapshot.takeSnapshot(udid, snapshotName);
   }
 
-  resetToSnapshot(_udid: string, _snapshotName: string): Promise<void> {
-    return notImplemented("resetToSnapshot");
+  resetToSnapshot(udid: string, snapshotName: string): Promise<void> {
+    return this.deps.snapshot.resetToSnapshot(udid, snapshotName);
   }
 
-  shutdownSimulator(_udid: string): Promise<void> {
-    return notImplemented("shutdownSimulator");
+  shutdownSimulator(udid: string): Promise<void> {
+    return this.deps.lifecycle.shutdownSimulator(udid);
   }
 }
