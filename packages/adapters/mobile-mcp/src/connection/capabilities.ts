@@ -13,6 +13,8 @@
 
 import type { DeviceInfo, A11ySnapshot, ScreenshotBytes, TapTarget, SwipeDirection } from "@flowscout/domain";
 import type { McpServerConfig } from "./connection-config.js";
+import { McpConnection } from "./McpConnection.js";
+import { createDefaultExec, type Exec } from "../simctl.js";
 import { LifecycleStub } from "../lifecycle/index.js";
 import { DrivingStub } from "../driving/index.js";
 import { SnapshotStub } from "../snapshot/index.js";
@@ -75,17 +77,36 @@ export interface CapabilityBundle {
 
 /**
  * Construct the default capability bundle from the server config.
- * Each capability receives the config slice it needs; McpConnection is
- * constructed per-capability when the real classes land.
+ *
+ * A single shared `McpConnection` is constructed from the config and injected
+ * into every capability so that all four share one transport session (one spawn,
+ * one handshake).  The injectable `exec` seam lets Wave-1 tickets and tests
+ * supply a fake executor without touching this file.
+ *
+ * Wiring layout:
+ * - lifecycle  → connection + config + exec  (#14 needs simctl + MCP)
+ * - driving    → connection + config         (#15 needs MCP only)
+ * - snapshot   → connection + config + exec  (#16 needs simctl + MCP)
+ * - health     → connection + config         (#17 needs MCP only)
  *
  * This function is written ONCE by #12 and NEVER edited by Wave-1 tickets.
- * Wave-1 tickets replace only their own `src/<capability>/index.ts`.
+ * Wave-1 tickets replace ONLY their own `src/<capability>/index.ts`.
+ *
+ * @param config - server config (command, env, timeouts)
+ * @param exec   - injectable xcrun executor; defaults to the real execFile wrapper (T1)
  */
-export function defaultCapabilities(_config: McpServerConfig): CapabilityBundle {
+export function defaultCapabilities(
+  config: McpServerConfig,
+  exec: Exec = createDefaultExec(),
+): CapabilityBundle {
+  // One shared connection for the entire driver lifetime.
+  // Wave-1 classes call connection.connect() lazily before their first tool call.
+  const connection = new McpConnection(config);
+
   return {
-    lifecycle: new LifecycleStub(),
-    driving: new DrivingStub(),
-    snapshot: new SnapshotStub(),
-    health: new HealthStub(),
+    lifecycle: new LifecycleStub(connection, config, exec),
+    driving: new DrivingStub(connection, config),
+    snapshot: new SnapshotStub(connection, config, exec),
+    health: new HealthStub(connection, config),
   };
 }

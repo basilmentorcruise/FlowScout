@@ -6,9 +6,17 @@
  * the real SimulatorLifecycleManager implementation.
  *
  * Do NOT add logic here — stub only.
+ *
+ * Constructor seam (Wave-1 contract):
+ * #14 replaces this class body ONLY — it receives the shared McpConnection,
+ * the server config (for timeouts), and an injectable Exec (for xcrun simctl).
+ * It NEVER edits capabilities.ts or the facade.
  */
 
 import type { LifecycleCapability } from "../connection/capabilities.js";
+import type { McpConnection } from "../connection/McpConnection.js";
+import type { McpServerConfig } from "../connection/connection-config.js";
+import type { Exec } from "../simctl.js";
 import type { DeviceInfo } from "@flowscout/domain";
 
 function notImplemented(method: string): Promise<never> {
@@ -19,6 +27,21 @@ function notImplemented(method: string): Promise<never> {
 
 /** Stub implementation — all methods throw NotImplemented. */
 export class LifecycleStub implements LifecycleCapability {
+  /**
+   * Wave-1 seam: #14 replaces this class and wires these params into the real implementation.
+   * Stored as protected fields so Wave-1 inherits the declarations without touching
+   * capabilities.ts (the frozen file).
+   *
+   * @param connection - shared McpConnection (used by real impl for MCP tool calls)
+   * @param config     - server config slice (timeouts for connect/call/simctl)
+   * @param exec       - injectable xcrun simctl executor (T1: no shell string)
+   */
+  constructor(
+    protected readonly connection: McpConnection,
+    protected readonly config: McpServerConfig,
+    protected readonly exec: Exec,
+  ) {}
+
   listDevices(): Promise<readonly DeviceInfo[]> {
     return notImplemented("listDevices");
   }
