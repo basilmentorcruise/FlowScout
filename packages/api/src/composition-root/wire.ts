@@ -62,8 +62,8 @@ const defaultMcpConfig: MobileMcpDriverConfig = {
   server: {
     serverCommand: ["npx", "mobile-mcp"],
     serverEnv: defaultServerEnv(), // scoped — only PATH forwarded (T5)
-    connectTimeoutMs: 10000, // eslint-disable-line no-magic-numbers -- documented in .env.example
-    callTimeoutMs: 30000,    // eslint-disable-line no-magic-numbers -- documented in .env.example
+    connectTimeoutMs: 10000, // documented in .env.example; replaced with env config in #18
+    callTimeoutMs: 30000,    // documented in .env.example; replaced with env config in #18
   },
 };
 
