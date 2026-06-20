@@ -289,34 +289,44 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
   const fakeConnection = new McpConnection(BASE_CONFIG);
   const fakeExec = vi.fn().mockResolvedValue({ stdout: "", stderr: "" }) as unknown as Exec;
 
-  it("LifecycleStub.listDevices throws NotImplemented", async () => {
+  // Note: LifecycleStub is now the REAL SimulatorLifecycleManager (#14 landed).
+  // These tests verify the real implementation is wired in and functional.
+  // "not yet implemented" stubs are replaced; lifecycle methods now validate + call simctl.
+
+  it("LifecycleStub.listDevices resolves (real impl calls fakeExec returning empty JSON)", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
+    // fakeExec returns { stdout: "", stderr: "" } → parseSimctlList("") → []
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.listDevices()).rejects.toThrow("not yet implemented");
+    await expect(stub.listDevices()).resolves.toEqual([]);
   });
 
-  it("LifecycleStub.bootSimulator throws NotImplemented", async () => {
+  it("LifecycleStub.bootSimulator rejects invalid udid with LifecycleInputError", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
+    const { LifecycleInputError } = await import("../lifecycle/index.js");
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.bootSimulator("udid")).rejects.toThrow("not yet implemented");
+    // "udid" is not a UUID — real impl validates and throws LifecycleInputError (T1).
+    await expect(stub.bootSimulator("udid")).rejects.toBeInstanceOf(LifecycleInputError);
   });
 
-  it("LifecycleStub.installApp throws NotImplemented", async () => {
+  it("LifecycleStub.installApp rejects invalid udid with LifecycleInputError", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
+    const { LifecycleInputError } = await import("../lifecycle/index.js");
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.installApp("udid", "/path/to.app")).rejects.toThrow("not yet implemented");
+    await expect(stub.installApp("udid", "/path/to.app")).rejects.toBeInstanceOf(LifecycleInputError);
   });
 
-  it("LifecycleStub.launchApp throws NotImplemented", async () => {
+  it("LifecycleStub.launchApp rejects invalid udid with LifecycleInputError", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
+    const { LifecycleInputError } = await import("../lifecycle/index.js");
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.launchApp("udid", "com.example")).rejects.toThrow("not yet implemented");
+    await expect(stub.launchApp("udid", "com.example")).rejects.toBeInstanceOf(LifecycleInputError);
   });
 
-  it("LifecycleStub.shutdownSimulator throws NotImplemented", async () => {
+  it("LifecycleStub.shutdownSimulator rejects invalid udid with LifecycleInputError", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
+    const { LifecycleInputError } = await import("../lifecycle/index.js");
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.shutdownSimulator("udid")).rejects.toThrow("not yet implemented");
+    await expect(stub.shutdownSimulator("udid")).rejects.toBeInstanceOf(LifecycleInputError);
   });
 
   it("DrivingStub.screenshot throws NotImplemented", async () => {
