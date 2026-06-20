@@ -1,15 +1,83 @@
 name: CI
 # Required check for auto-merge (see .claude/AGENT_SYSTEM.md merge policy).
-# Stack is TBD by the architect; the developer expands these steps (lint/typecheck/test/build + coverage gate)
-# when the stack is chosen. Until then this passes so the pipeline can bootstrap.
+# Pipeline: install → lint → typecheck → boundaries/cycles → dup → test+coverage → build + gitleaks
 on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Placeholder checks (no stack yet)
-        run: echo "No stack chosen yet — CI passes. Architect/developer replace this with lint, typecheck, test, build, and the coverage gate."
+        with:
+          fetch-depth: 0 # needed for turbo affected + gitleaks history scan
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "11.8.0"
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      # ── 1. Install ────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── 2. Lint ───────────────────────────────────────────────────────────
+      - name: Lint
+        run: pnpm turbo run lint
+
+      # ── 3. Typecheck ──────────────────────────────────────────────────────
+      - name: Typecheck
+        run: pnpm turbo run typecheck
+
+      # ── 4. Architecture rule + circular dependency check (dependency-cruiser) ──
+      # (eslint-plugin-boundaries also enforces hexagonal boundaries within the Lint step.)
+      - name: Circular dependency / architecture rule check
+        run: pnpm run depcruise
+
+      # ── 6. Duplication check (jscpd) ──────────────────────────────────────
+      - name: Duplication check
+        run: pnpm run jscpd
+
+      # ── 7. Test + Coverage gate (≥80% line+branch on domain+application) ──
+      - name: Test + Coverage
+        run: pnpm turbo run test
+
+      # ── 8. Build ──────────────────────────────────────────────────────────
+      - name: Build
+        run: pnpm turbo run build
+
+      # ── 9. Secret scan (gitleaks) ─────────────────────────────────────────
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

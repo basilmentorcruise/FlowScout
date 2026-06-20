@@ -1,0 +1,19 @@
+{
+  "threshold": 5,
+  "reporters": ["console"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.turbo/**",
+    "**/*.d.ts",
+    "**/package.json",
+    "**/tsconfig*.json",
+    "**/*.config.ts",
+    "**/*.config.mjs",
+    "**/*.config.js"
+  ],
+  "languages": ["typescript", "javascript"],
+  "minLines": 10,
+  "minTokens": 50
+}

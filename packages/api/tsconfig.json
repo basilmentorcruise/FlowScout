@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../domain" },
+    { "path": "../application" },
+    { "path": "../adapters/mobile-mcp" },
+    { "path": "../adapters/llm" },
+    { "path": "../adapters/persistence" },
+    { "path": "../adapters/vault" },
+    { "path": "../adapters/report-html" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

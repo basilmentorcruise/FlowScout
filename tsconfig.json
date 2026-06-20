@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/config" },
+    { "path": "packages/domain" },
+    { "path": "packages/application" },
+    { "path": "packages/adapters/mobile-mcp" },
+    { "path": "packages/adapters/llm" },
+    { "path": "packages/adapters/persistence" },
+    { "path": "packages/adapters/vault" },
+    { "path": "packages/adapters/report-html" },
+    { "path": "packages/api" },
+    { "path": "packages/web" }
+  ]
+}

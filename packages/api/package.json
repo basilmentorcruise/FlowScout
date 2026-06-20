@@ -1,0 +1,39 @@
+{
+  "name": "@flowscout/api",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Fastify HTTP + SSE API — thin transport over application use-cases. Composition root for DI wiring.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "start": "node dist/index.js",
+    "dev": "node --watch dist/index.js"
+  },
+  "dependencies": {
+    "@flowscout/application": "workspace:*",
+    "@flowscout/domain": "workspace:*",
+    "@flowscout/adapter-mobile-mcp": "workspace:*",
+    "@flowscout/adapter-llm": "workspace:*",
+    "@flowscout/adapter-persistence": "workspace:*",
+    "@flowscout/adapter-vault": "workspace:*",
+    "@flowscout/adapter-report-html": "workspace:*",
+    "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "@flowscout/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^3.0.0"
+  }
+}
