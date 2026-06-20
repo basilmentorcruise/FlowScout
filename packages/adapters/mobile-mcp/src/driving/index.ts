@@ -6,9 +6,16 @@
  * the real DeviceDriver implementation.
  *
  * Do NOT add logic here — stub only.
+ *
+ * Constructor seam (Wave-1 contract):
+ * #15 replaces this class body ONLY — it receives the shared McpConnection
+ * and the server config (for call timeouts).
+ * It NEVER edits capabilities.ts or the facade.
  */
 
 import type { DrivingCapability } from "../connection/capabilities.js";
+import type { McpConnection } from "../connection/McpConnection.js";
+import type { McpServerConfig } from "../connection/connection-config.js";
 import type { A11ySnapshot, ScreenshotBytes, TapTarget, SwipeDirection } from "@flowscout/domain";
 
 function notImplemented(method: string): Promise<never> {
@@ -19,6 +26,19 @@ function notImplemented(method: string): Promise<never> {
 
 /** Stub implementation — all methods throw NotImplemented. */
 export class DrivingStub implements DrivingCapability {
+  /**
+   * Wave-1 seam: #15 replaces this class and wires these params into the real implementation.
+   * Stored as protected fields so Wave-1 inherits the declarations without touching
+   * capabilities.ts (the frozen file).
+   *
+   * @param connection - shared McpConnection (used by real impl for MCP tool calls)
+   * @param config     - server config slice (callTimeoutMs for every tool call)
+   */
+  constructor(
+    protected readonly connection: McpConnection,
+    protected readonly config: McpServerConfig,
+  ) {}
+
   snapshotAccessibilityTree(_udid: string): Promise<A11ySnapshot> {
     return notImplemented("snapshotAccessibilityTree");
   }

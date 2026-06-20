@@ -19,9 +19,11 @@ import {
   McpNotConnectedError,
   McpTimeoutError,
 } from "../connection/errors.js";
+import { McpConnection } from "../connection/McpConnection.js";
 import type { McpServerConfig } from "../connection/connection-config.js";
 import { defaultServerEnv } from "../connection/connection-config.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import type { Exec } from "../simctl.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -282,57 +284,62 @@ describe("McpServerConfig — value object", () => {
 // ---------------------------------------------------------------------------
 
 describe("Stub capability modules — Wave-1 placeholders", () => {
+  // Shared fake deps for all stub constructor calls.
+  // Stubs accept and ignore their constructor args; these satisfy TypeScript.
+  const fakeConnection = new McpConnection(BASE_CONFIG);
+  const fakeExec = vi.fn().mockResolvedValue({ stdout: "", stderr: "" }) as unknown as Exec;
+
   it("LifecycleStub.listDevices throws NotImplemented", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
-    const stub = new LifecycleStub();
+    const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.listDevices()).rejects.toThrow("not yet implemented");
   });
 
   it("LifecycleStub.bootSimulator throws NotImplemented", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
-    const stub = new LifecycleStub();
+    const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.bootSimulator("udid")).rejects.toThrow("not yet implemented");
   });
 
   it("LifecycleStub.installApp throws NotImplemented", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
-    const stub = new LifecycleStub();
+    const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.installApp("udid", "/path/to.app")).rejects.toThrow("not yet implemented");
   });
 
   it("LifecycleStub.launchApp throws NotImplemented", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
-    const stub = new LifecycleStub();
+    const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.launchApp("udid", "com.example")).rejects.toThrow("not yet implemented");
   });
 
   it("LifecycleStub.shutdownSimulator throws NotImplemented", async () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
-    const stub = new LifecycleStub();
+    const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.shutdownSimulator("udid")).rejects.toThrow("not yet implemented");
   });
 
   it("DrivingStub.screenshot throws NotImplemented", async () => {
     const { DrivingStub } = await import("../driving/index.js");
-    const stub = new DrivingStub();
+    const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
     await expect(stub.screenshot("udid")).rejects.toThrow("not yet implemented");
   });
 
   it("DrivingStub.typeText throws NotImplemented", async () => {
     const { DrivingStub } = await import("../driving/index.js");
-    const stub = new DrivingStub();
+    const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
     await expect(stub.typeText("udid", "text")).rejects.toThrow("not yet implemented");
   });
 
   it("DrivingStub.snapshotAccessibilityTree throws NotImplemented", async () => {
     const { DrivingStub } = await import("../driving/index.js");
-    const stub = new DrivingStub();
+    const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
     await expect(stub.snapshotAccessibilityTree("udid")).rejects.toThrow("not yet implemented");
   });
 
   it("DrivingStub.tap throws NotImplemented", async () => {
     const { DrivingStub } = await import("../driving/index.js");
-    const stub = new DrivingStub();
+    const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
     await expect(stub.tap("udid", { kind: "element", elementId: "e1" })).rejects.toThrow(
       "not yet implemented",
     );
@@ -340,25 +347,25 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
 
   it("DrivingStub.swipe throws NotImplemented", async () => {
     const { DrivingStub } = await import("../driving/index.js");
-    const stub = new DrivingStub();
+    const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
     await expect(stub.swipe("udid", "up")).rejects.toThrow("not yet implemented");
   });
 
   it("SnapshotStub.takeSnapshot throws NotImplemented", async () => {
     const { SnapshotStub } = await import("../snapshot/index.js");
-    const stub = new SnapshotStub();
+    const stub = new SnapshotStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.takeSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
   });
 
   it("SnapshotStub.resetToSnapshot throws NotImplemented", async () => {
     const { SnapshotStub } = await import("../snapshot/index.js");
-    const stub = new SnapshotStub();
+    const stub = new SnapshotStub(fakeConnection, BASE_CONFIG, fakeExec);
     await expect(stub.resetToSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
   });
 
   it("HealthStub.checkReadiness throws NotImplemented", async () => {
     const { HealthStub } = await import("../health/index.js");
-    const stub = new HealthStub();
+    const stub = new HealthStub(fakeConnection, BASE_CONFIG);
     await expect(stub.checkReadiness()).rejects.toThrow("not yet implemented");
   });
 });
