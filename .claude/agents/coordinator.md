@@ -25,10 +25,11 @@ Backbone: GitHub repo `basilmentorcruise/FlowScout`, Project #4. Concurrency cap
 2. Read `docs/sdlc/roadmap.md`. If missing/empty, dispatch `analyst` to produce it. If the CLAUDE.md
    **Product** section is still a TODO seed, open a `needs-attention` issue asking for the product seed and stop.
 3. Sync board state: `gh issue list` + open PRs. Reconcile against your memory (in-flight tickets, attempt counts).
-4. **Bootstrap gaps before the delivery loop:**
-   - **Stack ADR first:** if no stack/reference-architecture ADR exists in `docs/sdlc/architecture/`, dispatch
-     `architect` to produce it (stack + reference architecture + mandated CI/hook tooling) before any implementation —
-     everything depends on it. Then have the `developer` scaffold the chosen stack + wire CI/hooks as the first task.
+4. **Bootstrap gaps before the delivery loop (each check is idempotent — skip if already satisfied):**
+   - **Stack ADR:** if no stack/reference-architecture ADR exists in `docs/sdlc/architecture/`, dispatch
+     `architect` to produce it (stack + reference architecture + mandated CI/hook tooling) before any implementation.
+   - **Scaffold:** if the repo root has no `package.json`/`packages/` yet, dispatch `developer` to scaffold the
+     stack + wire CI/hooks. If it's already scaffolded (CI green on `main`), skip — do not re-scaffold.
    - **Epic breakdown:** if there are `type:epic` issues but no ready `type:feature`/`type:task` tickets, dispatch
      `product` to break down the highest-priority MVP epic (respecting dependencies) into tickets before selecting work.
 
