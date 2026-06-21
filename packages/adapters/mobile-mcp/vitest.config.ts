@@ -17,12 +17,13 @@ export default mergeConfig(
           "src/**/index.ts",
           // Type declarations
           "src/**/*.d.ts",
-          // Stub capability modules: Wave-1 tickets #15/#16/#17 replace these
+          // Stub capability modules: Wave-1 tickets #16/#17 replace these
           // entirely. Coverage is the replacement's responsibility; stubs contain
           // only NotImplemented throws already tested via the facade delegation suite.
-          // NOTE: "src/lifecycle/**" is intentionally REMOVED here (#14 landed —
-          // SimulatorLifecycleManager is now covered by lifecycle.contract.test.ts).
-          "src/driving/**",
+          // NOTE: "src/lifecycle/**" REMOVED (#14 landed — SimulatorLifecycleManager is
+          // now covered by lifecycle.contract.test.ts).
+          // NOTE: "src/driving/**" REMOVED (#15 landed — DeviceDriver + normalization are
+          // now covered by src/__tests__/driving.test.ts).
           "src/snapshot/**",
           "src/health/**",
           // createDefaultExec / createDefaultTransport: real I/O implementations

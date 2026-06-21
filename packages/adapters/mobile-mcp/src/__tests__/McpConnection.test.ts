@@ -329,36 +329,51 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
     await expect(stub.shutdownSimulator("udid")).rejects.toBeInstanceOf(LifecycleInputError);
   });
 
-  it("DrivingStub.screenshot throws NotImplemented", async () => {
+  // ---------------------------------------------------------------------------
+  // DrivingStub (now DeviceDriver — replaced by #15):
+  //   The alias DrivingStub now points to DeviceDriver (the real implementation).
+  //   DeviceDriver validates the UDID first (T1 security), so passing a raw
+  //   string "udid" now throws InvalidInputError — not "not yet implemented".
+  //   These tests have been updated from the original stub-era assertions to
+  //   reflect the Wave-1 replacement landed in ticket #15.
+  // ---------------------------------------------------------------------------
+
+  it("DrivingStub (DeviceDriver after #15) rejects invalid UDID 'udid' with InvalidInputError", async () => {
     const { DrivingStub } = await import("../driving/index.js");
+    const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.screenshot("udid")).rejects.toThrow("not yet implemented");
+    // "udid" is not a valid UUID — DeviceDriver rejects it immediately (T1).
+    await expect(stub.screenshot("udid")).rejects.toBeInstanceOf(InvalidInputError);
   });
 
-  it("DrivingStub.typeText throws NotImplemented", async () => {
+  it("DrivingStub (DeviceDriver after #15) typeText rejects invalid UDID with InvalidInputError", async () => {
     const { DrivingStub } = await import("../driving/index.js");
+    const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.typeText("udid", "text")).rejects.toThrow("not yet implemented");
+    await expect(stub.typeText("udid", "text")).rejects.toBeInstanceOf(InvalidInputError);
   });
 
-  it("DrivingStub.snapshotAccessibilityTree throws NotImplemented", async () => {
+  it("DrivingStub (DeviceDriver after #15) snapshotAccessibilityTree rejects invalid UDID", async () => {
     const { DrivingStub } = await import("../driving/index.js");
+    const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.snapshotAccessibilityTree("udid")).rejects.toThrow("not yet implemented");
+    await expect(stub.snapshotAccessibilityTree("udid")).rejects.toBeInstanceOf(InvalidInputError);
   });
 
-  it("DrivingStub.tap throws NotImplemented", async () => {
+  it("DrivingStub (DeviceDriver after #15) tap rejects invalid UDID with InvalidInputError", async () => {
     const { DrivingStub } = await import("../driving/index.js");
+    const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.tap("udid", { kind: "element", elementId: "e1" })).rejects.toThrow(
-      "not yet implemented",
-    );
+    await expect(
+      stub.tap("udid", { kind: "element", elementId: "e1" }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
   });
 
-  it("DrivingStub.swipe throws NotImplemented", async () => {
+  it("DrivingStub (DeviceDriver after #15) swipe rejects invalid UDID with InvalidInputError", async () => {
     const { DrivingStub } = await import("../driving/index.js");
+    const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.swipe("udid", "up")).rejects.toThrow("not yet implemented");
+    await expect(stub.swipe("udid", "up")).rejects.toBeInstanceOf(InvalidInputError);
   });
 
   it("SnapshotStub.takeSnapshot throws NotImplemented", async () => {
