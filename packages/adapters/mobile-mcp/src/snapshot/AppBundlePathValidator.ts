@@ -27,7 +27,7 @@
  *   by mirroring the same contract without cross-subtree coupling.
  */
 
-import { InvalidSnapshotInputError } from "./SnapshotManager.js";
+import { InvalidSnapshotInputError } from "./errors.js";
 
 // ---------------------------------------------------------------------------
 // Named constants (no magic numbers — ADR-0001 §6)
