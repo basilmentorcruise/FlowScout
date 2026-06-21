@@ -376,16 +376,22 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
     await expect(stub.swipe("udid", "up")).rejects.toBeInstanceOf(InvalidInputError);
   });
 
-  it("SnapshotStub.takeSnapshot throws NotImplemented", async () => {
+  it("SnapshotStub.takeSnapshot rejects invalid udid with typed error (#16 real impl)", async () => {
+    // #16 replaced the SnapshotStub with the real SnapshotManager.
+    // The real impl validates inputs (T1) before any simctl call.
+    // 'udid' is not a valid UUID so InvalidSnapshotInputError is thrown.
     const { SnapshotStub } = await import("../snapshot/index.js");
     const stub = new SnapshotStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.takeSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
+    await expect(stub.takeSnapshot("udid", "snap")).rejects.toThrow(/InvalidSnapshotInputError/);
   });
 
-  it("SnapshotStub.resetToSnapshot throws NotImplemented", async () => {
+  it("SnapshotStub.resetToSnapshot rejects invalid udid with typed error (#16 real impl)", async () => {
+    // #16 replaced the SnapshotStub with the real SnapshotManager.
+    // The real impl validates inputs (T1) before any simctl call.
+    // 'udid' is not a valid UUID so InvalidSnapshotInputError is thrown.
     const { SnapshotStub } = await import("../snapshot/index.js");
     const stub = new SnapshotStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.resetToSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
+    await expect(stub.resetToSnapshot("udid", "snap")).rejects.toThrow(/InvalidSnapshotInputError/);
   });
 
   it("HealthStub.checkReadiness throws NotImplemented", async () => {
