@@ -39,7 +39,7 @@ const FAKE_EXEC: Exec = vi.fn().mockResolvedValue({ stdout: "", stderr: "" });
 /**
  * Wraps the `defaultCapabilities` factory with a spy on `McpConnection` to
  * capture every instance created during the call.  We do this by temporarily
- * replacing the constructor in the module's exports — ES modules do not allow
+ * replacing the constructor in the module exports — ES modules do not allow
  * direct property reassignment, so we use a subclass approach via prototypal
  * interception on a captured instance.
  *
@@ -101,20 +101,20 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     defaultCapabilities(TEST_CONFIG, FAKE_EXEC);
     defaultCapabilities(TEST_CONFIG, FAKE_EXEC);
 
-    // Two calls → two connections (one per bundle, not shared across bundles).
+    // Two calls — two connections (one per bundle, not shared across bundles).
     expect(_trackedConnections).toHaveLength(2);
     expect(_trackedConnections[0]).not.toBe(_trackedConnections[1]);
   });
 
-  it("the injectable exec is passed to lifecycle (now real — #14) and snapshot stub", async () => {
+  it("the injectable exec is passed to lifecycle (now real — #14) and snapshot (now real — #16)", async () => {
     // Since #14 landed, lifecycle is the real SimulatorLifecycleManager that uses exec.
     // We verify exec is wired in by confirming listDevices() calls exec (not rejected).
     // Since #15 landed, driving is the real DeviceDriver that validates UDIDs.
-    // snapshot (#16 not yet landed) still rejects with NotImplemented.
+    // Since #16 landed, snapshot is the real SnapshotManager — validates inputs (T1) first.
     // health (#17 not yet landed) still rejects with NotImplemented.
     const distinctExec: Exec = vi
       .fn()
-      .mockResolvedValue({ stdout: '{"devices":{}}', stderr: "" });
+      .mockResolvedValue({ stdout: '{"devices":{}}', stderr: '' });
 
     const { defaultCapabilities } = await import("../connection/capabilities.js");
     const bundle = defaultCapabilities(TEST_CONFIG, distinctExec);
@@ -123,8 +123,8 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     await expect(bundle.lifecycle.listDevices()).resolves.toEqual([]);
     expect(distinctExec).toHaveBeenCalled(); // confirms exec was wired into lifecycle
 
-    // snapshot (#16 stub) — still not yet implemented.
-    await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow("not yet implemented");
+    // snapshot (#16 real impl) — validates inputs (T1); invalid UUID throws InvalidSnapshotInputError.
+    await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow(/InvalidSnapshotInputError/);
     // driving (#15 real impl) — rejects "udid" with InvalidInputError (T1 UDID validation).
     const { InvalidInputError } = await import("../driving/normalization.js");
     await expect(bundle.driving.screenshot("udid")).rejects.toBeInstanceOf(InvalidInputError);

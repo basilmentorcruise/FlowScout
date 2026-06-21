@@ -17,14 +17,15 @@ export default mergeConfig(
           "src/**/index.ts",
           // Type declarations
           "src/**/*.d.ts",
-          // Stub capability modules: Wave-1 tickets #16/#17 replace these
-          // entirely. Coverage is the replacement's responsibility; stubs contain
-          // only NotImplemented throws already tested via the facade delegation suite.
+          // Stub capability modules: Wave-1 ticket #17 replaces health entirely.
+          // Coverage is the replacement responsibility; stubs contain only NotImplemented
+          // throws already tested via the facade delegation suite.
           // NOTE: "src/lifecycle/**" REMOVED (#14 landed — SimulatorLifecycleManager is
           // now covered by lifecycle.contract.test.ts).
           // NOTE: "src/driving/**" REMOVED (#15 landed — DeviceDriver + normalization are
           // now covered by src/__tests__/driving.test.ts).
-          "src/snapshot/**",
+          // NOTE: "src/snapshot/**" REMOVED (#16 landed — SnapshotManager is now the real
+          // impl and its coverage is measured by snapshot.test.ts).
           "src/health/**",
           // createDefaultExec / createDefaultTransport: real I/O implementations
           // (child_process.execFile, StdioClientTransport). These are covered by
@@ -36,12 +37,12 @@ export default mergeConfig(
           "src/testing/driver-contract.ts",
         ],
         // Per-file thresholds override the global for files that cannot realistically
-        // reach 80% in a Mac-free unit environment (transport connect paths, real exec).
-        // The global 80% is applied to the included set above.
+        // reach 80%% in a Mac-free unit environment (transport connect paths, real exec).
+        // The global 80%% is applied to the included set above.
         thresholds: {
           // Override: lower individual-file floors for the two files that have
           // untestable "real I/O" paths in the unit environment.
-          // The overall project gate (domain+application) at 80% is unaffected.
+          // The overall project gate (domain+application) at 80%% is unaffected.
           perFile: false,
         },
       },
