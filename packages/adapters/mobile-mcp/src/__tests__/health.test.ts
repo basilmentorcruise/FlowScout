@@ -10,7 +10,11 @@
  * AC2 — "Given WebDriverAgent has not yet come up, When readiness is checked,
  *         Then it reports a RETRYABLE not-ready signal (not a hang, not a terminal error)
  *         within the configured bound."
- *   → tests: "WDA tool not in list → not-ready (retryable)", "WDA tool call fails → not-ready (retryable)"
+ *   → tests (checkOnce):
+ *       "checkOnce: WDA tool absent → kind='not-ready', retryable=true, wdaUp=false"
+ *       "checkOnce: WDA tool call fails → kind='not-ready', retryable=true, reason present"
+ *   → tests (checkReadiness polling):
+ *       "checkReadiness: WDA never ready → timed-out (confirms polling happened)"
  *
  * AC3 — "Given a launched app, When readiness is checked with its bundle id,
  *         Then it reports the app as launched;
@@ -35,13 +39,14 @@
  *   - Inject a fake McpConnection via the constructor DI seam (no real MCP server).
  *   - Inject fake NowFn + SleepFn for deterministic timeout/polling control (no real timers).
  *   - Assert on the `DetailedReadinessResult` discriminated union fields.
+ *   - AC2 is verified via `checkOnce()` which surfaces `not-ready (retryable:true)` directly.
+ *   - AC5 is verified via `checkReadiness()` which polls until timed-out.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { HealthReadiness, DEFAULT_HEALTH_CONFIG } from "../health/HealthReadiness.js";
 import type { HealthReadinessConfig } from "../health/readiness-result.js";
 import { HealthCheckTerminalError } from "../health/readiness-result.js";
-import type { DetailedReadinessResult } from "../health/readiness-result.js";
 import { McpNotConnectedError, McpTimeoutError, McpConnectionError, McpToolError } from "../connection/errors.js";
 import type { McpServerConfig } from "../connection/connection-config.js";
 import type { McpConnection } from "../connection/McpConnection.js";
@@ -208,21 +213,110 @@ describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", (
     // appLaunched is boolean | null — both are valid
     expect(result.appLaunched === null || typeof result.appLaunched === "boolean").toBe(true);
   });
+
+  it("checkOnce also returns kind='ready' when MCP and WDA are up", async () => {
+    const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("ready");
+    expect(result.mcpReachable).toBe(true);
+    expect(result.wdaUp).toBe(true);
+    expect(result.retryable).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// AC2: WDA not yet up → RETRYABLE not-ready signal
+// AC2: WDA not yet up → RETRYABLE not-ready signal (observable via checkOnce)
 // ---------------------------------------------------------------------------
 
-describe("HealthReadiness — AC2: WDA not ready → retryable not-ready", () => {
-  it("resolves as timed-out (wdaUp=false) when WDA tool not in tool list — signal is retryable not-ready", async () => {
-    // AC2: WDA not yet up → RETRYABLE not-ready signal (eventually times out if WDA never appears).
-    // Strategy: use a controlled now() that exhausts the budget after the first probe so
-    // we get exactly one probe attempt (retryable not-ready) → then a timed-out result.
+describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via checkOnce)", () => {
+  it("checkOnce: WDA tool absent → kind='not-ready', retryable=true, wdaUp=false", async () => {
+    // AC2 core: single probe when WDA tool is not yet in the tool list.
+    // checkOnce() returns the retryable signal directly without looping to timeout.
     const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
-    // now() sequence: 0 (start), 0 (probe check), 300 (post-sleep check, > 200ms budget)
-    const now = makeFakeNow([0, 0, 0, 300]);
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
 
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("not-ready");
+    expect(result.retryable).toBe(true);
+    expect(result.wdaUp).toBe(false);
+    expect(result.mcpReachable).toBe(true); // MCP WAS reachable (listTools returned)
+    expect(result.appLaunched).toBeNull();
+  });
+
+  it("checkOnce: WDA tool absent → not-ready carries a human-readable reason", async () => {
+    const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("not-ready");
+    if (result.kind === "not-ready") {
+      expect(typeof result.reason).toBe("string");
+      expect(result.reason.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("checkOnce: WDA tool call fails with McpToolError → kind='not-ready', retryable=true", async () => {
+    // AC2: WDA tool IS in the list but calling it throws McpToolError → still retryable.
+    const conn = makeFakeConnection({
+      listToolsResult: WDA_TOOLS,
+      callToolErrors: {
+        "mobile_get_screen_size": new McpToolError("mobile_get_screen_size", "WDA not initialized"),
+      },
+    });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("not-ready");
+    expect(result.retryable).toBe(true);
+    expect(result.wdaUp).toBe(false);
+    expect(result.mcpReachable).toBe(true);
+  });
+
+  it("checkOnce: WDA tool call fails with generic error → kind='not-ready', retryable=true", async () => {
+    // Any non-terminal WDA error is retryable (WDA might come up on the next attempt).
+    const conn = makeFakeConnection({
+      listToolsResult: WDA_TOOLS,
+      callToolErrors: {
+        "mobile_get_screen_size": new Error("connection reset"),
+      },
+    });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("not-ready");
+    expect(result.retryable).toBe(true);
+  });
+
+  it("not-ready (retryable=true) is distinct from terminal (retryable=false)", async () => {
+    // Discriminator test: MCP unreachable → terminal; WDA not up → not-ready.
+    const notReadyConn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
+    const terminalConn = makeFakeConnection({ listToolsError: new McpNotConnectedError() });
+
+    const health1 = new HealthReadiness(notReadyConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health2 = new HealthReadiness(terminalConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const notReadyResult = await health1.checkOnce();
+    const terminalResult = await health2.checkOnce();
+
+    expect(notReadyResult.kind).toBe("not-ready");
+    expect(notReadyResult.retryable).toBe(true);
+    expect(terminalResult.kind).toBe("terminal");
+    expect(terminalResult.retryable).toBe(false);
+    expect(notReadyResult.kind).not.toBe(terminalResult.kind);
+  });
+
+  it("checkReadiness: WDA never ready → timed-out carries wdaUp=false (polling confirmed)", async () => {
+    // When used as a polling loop, WDA-not-ready repeatedly retries until budget exhausted.
+    // The final timed-out result carries the last-known wdaUp=false from the probes.
+    const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
+    const now = makeFakeNow([0, 0, 0, 300]); // start=0, probe=0, sleep=0, post-sleep=300 > 200ms
     const health = new HealthReadiness(
       conn,
       FAKE_SERVER_CONFIG,
@@ -230,53 +324,18 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready", () =>
       now,
       async () => { /* instant sleep */ },
     );
+
     const result = await health.checkReadiness();
 
-    // WDA was never ready → timed-out (not-ready / timeout) — wdaUp=false confirms signal.
     expect(result.kind).toBe("timed-out");
     expect(result.wdaUp).toBe(false);
-    // MCP was reachable (listTools returned a result, just without WDA tool).
     expect(result.mcpReachable).toBe(true);
+    // timed-out itself is not retryable (caller must decide whether to restart)
+    expect(result.retryable).toBe(false);
   });
 
-  it("not-ready variant has retryable=true and reason string (via direct probeOnce simulation)", async () => {
-    // Test the retryable flag via a one-shot probe by setting up a fake where WDA
-    // tool IS absent and the timeout is large (won't fire during this poll cycle).
-    // We capture results across multiple calls by observing the mock call count.
-    const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
-
-    let capturedResult: DetailedReadinessResult | undefined;
-    // Override sleep to stop the loop after one iteration by making now() jump past timeout
-    let callCount = 0;
-    const controlledNow = () => {
-      callCount++;
-      // First few calls (during probeOnce) return time=0 (within budget).
-      // After the sleep call, return time > budget to stop polling.
-      return callCount > 3 ? FAST_CONFIG.readinessTimeoutMs + 1 : 0;
-    };
-    const controlledSleep = async () => { /* instant */ };
-
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, controlledNow, controlledSleep);
-    capturedResult = await health.checkReadiness();
-
-    // The last result before timeout is timed-out (since WDA was never ready).
-    // The timed-out result still carries wdaUp=false indicating WDA wasn't up.
-    expect(capturedResult).toBeDefined();
-    expect(capturedResult.wdaUp).toBe(false);
-    expect(capturedResult.retryable).toBe(false); // timed-out is not retryable
-
-    // Verify that listTools WAS called (MCP was reachable):
-    expect(conn.listTools).toHaveBeenCalled();
-    // Verify WDA probe tool was NOT called (since it wasn't in the tool list):
-    const callToolMock = conn.callTool as ReturnType<typeof vi.fn>;
-    const wdaCalls = callToolMock.mock.calls.filter(
-      (args) => args[0] === "mobile_get_screen_size"
-    );
-    expect(wdaCalls).toHaveLength(0);
-  });
-
-  it("returns retryable not-ready when WDA tool call returns a McpToolError", async () => {
-    // WDA tool IS in the list but calling it returns an error → retryable.
+  it("checkReadiness: WDA tool call fails repeatedly → timed-out (retries observed)", async () => {
+    // Confirm that retryable not-ready causes the polling loop to retry before timing out.
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolErrors: {
@@ -284,7 +343,6 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready", () =>
       },
     });
 
-    // Use controlled now to get exactly one probe before timeout.
     let callCount = 0;
     const controlledNow = () => {
       callCount++;
@@ -300,35 +358,15 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready", () =>
     );
     const result = await health.checkReadiness();
 
-    // After timeout the result is timed-out (which reflects that WDA wasn't ready).
     expect(result.kind).toBe("timed-out");
     expect(result.wdaUp).toBe(false);
 
-    // Verify WDA probe was called (not short-circuited at tool-list check):
+    // WDA probe was called (not short-circuited at tool-list check):
     const callToolMock = conn.callTool as ReturnType<typeof vi.fn>;
     const wdaCalls = callToolMock.mock.calls.filter(
       (args) => args[0] === "mobile_get_screen_size"
     );
     expect(wdaCalls.length).toBeGreaterThan(0);
-  });
-
-  it("single probe: wdaUp=false and retryable signal visible in timed-out result", async () => {
-    // This test verifies AC2's core requirement: the "RETRYABLE not-ready signal" manifests
-    // as the timed-out result having wdaUp=false (since it kept retrying until time ran out).
-    const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
-    const now = makeFakeNow([0, 300]); // second call returns > 200ms → immediate timeout
-    const health = new HealthReadiness(
-      conn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      now,
-      async () => { /* instant */ },
-    );
-
-    const result = await health.checkReadiness();
-    expect(result.kind).toBe("timed-out");
-    expect(result.wdaUp).toBe(false);
-    expect(result.retryable).toBe(false); // timed-out is not retryable itself
   });
 });
 
@@ -439,6 +477,22 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     );
     expect(listAppsCalls).toHaveLength(0);
   });
+
+  it("checkOnce also surfaces appLaunched=true when bundleId present", async () => {
+    const conn = makeFakeConnection({
+      listToolsResult: WDA_TOOLS,
+      callToolResults: {
+        "mobile_get_screen_size": {},
+        "mobile_list_apps": makeAppListResult(TARGET_BUNDLE),
+      },
+    });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce(TARGET_BUNDLE);
+
+    expect(result.kind).toBe("ready");
+    expect(result.appLaunched).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -458,6 +512,18 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     expect(result.mcpReachable).toBe(false);
     expect(result.wdaUp).toBe(false);
     expect(result.appLaunched).toBeNull();
+    expect(result.retryable).toBe(false);
+  });
+
+  it("checkOnce also returns terminal when McpNotConnectedError is thrown", async () => {
+    const conn = makeFakeConnection({
+      listToolsError: new McpNotConnectedError(),
+    });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("terminal");
     expect(result.retryable).toBe(false);
   });
 
@@ -507,29 +573,17 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const notReadyConn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
 
     const health1 = new HealthReadiness(terminalConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
-    const terminalResult = await health1.checkReadiness();
+    const terminalResult = await health1.checkOnce(); // checkOnce: immediate terminal
 
-    // For not-ready we need a controlled now so it doesn't time out:
-    let nc = 0;
-    const controlledNow = () => {
-      nc++;
-      return nc > 3 ? FAST_CONFIG.readinessTimeoutMs + 1 : 0;
-    };
-    const health2 = new HealthReadiness(
-      notReadyConn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      controlledNow,
-      async () => { /* instant */ },
-    );
-    const notReadyResult = await health2.checkReadiness();
+    const health2 = new HealthReadiness(notReadyConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const notReadyResult = await health2.checkOnce(); // checkOnce: immediate not-ready
 
     expect(terminalResult.kind).toBe("terminal");
-    expect(notReadyResult.kind).toBe("timed-out"); // timed out waiting for WDA
+    expect(notReadyResult.kind).toBe("not-ready");
     expect(terminalResult.kind).not.toBe(notReadyResult.kind);
   });
 
-  it("terminal result does not return before resolving (no unhandled rejection)", async () => {
+  it("terminal result resolves (does not throw/reject) — no unhandled rejection", async () => {
     const conn = makeFakeConnection({
       listToolsError: new McpConnectionError("transport closed"),
     });
@@ -540,6 +594,23 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
       kind: "terminal",
       mcpReachable: false,
     });
+  });
+
+  it("HealthCheckTerminalError is thrown internally and caught — terminal result has cause string", async () => {
+    // Confirms the HealthCheckTerminalError class is used (not dead code).
+    // probeMcp throws it; probeOnce catches and converts to terminal result.
+    const conn = makeFakeConnection({
+      listToolsError: new McpNotConnectedError(),
+    });
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+
+    const result = await health.checkOnce();
+
+    expect(result.kind).toBe("terminal");
+    if (result.kind === "terminal") {
+      expect(typeof result.cause).toBe("string");
+      expect(result.cause.length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -624,7 +695,7 @@ describe("HealthReadiness — AC5: timeout resolves (no indefinite hang)", () =>
     expect(result.appLaunched).toBeNull();
   });
 
-  it("timed-out result carries elapsedMs > 0", async () => {
+  it("timed-out result carries elapsedMs >= 0", async () => {
     const conn = makeFakeConnection({ listToolsResult: NO_WDA_TOOLS });
     // now returns 0, then 250 (> 200ms budget)
     const now = makeFakeNow([0, 250]);
@@ -681,10 +752,8 @@ describe("HealthReadiness — AC5: timeout resolves (no indefinite hang)", () =>
 
   it("resolves as timed-out within actual real time ~proportional to config (no indefinite hang)", async () => {
     // This test uses REAL timers to verify there is no actual hang.
-    // We use a very short timeout (50ms) with a real MCP connection that
-    // throws McpNotConnectedError to make the terminal path return immediately,
-    // giving us a definitive resolve without a real server.
-    // (Terminal path doesn't hang — it returns on first probe.)
+    // We use a very short timeout (100ms) with a fake connection that
+    // never has WDA ready, so the loop runs until budget exhausted.
     const conn = makeFakeConnection({
       listToolsResult: NO_WDA_TOOLS,
     });
