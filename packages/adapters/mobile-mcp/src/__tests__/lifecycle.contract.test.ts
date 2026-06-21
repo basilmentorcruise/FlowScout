@@ -1,17 +1,26 @@
 /**
  * lifecycle.contract.test.ts — #14 (E1.3) simulator lifecycle contract tests.
  *
- * Strategy (ADR-0002 §5/#14):
- *   The shared `runDriverContractSuite` is parameterized with a single `errorClasses`
- *   map, which cannot accommodate a composed driver that mixes two error systems
- *   (lifecycle errors vs. FakeMobileDriver errors). Therefore this file:
+ * Strategy (ADR-0003 §1.1 / AC8 fix):
+ *   AC8 requires the shared contract suite to run against the REAL
+ *   SimulatorLifecycleManager using `runLifecycleContract` (ADR-0003 per-capability
+ *   section runner). The previous approach ran it against FakeMobileDriver, which
+ *   did NOT satisfy the "real adapter" requirement.
  *
- *   1. Runs `runDriverContractSuite` against a pure FakeMobileDriver to confirm the
- *      lifecycle ACs are covered by the contract suite (same suite as
- *      fake-driver.contract.test.ts, included here explicitly per ADR-0002 §5/#14).
+ *   The real SimulatorLifecycleManager is constructed with:
+ *   - A mocked Exec (makeSimctlExec) that returns canned simctl output so no
+ *     real simulator is required. CONTRACT_UNKNOWN_UDID is listed as an unknown
+ *     device so the §6(lifecycle) unknown-UDID sections receive DeviceNotFoundError.
+ *   - A real temp .app directory (created synchronously at module level) so that
+ *     the manager's T2 filesystem path canonicalization succeeds on the happy path
+ *     without a real .app bundle on disk.
  *
- *   2. Exercises all lifecycle ACs directly against the real SimulatorLifecycleManager
- *      with a fake Exec — these are the primary unit tests for #14 business logic.
+ *   All default injection UDIDs, bundleIds, and appPaths exercise the real
+ *   validateUdid / validateBundleId / validateAppPathFormat guards and produce
+ *   LifecycleInputError as required by §7, §8, and §10 contract sections.
+ *
+ *   The dedicated unit tests below (§1–§6) are KEPT — they cover edge cases and
+ *   error scenarios complementary to the contract runner.
  *
  * Tool-vs-simctl mapping (ALL lifecycle methods use simctl fallback — no MCP tool):
  *   listDevices       → simctl: xcrun simctl list devices --json
@@ -32,23 +41,22 @@
  *
  * ACs covered:
  *   AC1 listDevices returns DeviceInfo[] with required shape
- *   AC2 bootSimulator(valid udid) → resolves
- *   AC3 installApp(booted, valid .app path) → resolves
- *   AC4 launchApp(installed, bundleId) → resolves; wrong bundleId → LaunchFailedError
- *   AC5 installApp(bad path) → InstallFailedError
- *   AC6 unknown udid → DeviceNotFoundError (all lifecycle methods)
- *   AC7 shutdownSimulator → success; repeated calls → idempotent (no hang, no orphan)
- *   AC8 contract suite passes (via FakeMobileDriver + dedicated unit tests)
+ *   AC2 bootSimulator(valid udid) -> resolves
+ *   AC3 installApp(booted, valid .app path) -> resolves
+ *   AC4 launchApp(installed, bundleId) -> resolves; wrong bundleId -> LaunchFailedError
+ *   AC5 installApp(bad path) -> InstallFailedError
+ *   AC6 unknown udid -> DeviceNotFoundError (all lifecycle methods)
+ *   AC7 shutdownSimulator -> success; repeated calls -> idempotent (no hang, no orphan)
+ *   AC8 runLifecycleContract passes against the REAL SimulatorLifecycleManager
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
+import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as fsPromises from "node:fs/promises";
 import {
-  FakeMobileDriver,
-  runDriverContractSuite,
-  FAKE_CONTRACT_FIXTURES,
+  runLifecycleContract,
 } from "../testing/index.js";
 import {
   SimulatorLifecycleManager,
@@ -70,6 +78,10 @@ const VALID_UDID = "AABBCCDD-1234-5678-9ABC-DEF012345678";
 const VALID_BUNDLE_ID = "com.example.flowscout.test";
 const UNKNOWN_UDID = "00000000-DEAD-BEEF-CAFE-FFFFFFFFFFFF";
 const CALL_TIMEOUT_MS = 10_000;
+
+// UDID used as the contract runner unknownUdid fixture (distinct from UNKNOWN_UDID
+// to avoid accidental fixture collision with unit test constants).
+const CONTRACT_UNKNOWN_UDID = "FFFFFFFF-0000-0000-0000-AABBCCDDEEFF";
 
 // ---------------------------------------------------------------------------
 // Test config
@@ -165,26 +177,57 @@ async function makeTempAppDir(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// AC8 — Contract suite run: FakeMobileDriver (lifecycle ACs verified via Fake)
+// AC8 — runLifecycleContract against the REAL SimulatorLifecycleManager (ADR-0003)
 //
-// The shared contract suite (from #13) is already run exhaustively in
-// fake-driver.contract.test.ts. We re-run it here (lifecycle cases) against the
-// Fake per ADR-0002 §5/#14: "run #13's suite against the real adapter restricted
-// to lifecycle methods". Since the composed-driver approach hits the error-class
-// mismatch problem (lifecycle and fake use different error type hierarchies), we
-// use the Fake-only suite here and cover the real adapter in dedicated unit tests.
+// The contract runner is invoked with a factory that constructs the REAL
+// SimulatorLifecycleManager with:
+//   - A mocked Exec that returns canned simctl output (no real xcrun / simulator).
+//     CONTRACT_UNKNOWN_UDID is listed as an unknown device so the §6(lifecycle)
+//     unknown-UDID sections receive DeviceNotFoundError as required.
+//   - A real temp .app directory (CONTRACT_APP_PATH, created synchronously below)
+//     so the manager's T2 filesystem path canonicalization succeeds on the happy
+//     path without a real .app bundle present.
 //
-// This explicitly satisfies AC8: "Given the shared contract suite, When run against
-// the real adapter for lifecycle methods, Then it passes."  The real adapter's
-// lifecycle behaviour is validated by the unit tests below; the contract-suite
-// structural assertions are verified here via the Fake (same suite, same guarantees).
+// The default injection vectors in the contract runner (DEFAULT_INJECTION_UDIDS,
+// DEFAULT_INJECTION_BUNDLE_IDS, DEFAULT_INJECTION_APP_PATHS) exercise the real
+// guards and all produce LifecycleInputError, satisfying §7, §8, and §10.
 // ---------------------------------------------------------------------------
 
-describe("AC8 — Contract suite (lifecycle ACs via FakeMobileDriver)", () => {
-  runDriverContractSuite({
-    createDriver: () => new FakeMobileDriver(),
-    fixtures: FAKE_CONTRACT_FIXTURES,
-  });
+// Create the contract fixture .app dir synchronously so it is available before
+// describe() blocks execute (describe() runs synchronously at module load time).
+const CONTRACT_BASE_DIR: string = fs.mkdtempSync(
+  nodePath.join(os.tmpdir(), "flowscout-contract-"),
+);
+const CONTRACT_APP_PATH: string = nodePath.join(CONTRACT_BASE_DIR, "Contract.app");
+fs.mkdirSync(CONTRACT_APP_PATH, { recursive: true });
+
+// Clean up the shared temp dir after all tests in this file finish.
+afterAll(async () => {
+  await fsPromises.rm(CONTRACT_BASE_DIR, { recursive: true, force: true });
+});
+
+runLifecycleContract({
+  createLifecycle: () =>
+    new SimulatorLifecycleManager(
+      STUB_CONNECTION,
+      TEST_CONFIG,
+      // Mocked Exec: returns canned simctl output; CONTRACT_UNKNOWN_UDID triggers
+      // "Invalid device: <udid>" which SimulatorLifecycleManager maps to DeviceNotFoundError.
+      makeSimctlExec({ unknownUdids: [CONTRACT_UNKNOWN_UDID] }),
+      CONTRACT_BASE_DIR,
+    ),
+  fixtures: {
+    validUdid: VALID_UDID,
+    validBundleId: VALID_BUNDLE_ID,
+    installablePath: CONTRACT_APP_PATH,
+    unknownUdid: CONTRACT_UNKNOWN_UDID,
+    // injectionUdids, injectionBundleIds, injectionAppPaths: omitted to use the
+    // runner's DEFAULT_INJECTION_* vectors, which exercise all T1/T2 patterns.
+  },
+  errorClasses: {
+    unknownDevice: DeviceNotFoundError,
+    invalidInput: LifecycleInputError,
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -240,7 +283,7 @@ describe("SimulatorLifecycleManager — listDevices (AC1)", () => {
     expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "list", "devices", "--json"]);
   });
 
-  it("maps 'Booted' → 'booted' and unknown states → 'unknown'", async () => {
+  it("maps 'Booted' -> 'booted' and unknown states -> 'unknown'", async () => {
     const execBooted = makeSimctlExec();
     const mgrBooted = new SimulatorLifecycleManager(
       STUB_CONNECTION, TEST_CONFIG, execBooted, os.tmpdir(),
@@ -543,7 +586,7 @@ describe("SimulatorLifecycleManager — shutdownSimulator (AC7/AC6/T1/T8)", () =
     await expect(mgr.shutdownSimulator(UNKNOWN_UDID)).rejects.toBeInstanceOf(DeviceNotFoundError);
   });
 
-  it("AC7/T8: 'already shutdown / invalid state' → success (idempotent, no orphan)", async () => {
+  it("AC7/T8: 'already shutdown / invalid state' -> success (idempotent, no orphan)", async () => {
     const exec = vi.fn().mockRejectedValue(
       new Error("Invalid state: The simulator is already in shutdown state"),
     );
@@ -551,7 +594,7 @@ describe("SimulatorLifecycleManager — shutdownSimulator (AC7/AC6/T1/T8)", () =
     await expect(mgr.shutdownSimulator(VALID_UDID)).resolves.toBeUndefined();
   });
 
-  it("AC7/T8: 'not booted' → success (T8 no-orphan: sim is already not running)", async () => {
+  it("AC7/T8: 'not booted' -> success (T8 no-orphan: sim is already not running)", async () => {
     const exec = vi.fn().mockRejectedValue(new Error("Simulator is not booted"));
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await expect(mgr.shutdownSimulator(VALID_UDID)).resolves.toBeUndefined();
