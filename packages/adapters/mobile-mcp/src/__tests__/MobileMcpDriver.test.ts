@@ -245,7 +245,6 @@ describe("MobileMcpDriver — default capability behavior", () => {
     await expect(driver.resetToSnapshot(udid, fakeSnapshotName)).rejects.toThrow();
   });
 
-  it("shutdownSimulator rejects with not yet implemented", async () => {
-    await expect(driver.shutdownSimulator(udid)).rejects.toThrow("not yet implemented");
-  });
+  // Note: lifecycle (#14 real impl) — shutdownSimulator, bootSimulator, etc. are tested
+  // via lifecycle.contract.test.ts. We do not re-test them here with the facade default.
 });
