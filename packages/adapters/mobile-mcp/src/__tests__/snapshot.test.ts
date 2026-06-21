@@ -2,6 +2,7 @@
  * snapshot.test.ts — unit tests for SnapshotManager (#16 / E1.5).
  *
  * All simctl interactions use an injected fake Exec — no real Mac/Xcode needed.
+ * All filesystem interactions use an injected fake FsAccess — no real disk I/O needed.
  *
  * Tests assert:
  *   - Exact simctl argv emitted (T1 argv-safety proof)
@@ -12,6 +13,7 @@
  *   - Known udid + unknown snapshot name still throws SnapshotNotFoundError (T8 preserved)
  *   - Repeated take->mutate->reset cycles behave consistently (success metric AC)
  *   - runSnapshotContract wired to real SnapshotManager (Fix #3)
+ *   - appBundlePath confinement validation (T2 / CWE-22 / CWE-88 security gate fix)
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -23,6 +25,7 @@ import {
   SnapshotNotFoundError,
   InvalidSnapshotInputError,
 } from "../snapshot/SnapshotManager.js";
+import { AppBundlePathValidator, type FsAccess } from "../snapshot/AppBundlePathValidator.js";
 import { DeviceNotFoundError } from "../connection/errors.js";
 import {
   DEFAULT_FAKE_UDID,
@@ -40,6 +43,8 @@ const SNAPSHOT_NAME = "clean-state";
 const SNAPSHOT_NAME_2 = "after-login";
 const TIMEOUT_MS = 5000;
 const APP_BUNDLE_PATH = "/fake/builds/Fixture.app";
+/** Base dir for the existing tests — parent directory of APP_BUNDLE_PATH. */
+const APP_BUNDLE_BASE_DIR = "/fake/builds";
 
 // Injection vectors that must be rejected (T1)
 const INJECTION_UDIDS = [
@@ -115,7 +120,27 @@ function makeConfig(timeoutMs = TIMEOUT_MS): McpServerConfig {
 }
 
 /**
- * Build a SnapshotManager with a fake Exec.
+ * Build a happy-path FsAccess for appBundlePath = path and base dir = baseDir.
+ * realpath(baseDir) -> baseDir, realpath(path) -> path.
+ * stat(any) -> isDirectory() = true.
+ * This avoids real disk I/O in unit tests.
+ */
+function makeHappyFsAccess(baseDir = APP_BUNDLE_BASE_DIR, path = APP_BUNDLE_PATH): FsAccess {
+  return {
+    realpath: async (p: string) => {
+      if (p === baseDir) return baseDir;
+      if (p === path) return path;
+      // Fall back to identity for other paths (the contract suite uses different paths).
+      return p;
+    },
+    stat: async (_p: string) => ({ isDirectory: () => true }),
+  };
+}
+
+/**
+ * Build a SnapshotManager with a fake Exec and (when appBundlePath is non-null) a
+ * fake FsAccess so that AppBundlePathValidator does not hit the real filesystem.
+ *
  * When appBundlePath is provided, uses erase-reinstall strategy.
  * When null/omitted, uses clean-install strategy.
  */
@@ -124,7 +149,13 @@ function makeManager(
   appBundlePath: string | null = null,
 ): SnapshotManager {
   const connection = {} as McpConnection; // not used for simctl ops
-  return new SnapshotManager(connection, makeConfig(), exec, appBundlePath);
+  if (appBundlePath !== null) {
+    // Inject happy-path FsAccess so the validator doesn't touch real disk.
+    const baseDir = APP_BUNDLE_BASE_DIR;
+    const fsAccess = makeHappyFsAccess(baseDir, appBundlePath);
+    return new SnapshotManager(connection, makeConfig(), exec, appBundlePath, baseDir, fsAccess);
+  }
+  return new SnapshotManager(connection, makeConfig(), exec, null);
 }
 
 // ---------------------------------------------------------------------------
@@ -580,7 +611,15 @@ describe("SnapshotManager — spy: verifies exec called with argv arrays (T1)", 
       if (args[1] === "list") return { stdout: makeDeviceListJson(VALID_UDID), stderr: "" };
       return { stdout: "", stderr: "" };
     });
-    const mgr = new SnapshotManager({} as McpConnection, makeConfig(), spy, APP_BUNDLE_PATH);
+    const fsAccess = makeHappyFsAccess();
+    const mgr = new SnapshotManager(
+      {} as McpConnection,
+      makeConfig(),
+      spy,
+      APP_BUNDLE_PATH,
+      APP_BUNDLE_BASE_DIR,
+      fsAccess,
+    );
     await mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME);
     expect(spy).toHaveBeenCalled();
     for (const call of spy.mock.calls) {
@@ -594,7 +633,15 @@ describe("SnapshotManager — spy: verifies exec called with argv arrays (T1)", 
       if (args[1] === "list") return { stdout: makeDeviceListJson(VALID_UDID), stderr: "" };
       return { stdout: "", stderr: "" };
     });
-    const mgr = new SnapshotManager({} as McpConnection, makeConfig(), spy, APP_BUNDLE_PATH);
+    const fsAccess = makeHappyFsAccess();
+    const mgr = new SnapshotManager(
+      {} as McpConnection,
+      makeConfig(),
+      spy,
+      APP_BUNDLE_PATH,
+      APP_BUNDLE_BASE_DIR,
+      fsAccess,
+    );
     await mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME);
     await mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME);
     for (const call of spy.mock.calls) {
@@ -654,6 +701,8 @@ const CONTRACT_VALID_UDID = DEFAULT_FAKE_UDID;
 const CONTRACT_UNKNOWN_UDID = "00000000-0000-0000-0000-FFFFFFFFFFFF";
 const CONTRACT_SNAPSHOT_NAME = "clean-state";
 const CONTRACT_SNAPSHOT_NAME_2 = "after-login";
+const CONTRACT_APP_BUNDLE_PATH = "/safe/contract-builds/ContractFixture.app";
+const CONTRACT_BASE_DIR = "/safe/contract-builds";
 
 const SNAPSHOT_FIXTURES: SnapshotFixtures = {
   validUdid: CONTRACT_VALID_UDID,
@@ -697,13 +746,462 @@ runSnapshotContract({
       return { stdout: "", stderr: "" };
     };
 
+    // Inject a happy-path FsAccess for the contract suite (no real disk I/O).
+    const contractFsAccess: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === CONTRACT_BASE_DIR) return CONTRACT_BASE_DIR;
+        if (p === CONTRACT_APP_BUNDLE_PATH) return CONTRACT_APP_BUNDLE_PATH;
+        return p;
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+
     return new SnapshotManager(
       {} as McpConnection,
       makeConfig(),
       contractExec,
-      APP_BUNDLE_PATH, // erase-reinstall strategy with a known app path
+      CONTRACT_APP_BUNDLE_PATH, // erase-reinstall strategy with a known app path
+      CONTRACT_BASE_DIR,
+      contractFsAccess,
     );
   },
   fixtures: SNAPSHOT_FIXTURES,
   errorClasses: SNAPSHOT_ERROR_CLASSES,
+});
+
+// ---------------------------------------------------------------------------
+// §12 — AppBundlePathValidator unit tests (T2 / CWE-22 / CWE-88 fix)
+// ---------------------------------------------------------------------------
+
+/** Base dir used in AppBundlePathValidator tests (separate from APP_BUNDLE_BASE_DIR). */
+const SECURE_BASE_DIR = "/safe/builds";
+
+/**
+ * Happy-path FsAccess: realpath succeeds and returns identity; stat says directory.
+ */
+function makeValidatorHappyFs(
+  resolvedBase = SECURE_BASE_DIR,
+  resolvedPath?: string,
+): FsAccess {
+  return {
+    realpath: async (p: string) => {
+      if (p === SECURE_BASE_DIR || p === resolvedBase) return resolvedBase;
+      return resolvedPath ?? p;
+    },
+    stat: async (_p: string) => ({ isDirectory: () => true }),
+  };
+}
+
+describe("AppBundlePathValidator — synchronous fast-fail (constructor)", () => {
+  const dummyFsAccess: FsAccess = {
+    realpath: async () => { throw new Error("should not be called"); },
+    stat: async () => { throw new Error("should not be called"); },
+  };
+
+  it("rejects an empty string (constructor)", () => {
+    expect(() => new AppBundlePathValidator("", SECURE_BASE_DIR, dummyFsAccess)).toThrow(
+      InvalidSnapshotInputError,
+    );
+  });
+
+  it("rejects a leading '-' (CWE-88 argument injection)", () => {
+    expect(() =>
+      new AppBundlePathValidator("-evil.app", SECURE_BASE_DIR, dummyFsAccess),
+    ).toThrow(InvalidSnapshotInputError);
+  });
+
+  it("rejects a path with '..' segment (CWE-22 traversal)", () => {
+    expect(() =>
+      new AppBundlePathValidator(
+        `${SECURE_BASE_DIR}/../escape.app`,
+        SECURE_BASE_DIR,
+        dummyFsAccess,
+      ),
+    ).toThrow(InvalidSnapshotInputError);
+  });
+
+  it("rejects a path with '..' at the start", () => {
+    expect(() =>
+      new AppBundlePathValidator("../../escape.app", SECURE_BASE_DIR, dummyFsAccess),
+    ).toThrow(InvalidSnapshotInputError);
+  });
+
+  it("rejects a non-.app extension (e.g. .ipa)", () => {
+    expect(() =>
+      new AppBundlePathValidator(
+        `${SECURE_BASE_DIR}/MyApp.ipa`,
+        SECURE_BASE_DIR,
+        dummyFsAccess,
+      ),
+    ).toThrow(InvalidSnapshotInputError);
+  });
+
+  it("rejects a path with no extension", () => {
+    expect(() =>
+      new AppBundlePathValidator(
+        `${SECURE_BASE_DIR}/MyApp`,
+        SECURE_BASE_DIR,
+        dummyFsAccess,
+      ),
+    ).toThrow(InvalidSnapshotInputError);
+  });
+
+  it("accepts a valid-looking path at construction time (no I/O error)", () => {
+    expect(() =>
+      new AppBundlePathValidator(
+        `${SECURE_BASE_DIR}/MyApp.app`,
+        SECURE_BASE_DIR,
+        makeValidatorHappyFs(),
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("AppBundlePathValidator — async validate() confinement", () => {
+  it("resolves the canonicalized path when path is inside base dir", async () => {
+    const path = `${SECURE_BASE_DIR}/MyApp.app`;
+    const v = new AppBundlePathValidator(path, SECURE_BASE_DIR, makeValidatorHappyFs());
+    const result = await v.validate();
+    expect(result).toBe(path);
+  });
+
+  it("rejects a path outside the base dir (symlink escape via realpath)", async () => {
+    const outsideFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return "/outside/evil.app"; // symlink resolves outside the base
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const v = new AppBundlePathValidator(
+      `${SECURE_BASE_DIR}/escape.app`,
+      SECURE_BASE_DIR,
+      outsideFs,
+    );
+    await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+  });
+
+  it("rejects a path that is a sibling with a prefix-similar name (prefix collision)", async () => {
+    // /safe/builds-evil/MyApp.app must NOT be considered inside /safe/builds
+    const siblingFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return "/safe/builds-evil/MyApp.app";
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const v = new AppBundlePathValidator(
+      "/safe/builds-evil/MyApp.app",
+      SECURE_BASE_DIR,
+      siblingFs,
+    );
+    await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+  });
+
+  it("rejects a non-existent path (realpath throws ENOENT)", async () => {
+    const noExistFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        throw new Error("ENOENT: no such file or directory");
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const v = new AppBundlePathValidator(
+      `${SECURE_BASE_DIR}/missing.app`,
+      SECURE_BASE_DIR,
+      noExistFs,
+    );
+    await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+  });
+
+  it("rejects a path that resolves to a file (not a directory)", async () => {
+    const fileFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return `${SECURE_BASE_DIR}/NotADir.app`;
+      },
+      stat: async () => ({ isDirectory: () => false }), // not a directory
+    };
+    const v = new AppBundlePathValidator(
+      `${SECURE_BASE_DIR}/NotADir.app`,
+      SECURE_BASE_DIR,
+      fileFs,
+    );
+    await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+  });
+
+  it("rejects when stat throws (unreadable / permission denied)", async () => {
+    const unreadableFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return `${SECURE_BASE_DIR}/Locked.app`;
+      },
+      stat: async () => {
+        throw new Error("EACCES: permission denied");
+      },
+    };
+    const v = new AppBundlePathValidator(
+      `${SECURE_BASE_DIR}/Locked.app`,
+      SECURE_BASE_DIR,
+      unreadableFs,
+    );
+    await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §13 — SnapshotManager reject-tests: bad appBundlePath -> InvalidSnapshotInputError
+//         AND simctl install is NEVER called (T2 / CWE-22 / CWE-88 security gate fix)
+//
+// All tests use vi.fn() exec spy to assert the install sink is not reached.
+// ---------------------------------------------------------------------------
+
+/** Build a vi.fn() Exec spy that handles device list + all simctl ops. */
+function makeExecSpy(deviceUdid = VALID_UDID): ReturnType<typeof vi.fn<Exec>> {
+  return vi.fn<Exec>(async (_file: string, args: readonly string[]): Promise<ExecResult> => {
+    if (args[1] === "list") return { stdout: makeDeviceListJson(deviceUdid), stderr: "" };
+    return { stdout: "", stderr: "" };
+  });
+}
+
+/** Assert that exec was never called with simctl install. */
+function assertInstallNotCalled(spy: ReturnType<typeof vi.fn<Exec>>): void {
+  const installCalls = spy.mock.calls.filter((call) => call[1][1] === "install");
+  expect(installCalls).toHaveLength(0);
+}
+
+/**
+ * Build a SnapshotManager with explicit appBundleBaseDir and FsAccess injection.
+ * Used for security rejection tests that need precise control of path validation.
+ */
+function makeManagerWithFsAccess(
+  appBundlePath: string,
+  appBundleBaseDir: string,
+  fsAccess: FsAccess,
+  execSpy: ReturnType<typeof vi.fn<Exec>>,
+): SnapshotManager {
+  const connection = {} as McpConnection;
+  return new SnapshotManager(
+    connection,
+    makeConfig(),
+    execSpy,
+    appBundlePath,
+    appBundleBaseDir,
+    fsAccess,
+  );
+}
+
+describe("SnapshotManager — appBundlePath reject tests (T2 / CWE-22 / CWE-88)", () => {
+  // Happy-path FsAccess for the base dir used in this section.
+  const goodFs = makeValidatorHappyFs();
+
+  // --- Constructor-time synchronous failures (no simctl calls whatsoever) ---
+
+  it("rejects a leading-dash appBundlePath at construction time (CWE-88)", () => {
+    const spy = makeExecSpy();
+    expect(() =>
+      makeManagerWithFsAccess("-evil.app", SECURE_BASE_DIR, goodFs, spy),
+    ).toThrow(InvalidSnapshotInputError);
+    // Exec must NEVER have been called — fail before any I/O.
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects '..' traversal in appBundlePath at construction time (CWE-22)", () => {
+    const spy = makeExecSpy();
+    expect(() =>
+      makeManagerWithFsAccess(
+        `${SECURE_BASE_DIR}/../escape.app`,
+        SECURE_BASE_DIR,
+        goodFs,
+        spy,
+      ),
+    ).toThrow(InvalidSnapshotInputError);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-.app path at construction time", () => {
+    const spy = makeExecSpy();
+    expect(() =>
+      makeManagerWithFsAccess(
+        `${SECURE_BASE_DIR}/MyApp.ipa`,
+        SECURE_BASE_DIR,
+        goodFs,
+        spy,
+      ),
+    ).toThrow(InvalidSnapshotInputError);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty appBundlePath at construction time", () => {
+    const spy = makeExecSpy();
+    expect(() =>
+      makeManagerWithFsAccess("", SECURE_BASE_DIR, goodFs, spy),
+    ).toThrow(InvalidSnapshotInputError);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  // --- Async ingress validation failures at takeSnapshot ---
+
+  it("takeSnapshot rejects when appBundlePath is a symlink escaping the base dir", async () => {
+    const escapeFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return "/outside/evil.app"; // symlink target is outside base
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/trap.app`,
+      SECURE_BASE_DIR,
+      escapeFs,
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  it("takeSnapshot rejects when appBundlePath resolves to a file (not .app directory)", async () => {
+    const fileFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return `${SECURE_BASE_DIR}/NotADir.app`;
+      },
+      stat: async () => ({ isDirectory: () => false }),
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/NotADir.app`,
+      SECURE_BASE_DIR,
+      fileFs,
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  it("takeSnapshot rejects when appBundlePath is unreadable (stat throws EACCES)", async () => {
+    const unreadableFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return `${SECURE_BASE_DIR}/Locked.app`;
+      },
+      stat: async () => {
+        throw new Error("EACCES: permission denied");
+      },
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/Locked.app`,
+      SECURE_BASE_DIR,
+      unreadableFs,
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  it("takeSnapshot rejects when appBundlePath does not exist (realpath throws ENOENT)", async () => {
+    const noExistFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        throw new Error("ENOENT: no such file or directory");
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/missing.app`,
+      SECURE_BASE_DIR,
+      noExistFs,
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  it("takeSnapshot rejects path outside base (prefix collision: /safe/builds-evil not in /safe/builds)", async () => {
+    const siblingFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        return "/safe/builds-evil/MyApp.app";
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      "/safe/builds-evil/MyApp.app",
+      SECURE_BASE_DIR,
+      siblingFs,
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  // --- Defense in depth: restore sink also rejects on re-validation failure ---
+
+  it("resetToSnapshot (restore sink) rejects when re-validation fails (defense in depth)", async () => {
+    // Phase 1: take the snapshot with a GOOD FsAccess (passes ingress check).
+    let rejectOnValidate = false;
+    const dynamicFs: FsAccess = {
+      realpath: async (p: string) => {
+        if (p === SECURE_BASE_DIR) return SECURE_BASE_DIR;
+        if (rejectOnValidate) {
+          // After takeSnapshot, the path now escapes confinement
+          // (simulates a tampered or stale environment).
+          return "/outside/evil.app";
+        }
+        return `${SECURE_BASE_DIR}/MyApp.app`;
+      },
+      stat: async () => ({ isDirectory: () => true }),
+    };
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/MyApp.app`,
+      SECURE_BASE_DIR,
+      dynamicFs,
+      spy,
+    );
+
+    // takeSnapshot passes ingress check.
+    await mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME);
+
+    // Simulate environment change: path now escapes confinement.
+    rejectOnValidate = true;
+
+    // resetToSnapshot must re-validate at the sink and reject BEFORE simctl install.
+    await expect(mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      InvalidSnapshotInputError,
+    );
+    assertInstallNotCalled(spy);
+  });
+
+  // --- Regression guard: happy path still works with valid confinement ---
+
+  it("takeSnapshot and resetToSnapshot both succeed when appBundlePath is valid and confined", async () => {
+    const spy = makeExecSpy();
+    const mgr = makeManagerWithFsAccess(
+      `${SECURE_BASE_DIR}/MyApp.app`,
+      SECURE_BASE_DIR,
+      makeValidatorHappyFs(SECURE_BASE_DIR, `${SECURE_BASE_DIR}/MyApp.app`),
+      spy,
+    );
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).resolves.toBeUndefined();
+    await expect(mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME)).resolves.toBeUndefined();
+    // simctl install MUST have been called exactly once during reset.
+    const installCalls = spy.mock.calls.filter((call) => call[1][1] === "install");
+    expect(installCalls).toHaveLength(1);
+    expect(installCalls[0]?.[1][3]).toBe(`${SECURE_BASE_DIR}/MyApp.app`);
+  });
 });
