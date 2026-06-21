@@ -19,9 +19,11 @@
  *   Callers that want the poll loop use this; callers that poll themselves use `checkOnce`.
  *
  * Steps inside each probe:
- *   1. MCP reachability: `listTools()` — if this fails terminally, MCP server is down.
- *   2. WebDriverAgent probe: `mobile_get_screen_size` — exercises WDA without UI side-effect.
- *      If the tool is absent in the tool list, WDA is considered not ready.
+ *   1. MCP reachability: `listTools()` — if this throws, MCP server is down (terminal).
+ *      The returned tool list is NOT used for WDA detection because McpConnection caches
+ *      it after the first call; using it would prevent mid-poll WDA detection.
+ *   2. WebDriverAgent probe: `callTool('mobile_get_screen_size')` — called fresh every poll
+ *      (callTool is not cached). Success = WDA up; any throw = not-ready (retryable).
  *   3. App launched (optional): `mobile_list_apps` — checks if bundleId is in the app list.
  *
  * Design (ADR-0002 §2.1, §5/#17):
@@ -212,19 +214,23 @@ export class HealthReadiness implements HealthCapability {
   // ---------------------------------------------------------------------------
 
   /**
-   * Probe MCP reachability via listTools(). Returns the tool list on success.
+   * Probe MCP reachability via listTools().
    * Throws `HealthCheckTerminalError` on hard failures, which `probeOnce` converts
    * to a `terminal` result (resolves — never propagates the throw to callers).
    *
+   * We call listTools() (not callTool) because listTools() failing with
+   * McpNotConnectedError is the canonical signal that the MCP server itself is down.
+   * The tool list is NOT used as a WDA gating precheck — see probeOnce() Step 2 for
+   * why using the cached list for WDA detection is incorrect.
+   *
    * Security (T5): catch blocks capture only the error category, not secrets.
    */
-  private async probeMcp(): Promise<{ ok: true; tools: readonly { name: string }[] }> {
+  private async probeMcp(): Promise<void> {
     try {
-      const tools = await this.withProbeTimeout(
+      await this.withProbeTimeout(
         this.connection.listTools(),
         "MCP tool listing",
       );
-      return { ok: true, tools };
     } catch (err) {
       if (err instanceof McpNotConnectedError) {
         throw new HealthCheckTerminalError(
@@ -294,9 +300,13 @@ export class HealthReadiness implements HealthCapability {
    */
   private async probeOnce(bundleId?: string): Promise<DetailedReadinessResult> {
     // Step 1 — MCP reachability.
-    let mcpResult: { ok: true; tools: readonly { name: string }[] };
+    // probeMcp() calls listTools() — which McpConnection caches after the first call.
+    // Caching is harmless here: a cached success still proves MCP is reachable, and a
+    // hard failure (McpNotConnectedError) always propagates through the cache miss path.
+    // We do NOT use the returned tool list as a per-poll WDA gating precheck because
+    // that would bake in the stale cache (see Step 2 comment for the full reasoning).
     try {
-      mcpResult = await this.probeMcp();
+      await this.probeMcp();
     } catch (err) {
       // probeMcp throws HealthCheckTerminalError on hard failures.
       // Convert to terminal result so callers never see a thrown exception.
@@ -314,21 +324,15 @@ export class HealthReadiness implements HealthCapability {
       };
     }
 
-    const { tools } = mcpResult;
-
-    // Step 2 — WDA tool presence check (short-circuit before the call).
-    if (!tools.some((t) => t.name === TOOL_WDA_PROBE)) {
-      return {
-        kind: "not-ready",
-        mcpReachable: true,
-        wdaUp: false,
-        appLaunched: null,
-        retryable: true,
-        reason: "WebDriverAgent tool not yet available in tool list",
-      };
-    }
-
-    // Step 2 continued — WDA probe call.
+    // Step 2 — WDA probe via callTool (cache-independent per-poll probe).
+    //
+    // callTool('mobile_get_screen_size', {}) is issued fresh on every poll.
+    //   - Success  → WDA is up and responding.
+    //   - Any throw → WDA not yet ready; probeWda() returns a retryable not-ready result.
+    //
+    // This replaces the previous tool-list precheck that used the cached listTools()
+    // result: that precheck returned "not-ready" whenever WDA was absent at poll-1,
+    // and the stale cache prevented detection of WDA coming up in later polls.
     const wdaResult = await this.probeWda();
     if (!wdaResult.ok) {
       return wdaResult.notReady;
