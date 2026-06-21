@@ -114,7 +114,7 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     // health (#17 not yet landed) still rejects with NotImplemented.
     const distinctExec: Exec = vi
       .fn()
-      .mockResolvedValue({ stdout: "{"devices":{}}", stderr: "" });
+      .mockResolvedValue({ stdout: '{"devices":{}}', stderr: '' });
 
     const { defaultCapabilities } = await import("../connection/capabilities.js");
     const bundle = defaultCapabilities(TEST_CONFIG, distinctExec);
