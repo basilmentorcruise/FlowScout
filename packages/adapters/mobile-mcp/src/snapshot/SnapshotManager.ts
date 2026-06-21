@@ -46,51 +46,11 @@ import type { Exec } from "../simctl.js";
 import { runSimctlWithTimeout } from "../simctl.js";
 import { McpAdapterError, DeviceNotFoundError } from "../connection/errors.js";
 import { AppBundlePathValidator, type FsAccess } from "./AppBundlePathValidator.js";
+import { InvalidSnapshotInputError, SnapshotNotFoundError } from "./errors.js";
 
-// ---------------------------------------------------------------------------
-// Snapshot-specific error type (extends #12 base — DRY per ADR-0002 §2.4)
-// ---------------------------------------------------------------------------
-
-/**
- * Thrown when resetToSnapshot is called with a snapshot name that was never
- * registered by a prior takeSnapshot call on this instance.
- *
- * T8 / F6 safety backstop: must NEVER be a silent no-op.
- */
-export class SnapshotNotFoundError extends McpAdapterError {
-  constructor(
-    public readonly snapshotName: string,
-    public readonly udid: string,
-  ) {
-    super(
-      `SnapshotNotFoundError: no snapshot named "${snapshotName}" was recorded for device ${udid}. ` +
-        `Call takeSnapshot first. resetToSnapshot fails closed (T8 / F6 safety control).`,
-    );
-    this.name = "SnapshotNotFoundError";
-  }
-}
-
-/**
- * Thrown when a snapshotName, udid, or appBundlePath fails allowlist validation.
- * Extends McpAdapterError so callers can catch the base and still distinguish.
- */
-export class InvalidSnapshotInputError extends McpAdapterError {
-  constructor(field: string, value: unknown) {
-    super(
-      `InvalidSnapshotInputError: "${field}" value failed validation — ` +
-        `value rejected to prevent argument injection (T1/T2 threat model). ` +
-        `received: ${JSON.stringify(String(value)).slice(0, VALIDATION_DISPLAY_LIMIT)}`,
-    );
-    this.name = "InvalidSnapshotInputError";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Error message display limits (named constants — no magic numbers per ADR-0001 §6)
-// ---------------------------------------------------------------------------
-
-/** Max chars from a field value shown in validation error messages (truncated for safety). */
-const VALIDATION_DISPLAY_LIMIT = 60;
+// Re-export the error types so existing import paths (e.g. index.ts / tests importing
+// from "./SnapshotManager.js") remain valid — no downstream import changes required.
+export { InvalidSnapshotInputError, SnapshotNotFoundError };
 
 // ---------------------------------------------------------------------------
 // Input validation (T1 — allowlist before any argv construction)
