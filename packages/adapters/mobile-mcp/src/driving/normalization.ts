@@ -293,7 +293,7 @@ export function validateCoordinateTarget(
   y: number,
   config: NormalizationConfig,
 ): void {
-  if (x < 0 || y < 0 || x > config.screenWidthPx || y > config.screenHeightPx) {
+  if (x < 0 || y < 0 || x >= config.screenWidthPx || y >= config.screenHeightPx) {
     throw new ActionError(
       `Coordinate (${String(x)}, ${String(y)}) is off-screen ` +
         `(screen: ${String(config.screenWidthPx)}×${String(config.screenHeightPx)})`,

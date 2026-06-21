@@ -21,9 +21,10 @@
  *     - oversized a11y snapshot → MalformedPayloadError
  *     - oversized screenshot → MalformedPayloadError
  *     - null payload → MalformedPayloadError
- *  §4 Contract suite (driving-relevant cases) via FakeMobileDriver
- *     - runs runDriverContractSuite against FakeMobileDriver to confirm the suite
- *       exercises the driving methods (§4 observation and §5 actions from the suite)
+ *  §4 Contract suite: runDrivingContract against real DeviceDriver (AC7)
+ *     - runs runDrivingContract (ADR-0003 section runner) against real DeviceDriver
+ *       with mocked McpConnection serving canned payloads; exercises §4 observation,
+ *       §5 actions, §6(driving) unknown-UDID, §7(driving) injection, §11 stress
  *
  * Security proof (T4/T5):
  *  - typeText tests assert text is NOT present in any callTool invocation args key
@@ -49,11 +50,8 @@ import {
 import type { NormalizationConfig } from "../driving/normalization.js";
 import { McpToolError, McpAdapterError } from "../connection/errors.js";
 import type { McpConnection, McpToolInfo } from "../connection/McpConnection.js";
-import {
-  runDriverContractSuite,
-  FAKE_CONTRACT_FIXTURES,
-  FakeMobileDriver,
-} from "../testing/index.js";
+import { runDrivingContract } from "../testing/index.js";
+import type { DrivingFixtures, DrivingErrorClasses } from "../testing/index.js";
 
 // ---------------------------------------------------------------------------
 // Synthetic test constants (no magic numbers — ADR-0001 §6)
@@ -233,9 +231,18 @@ describe("§1 validateCoordinateTarget", () => {
   it("passes for coordinates within screen bounds", () => {
     expect(() => validateCoordinateTarget(0, 0, TEST_NORM_CONFIG)).not.toThrow();
     expect(() => validateCoordinateTarget(TAP_X, TAP_Y, TEST_NORM_CONFIG)).not.toThrow();
+    // Last valid pixel is (SCREEN_W - 1, SCREEN_H - 1); SCREEN_W/SCREEN_H are out-of-bounds
     expect(() =>
-      validateCoordinateTarget(SCREEN_W, SCREEN_H, TEST_NORM_CONFIG),
+      validateCoordinateTarget(SCREEN_W - 1, SCREEN_H - 1, TEST_NORM_CONFIG),
     ).not.toThrow();
+  });
+
+  it("throws ActionError for coordinate exactly at screenWidthPx (off-by-one: 0-indexed pixels)", () => {
+    expect(() => validateCoordinateTarget(SCREEN_W, TAP_Y, TEST_NORM_CONFIG)).toThrow(ActionError);
+  });
+
+  it("throws ActionError for coordinate exactly at screenHeightPx (off-by-one: 0-indexed pixels)", () => {
+    expect(() => validateCoordinateTarget(TAP_X, SCREEN_H, TEST_NORM_CONFIG)).toThrow(ActionError);
   });
 
   it("throws ActionError for negative x (T3 off-screen)", () => {
@@ -746,15 +753,87 @@ describe("§3 T3 payload normalization security cases", () => {
 });
 
 // ---------------------------------------------------------------------------
-// §4 — Contract suite (driving cases) via FakeMobileDriver
+// §4 — Driving contract suite: runDrivingContract against real DeviceDriver (AC7)
 // ---------------------------------------------------------------------------
+//
+// This runs the shared runDrivingContract section runner against the REAL DeviceDriver
+// (not FakeMobileDriver) with a mocked McpConnection that returns canned MCP payloads.
+// Per ADR-0003 §1.1: real adapters must pass the per-capability section runner, not
+// just the Fake-backed aggregator. The Fake continues to be tested via the full-suite
+// aggregator in fake-driver.contract.test.ts.
+//
+// Mock design:
+//   - callTool dispatches on the first argument (toolName) to return canned payloads
+//     for any validUdid call, and throws McpToolError for unknownUdid calls.
+//   - Injection-shaped UDIDs never reach callTool (validateUdid rejects them first —
+//     DeviceDriver validates the UDID before any MCP call, per T1 security control).
+//   - listTools always returns the full tool set (including mobile_swipe) so the
+//     tool-present swipe path is exercised by default.
 
-// Run the shared contract suite against FakeMobileDriver.
-// This confirms the contract suite's driving sections (§4 observation + §5 actions)
-// are exercised in this ticket's test file, satisfying "consume the shared contract suite".
-runDriverContractSuite({
-  createDriver: () => new FakeMobileDriver(),
-  fixtures: FAKE_CONTRACT_FIXTURES,
+const CONTRACT_VALID_UDID = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA";
+const CONTRACT_UNKNOWN_UDID = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB";
+
+/** Build a canned McpConnection that serves valid payloads for CONTRACT_VALID_UDID
+ *  and throws McpToolError for CONTRACT_UNKNOWN_UDID. */
+function makeDrivingContractConnection(): McpConnection {
+  return {
+    isConnected: true,
+    connect: vi.fn().mockResolvedValue(undefined),
+    dispose: vi.fn().mockResolvedValue(undefined),
+    listTools: vi.fn().mockResolvedValue([
+      { name: "mobile_dump_ui", description: "" },
+      { name: "mobile_screenshot", description: "" },
+      { name: "mobile_tap", description: "" },
+      { name: "mobile_type", description: "" },
+      { name: "mobile_swipe", description: "" },
+    ]),
+    callTool: vi.fn().mockImplementation(
+      (toolName: string, args: Record<string, unknown>): Promise<unknown> => {
+        // Unknown UDID: any tool call should throw McpToolError
+        if (args["udid"] === CONTRACT_UNKNOWN_UDID) {
+          return Promise.reject(new McpToolError(toolName, "device not found"));
+        }
+
+        // Canned responses per tool for the valid UDID
+        switch (toolName) {
+          case "mobile_dump_ui":
+            return Promise.resolve({
+              content: [{ type: "text", text: "<AXApplication><AXWindow>canned-a11y</AXWindow></AXApplication>" }],
+            });
+          case "mobile_screenshot":
+            return Promise.resolve({
+              content: [{ type: "image", data: SYNTHETIC_PNG_BASE64 }],
+            });
+          case "mobile_tap":
+          case "mobile_type":
+          case "mobile_swipe":
+            return Promise.resolve({ content: [{ type: "text", text: "ok" }] });
+          default:
+            return Promise.resolve({ content: [{ type: "text", text: "ok" }] });
+        }
+      },
+    ),
+  } as unknown as McpConnection;
+}
+
+const DRIVING_FIXTURES: DrivingFixtures = {
+  validUdid: CONTRACT_VALID_UDID,
+  unknownUdid: CONTRACT_UNKNOWN_UDID,
+  // Use the default injection vectors (the standard set in driver-contract.ts)
+};
+
+const DRIVING_ERROR_CLASSES: DrivingErrorClasses = {
+  unknownDevice: UnknownDeviceError,
+  invalidInput: InvalidInputError,
+};
+
+// Run the shared driving contract against the real DeviceDriver (AC7).
+// The mock McpConnection makes CONTRACT_VALID_UDID observable and rejects
+// CONTRACT_UNKNOWN_UDID with McpToolError → DeviceDriver converts to UnknownDeviceError.
+runDrivingContract({
+  createDriving: () => new DeviceDriver(makeDrivingContractConnection(), STUB_CONFIG, TEST_NORM_CONFIG),
+  fixtures: DRIVING_FIXTURES,
+  errorClasses: DRIVING_ERROR_CLASSES,
 });
 
 // ---------------------------------------------------------------------------
