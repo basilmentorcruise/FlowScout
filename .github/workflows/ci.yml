@@ -1,6 +1,6 @@
 name: CI
 # Required check for auto-merge (see .claude/AGENT_SYSTEM.md merge policy).
-# Pipeline: install → lint → typecheck → boundaries/cycles → dup → test+coverage → build + gitleaks
+# Pipeline: install → SCA → lint(+SAST) → typecheck → boundaries/cycles → dup → test+coverage → build → gitleaks
 on:
   pull_request:
     branches: [main]
@@ -55,8 +55,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── 2. Lint ───────────────────────────────────────────────────────────
-      - name: Lint
+      # ── 1a. SCA — dependency vulnerability scan (T6, E1.7 plan §4.2) ────
+      # Production deps: fail on High or Critical (threat model T6 threshold).
+      # Dev deps: report-only (vitest/vite/handlebars via eslint-plugin-boundaries
+      # are build-time only; their advisories are tracked follow-ups, not gate failures).
+      - name: SCA — production deps (fail on High/Critical)
+        run: pnpm audit --audit-level=high --prod
+      - name: SCA — all deps report (informational)
+        run: pnpm audit --audit-level=high || true
+
+      # ── 2. Lint (includes SAST via eslint-plugin-security — T1/T2/T5) ────
+      - name: Lint (+ SAST)
         run: pnpm turbo run lint
 
       # ── 3. Typecheck ──────────────────────────────────────────────────────
