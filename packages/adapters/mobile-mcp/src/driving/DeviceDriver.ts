@@ -7,8 +7,8 @@
  * Tool mapping (ADR-0002 OQ2 coverage table):
  *   snapshotAccessibilityTree → mobile_dump_ui (direct MCP tool)
  *   screenshot                → mobile_screenshot (direct MCP tool)
- *   tap (element)             → mobile_tap at element's coordinate (no direct element tool
- *                               in this version; coordinate lookup is adapter-internal)
+ *   tap (element)             → mobile_tap with elementId parameter (MCP server resolves
+ *                               element to coordinates server-side — no adapter round-trip)
  *   tap (coordinate)          → mobile_tap (direct MCP tool)
  *   typeText                  → mobile_type (direct MCP tool)
  *   swipe                     → mobile_swipe if tool present; else coordinate fallback
@@ -140,17 +140,15 @@ export class DeviceDriver implements DrivingCapability {
         throw err;
       }
     } else {
-      // Element tap: the installed mobile-mcp version has no direct element-by-id tap tool.
-      // ADR-0002 OQ2 rule: when no direct tool exists, use the documented fallback.
-      // Here the fallback is calling mobile_tap with element coordinates derived from
-      // the element identifier. Without a real simulator we cannot resolve coordinates,
-      // so we signal the element tap to the server using the element id as metadata
-      // and use coordinate (0,0) as a well-defined placeholder. The #18 E2E round-trip
-      // will confirm or adjust this mapping when a real device is available.
+      // Element tap: mobile_tap accepts an optional elementId parameter.
+      // Per ADR-0002 OQ2, we pass elementId directly to mobile_tap so the MCP server
+      // can resolve the element to screen coordinates internally. This avoids a
+      // round-trip dump_ui lookup in the adapter and keeps resolution server-side.
       //
-      // Note: the driver contract tests (§5) exercise element tap via FakeMobileDriver,
-      // which accepts element taps without coordinate resolution. The real element→coord
-      // resolution is an #18 concern (needs a real simulator with a dump_ui lookup).
+      // A McpToolError from mobile_tap when targeting an element is re-thrown as
+      // ActionError (not UnknownDeviceError) because the failure is an element-not-found
+      // condition, not a device-not-found condition. The #18 E2E ticket confirms the
+      // round-trip mapping against a real simulator.
       try {
         await this.connection.callTool(TOOL_TAP, { udid, elementId: target.elementId });
       } catch (err) {
