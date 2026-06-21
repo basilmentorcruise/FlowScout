@@ -4,11 +4,26 @@
  * This is the single source of conformance every concrete driver implementation
  * (FakeMobileDriver now; real capability modules #14/#15/#16 later) must pass.
  *
- * Usage (import in your test file):
+ * ADR-0003 refactors this file into THREE per-capability section runners plus a
+ * thin aggregator (`runDriverContractSuite`) that preserves the Fake's existing
+ * call site unchanged. The three runners are the new entry points for Wave-1 tickets:
+ *   - runLifecycleContract  (#14 SimulatorLifecycleManager)
+ *   - runDrivingContract    (#15 DeviceDriver)
+ *   - runSnapshotContract   (#16 SnapshotManager)
+ *
+ * Usage (per-capability, for Wave-1 real adapters):
+ *   import { runLifecycleContract } from '@flowscout/adapter-mobile-mcp/testing';
+ *   runLifecycleContract({
+ *     createLifecycle: () => new SimulatorLifecycleManager(fakeExec, cfg),
+ *     fixtures: MY_LIFECYCLE_FIXTURES,
+ *     errorClasses: MY_LIFECYCLE_ERROR_CLASSES,
+ *   });
+ *
+ * Usage (full-driver aggregator, for the Fake):
  *   import { runDriverContractSuite, FAKE_CONTRACT_FIXTURES } from '@flowscout/adapter-mobile-mcp/testing';
  *   runDriverContractSuite({
- *     createDriver: () => new MyDriver(),
- *     fixtures: MY_ADAPTER_FIXTURES,   // supply adapter-specific fixtures
+ *     createDriver: () => new FakeMobileDriver(),
+ *     fixtures: FAKE_CONTRACT_FIXTURES,
  *   });
  *
  * Design:
@@ -19,6 +34,9 @@
  *     cannot accidentally pass on an incidental throw of the wrong type.
  *   - Security / error-conformance cases from the threat model (T1, T3, T8, T9)
  *     are first-class assertions, not optional extras.
+ *   - Per-capability section runners do NOT call cross-capability lifecycle methods
+ *     in beforeEach; "device existence" is provided by the adapter's own fake
+ *     Exec/McpConnection keyed on fixtures.validUdid (ADR-0003 §1.2 R-A).
  *
  * Security conformance cases covered (from threat model §#13):
  *   T3  — malformed / oversized / empty payloads → typed handled errors.
@@ -35,11 +53,57 @@ import type {
   ScreenshotBytes,
 } from "@flowscout/domain";
 
-/** A combined driver type exercising both ports. */
+// ---------------------------------------------------------------------------
+// Combined driver type (FullDriver) — used by the aggregator only
+// ---------------------------------------------------------------------------
+
+/** A combined driver type exercising both ports. Used by the thin aggregator. */
 export type FullDriver = MobileDriverPort & SimulatorLifecycle;
 
 /** Factory function injected by callers so the suite tests any implementation. */
 export type DriverFactory = () => FullDriver;
+
+// ---------------------------------------------------------------------------
+// Per-capability partial types (ISP — each runner targets one capability)
+// ---------------------------------------------------------------------------
+
+/**
+ * The lifecycle subset of SimulatorLifecycle + the listDevices method from MobileDriverPort.
+ * boot / install / launch / shutdown / listDevices — what #14 implements.
+ */
+export type SimulatorLifecyclePartial = Pick<
+  SimulatorLifecycle,
+  "bootSimulator" | "installApp" | "launchApp" | "shutdownSimulator"
+> &
+  Pick<MobileDriverPort, "listDevices">;
+
+/**
+ * The driving subset of MobileDriverPort.
+ * a11y / screenshot / tap / typeText / swipe — what #15 implements.
+ */
+export type MobileDriverDrivingPartial = Pick<
+  MobileDriverPort,
+  "snapshotAccessibilityTree" | "screenshot" | "tap" | "typeText" | "swipe"
+>;
+
+/**
+ * The snapshot subset of SimulatorLifecycle.
+ * takeSnapshot / resetToSnapshot — what #16 implements.
+ */
+export type SnapshotPartial = Pick<SimulatorLifecycle, "takeSnapshot" | "resetToSnapshot">;
+
+// ---------------------------------------------------------------------------
+// Per-capability factory types
+// ---------------------------------------------------------------------------
+
+/** Factory that returns only the lifecycle capability (boot/install/launch/shutdown/listDevices). */
+export type LifecycleFactory = () => SimulatorLifecyclePartial;
+
+/** Factory that returns only the driving capability (a11y/screenshot/tap/typeText/swipe). */
+export type DrivingFactory = () => MobileDriverDrivingPartial;
+
+/** Factory that returns only the snapshot capability (takeSnapshot/resetToSnapshot). */
+export type SnapshotFactory = () => SnapshotPartial;
 
 // ---------------------------------------------------------------------------
 // ErrorClasses — injected so assertions are adapter-specific, not hardcoded
@@ -52,11 +116,61 @@ export type DriverFactory = () => FullDriver;
 export type ErrorConstructor = new (...args: never[]) => Error;
 
 /**
- * Error classes injected alongside fixtures so the suite can assert
- * `toBeInstanceOf(SomeError)` without knowing the adapter's concrete error types.
- *
- * Each real adapter (and the Fake) supplies its own error classes; the contract
- * guarantees the correct *category* is thrown even as the class name differs.
+ * Per-capability error classes for the lifecycle capability (#14).
+ * ISP: a lifecycle adapter declares only the error classes its methods throw.
+ */
+export interface LifecycleErrorClasses {
+  /**
+   * Thrown when an operation targets a UDID the adapter does not recognise.
+   * (e.g. DeviceNotFoundError for a real adapter, UnknownDeviceError for the Fake).
+   */
+  unknownDevice: ErrorConstructor;
+  /**
+   * Thrown when an input value fails allowlist / format validation (T1/T2).
+   */
+  invalidInput: ErrorConstructor;
+}
+
+/**
+ * Per-capability error classes for the driving capability (#15).
+ * ISP: a driving adapter declares only the error classes its methods throw.
+ */
+export interface DrivingErrorClasses {
+  /**
+   * Thrown when an operation targets a UDID the adapter does not recognise.
+   * (e.g. DeviceNotFoundError for a real adapter, UnknownDeviceError for the Fake).
+   */
+  unknownDevice: ErrorConstructor;
+  /**
+   * Thrown when an input value fails allowlist / format validation (T1/T2).
+   */
+  invalidInput: ErrorConstructor;
+}
+
+/**
+ * Per-capability error classes for the snapshot capability (#16).
+ * ISP: includes snapshotNotFound that only the snapshot capability needs to declare.
+ */
+export interface SnapshotErrorClasses {
+  /**
+   * Thrown when an operation targets a UDID the adapter does not recognise.
+   * Per ADR-0003 §2: device validation precedes snapshot registry lookup for ALL operations.
+   */
+  unknownDevice: ErrorConstructor;
+  /**
+   * Thrown when an input value fails allowlist / format validation (T1).
+   */
+  invalidInput: ErrorConstructor;
+  /**
+   * Thrown when resetToSnapshot is called with a KNOWN udid but an UNKNOWN snapshot name.
+   * (T8 fail-closed requirement — only reachable when device exists but snapshot name never taken.)
+   */
+  snapshotNotFound: ErrorConstructor;
+}
+
+/**
+ * Combined error classes for the full-driver aggregator (kept for backward compatibility).
+ * Maps down to the three per-capability bundles inside runDriverContractSuite.
  */
 export interface ContractErrorClasses {
   /**
@@ -67,7 +181,7 @@ export interface ContractErrorClasses {
 
   /**
    * Thrown when an input value fails allowlist / format validation
-   * (e.g. InvalidInputError, ValidationError).  Covers T1/T2 injection cases.
+   * (e.g. InvalidInputError, ValidationError). Covers T1/T2 injection cases.
    */
   invalidInput: ErrorConstructor;
 
@@ -79,7 +193,64 @@ export interface ContractErrorClasses {
 }
 
 // ---------------------------------------------------------------------------
-// ContractFixtures — the adapter-specific values the suite plugs into tests
+// Per-capability fixture types
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixture slice for the lifecycle section runner.
+ * Holds only the values that lifecycle sections need.
+ */
+export interface LifecycleFixtures {
+  /** A UDID the adapter recognises as a valid, pre-existing device. */
+  validUdid: string;
+  /** A bundle identifier valid for the adapter's allowlist. */
+  validBundleId: string;
+  /** An app bundle path the adapter accepts for installApp. */
+  installablePath: string;
+  /** A UDID the adapter will NOT recognise — used to assert unknownDevice error. */
+  unknownUdid: string;
+  /** Injection-shaped UDID values that must be rejected (falls back to defaults). */
+  injectionUdids?: readonly string[];
+  /** Injection-shaped bundle ID values that must be rejected (falls back to defaults). */
+  injectionBundleIds?: readonly string[];
+  /** Injection-shaped app paths that must be rejected by installApp (falls back to defaults). */
+  injectionAppPaths?: readonly string[];
+}
+
+/**
+ * Fixture slice for the driving section runner.
+ * Holds only the values that driving sections need.
+ * The factory's fake McpConnection/Exec is responsible for making validUdid "observable".
+ */
+export interface DrivingFixtures {
+  /** A UDID the adapter (via its fake McpConnection) treats as observable. */
+  validUdid: string;
+  /** A UDID the adapter will NOT recognise — used to assert unknownDevice error. */
+  unknownUdid: string;
+  /** Injection-shaped UDID values that must be rejected (falls back to defaults). */
+  injectionUdids?: readonly string[];
+}
+
+/**
+ * Fixture slice for the snapshot section runner.
+ * Holds only the values that snapshot sections need.
+ * The factory's fake Exec is responsible for making validUdid "exist".
+ */
+export interface SnapshotFixtures {
+  /** A UDID the adapter (via its fake Exec) treats as existing. */
+  validUdid: string;
+  /** A snapshot name used in the happy-path take/reset tests. */
+  knownSnapshotName: string;
+  /** A second distinct snapshot name for the multi-snapshot independence test. */
+  knownSnapshotName2: string;
+  /** A UDID the adapter will NOT recognise — used to assert unknownDevice error. */
+  unknownUdid: string;
+  /** Injection-shaped snapshot names that must be rejected (falls back to defaults). */
+  injectionSnapshotNames?: readonly string[];
+}
+
+// ---------------------------------------------------------------------------
+// ContractFixtures — full combined fixture (used by the aggregator / Fake)
 // ---------------------------------------------------------------------------
 
 /**
@@ -229,80 +400,76 @@ const DEFAULT_INJECTION_APP_PATHS: readonly string[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Sub-suite helpers (decomposed to satisfy max-lines-per-function)
+// §1 — Lifecycle happy-path section
 // ---------------------------------------------------------------------------
 
 function describeLifecycleHappyPath(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getLifecycle: () => SimulatorLifecyclePartial,
+  fixtures: LifecycleFixtures,
 ): void {
   const { validUdid, validBundleId, installablePath } = fixtures;
 
   describe("§1 SimulatorLifecycle — happy-path state machine", () => {
     it("bootSimulator resolves for a known synthetic UDID", async () => {
-      await expect(getDriver().bootSimulator(validUdid)).resolves.toBeUndefined();
+      await expect(getLifecycle().bootSimulator(validUdid)).resolves.toBeUndefined();
     });
 
     it("installApp resolves after boot", async () => {
-      const d = getDriver();
+      const d = getLifecycle();
       await d.bootSimulator(validUdid);
       await expect(d.installApp(validUdid, installablePath)).resolves.toBeUndefined();
     });
 
     it("launchApp resolves after install", async () => {
-      const d = getDriver();
+      const d = getLifecycle();
       await d.bootSimulator(validUdid);
       await d.installApp(validUdid, installablePath);
       await expect(d.launchApp(validUdid, validBundleId)).resolves.toBeUndefined();
     });
 
     it("shutdownSimulator resolves after boot", async () => {
-      const d = getDriver();
+      const d = getLifecycle();
       await d.bootSimulator(validUdid);
       await expect(d.shutdownSimulator(validUdid)).resolves.toBeUndefined();
     });
 
-    it("full lifecycle: boot→install→launch→snapshot→reset→shutdown produces no error", async () => {
-      const { knownSnapshotName } = fixtures;
-      const d = getDriver();
+    it("full lifecycle: boot→install→launch→shutdown produces no error", async () => {
+      const d = getLifecycle();
       await d.bootSimulator(validUdid);
       await d.installApp(validUdid, installablePath);
       await d.launchApp(validUdid, validBundleId);
-      await d.takeSnapshot(validUdid, knownSnapshotName);
-      await d.resetToSnapshot(validUdid, knownSnapshotName);
       await d.shutdownSimulator(validUdid);
     });
   });
 }
 
-function describeSnapshotReset(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
-): void {
-  const { validUdid, validBundleId, installablePath, knownSnapshotName, knownSnapshotName2 } =
-    fixtures;
-  const { snapshotNotFound } = fixtures.errorClasses;
+// ---------------------------------------------------------------------------
+// §2 — Snapshot / reset section (snapshot capability only)
+// ---------------------------------------------------------------------------
 
-  describe("§2 SimulatorLifecycle — snapshot / reset", () => {
-    it("takeSnapshot resolves after the simulator is in a usable state", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
-      await expect(d.takeSnapshot(validUdid, knownSnapshotName)).resolves.toBeUndefined();
+function describeSnapshotReset(
+  getSnapshot: () => SnapshotPartial,
+  fixtures: SnapshotFixtures,
+  errorClasses: SnapshotErrorClasses,
+): void {
+  const { validUdid, knownSnapshotName, knownSnapshotName2 } = fixtures;
+  const { snapshotNotFound } = errorClasses;
+
+  describe("§2 SnapshotCapability — snapshot / reset", () => {
+    it("takeSnapshot resolves for a valid device udid and snapshot name", async () => {
+      await expect(
+        getSnapshot().takeSnapshot(validUdid, knownSnapshotName),
+      ).resolves.toBeUndefined();
     });
 
     it("resetToSnapshot resolves after a snapshot has been taken", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
+      const d = getSnapshot();
       await d.takeSnapshot(validUdid, knownSnapshotName);
       await expect(d.resetToSnapshot(validUdid, knownSnapshotName)).resolves.toBeUndefined();
     });
 
     it("multiple distinct snapshots can be taken and independently restored", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
+      const d = getSnapshot();
       await d.takeSnapshot(validUdid, knownSnapshotName);
       await d.takeSnapshot(validUdid, knownSnapshotName2);
       await expect(d.resetToSnapshot(validUdid, knownSnapshotName)).resolves.toBeUndefined();
@@ -310,41 +477,34 @@ function describeSnapshotReset(
     });
 
     it("T8: resetToSnapshot to a missing name throws SnapshotNotFoundError (fails closed)", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
       await expect(
-        d.resetToSnapshot(validUdid, "snapshot-that-was-never-taken"),
+        getSnapshot().resetToSnapshot(validUdid, "snapshot-that-was-never-taken"),
       ).rejects.toBeInstanceOf(snapshotNotFound);
     });
 
     it("T8: resetToSnapshot to a missing name provides an informative error mentioning 'snapshot'", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      const err = await d
+      const err = await getSnapshot()
         .resetToSnapshot(validUdid, "nonexistent-snapshot")
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(snapshotNotFound);
       expect((err as Error).message).toMatch(/snapshot/i);
     });
-
-    it("T8: launchApp with valid bundleId after install resolves (sanity)", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
-      await expect(d.launchApp(validUdid, validBundleId)).resolves.toBeUndefined();
-    });
   });
 }
 
-function describeListDevices(getDriver: () => FullDriver): void {
-  describe("§3 MobileDriverPort — listDevices", () => {
+// ---------------------------------------------------------------------------
+// §3 — listDevices section (lifecycle capability)
+// ---------------------------------------------------------------------------
+
+function describeListDevices(getLifecycle: () => SimulatorLifecyclePartial): void {
+  describe("§3 LifecycleCapability — listDevices", () => {
     it("listDevices returns a readonly array (may be empty)", async () => {
-      const devices = await getDriver().listDevices();
+      const devices = await getLifecycle().listDevices();
       expect(Array.isArray(devices)).toBe(true);
     });
 
     it("listDevices returns DeviceInfo objects with required shape", async () => {
-      const devices = await getDriver().listDevices();
+      const devices = await getLifecycle().listDevices();
       for (const d of devices) {
         expect(typeof d.udid).toBe("string");
         expect(typeof d.name).toBe("string");
@@ -356,20 +516,23 @@ function describeListDevices(getDriver: () => FullDriver): void {
   });
 }
 
+// ---------------------------------------------------------------------------
+// §4 — Observation section (driving capability)
+// ---------------------------------------------------------------------------
+
 function describeObservation(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getDriving: () => MobileDriverDrivingPartial,
+  fixtures: DrivingFixtures,
 ): void {
-  const { validUdid, validBundleId, installablePath } = fixtures;
+  const { validUdid } = fixtures;
 
-  describe("§4 MobileDriverPort — observation (a11y + screenshot)", () => {
-    let driver: FullDriver;
+  describe("§4 DrivingCapability — observation (a11y + screenshot)", () => {
+    // No cross-capability lifecycle calls here (ADR-0003 §1.2 R-A).
+    // The driving factory's fake McpConnection makes validUdid observable.
+    let driver: MobileDriverDrivingPartial;
 
-    beforeEach(async () => {
-      driver = getDriver();
-      await driver.bootSimulator(validUdid);
-      await driver.installApp(validUdid, installablePath);
-      await driver.launchApp(validUdid, validBundleId);
+    beforeEach(() => {
+      driver = getDriving();
     });
 
     it("snapshotAccessibilityTree returns a non-empty A11ySnapshot string", async () => {
@@ -386,20 +549,23 @@ function describeObservation(
   });
 }
 
+// ---------------------------------------------------------------------------
+// §5 — Actions section (driving capability)
+// ---------------------------------------------------------------------------
+
 function describeActions(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getDriving: () => MobileDriverDrivingPartial,
+  fixtures: DrivingFixtures,
 ): void {
-  const { validUdid, validBundleId, installablePath } = fixtures;
+  const { validUdid } = fixtures;
 
-  describe("§5 MobileDriverPort — actions (tap / typeText / swipe)", () => {
-    let driver: FullDriver;
+  describe("§5 DrivingCapability — actions (tap / typeText / swipe)", () => {
+    // No cross-capability lifecycle calls here (ADR-0003 §1.2 R-A).
+    // The driving factory's fake McpConnection makes validUdid observable.
+    let driver: MobileDriverDrivingPartial;
 
-    beforeEach(async () => {
-      driver = getDriver();
-      await driver.bootSimulator(validUdid);
-      await driver.installApp(validUdid, installablePath);
-      await driver.launchApp(validUdid, validBundleId);
+    beforeEach(() => {
+      driver = getDriving();
     });
 
     it("tap with element target resolves", async () => {
@@ -432,112 +598,179 @@ function describeActions(
   });
 }
 
-function describeUnknownUdid(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+// ---------------------------------------------------------------------------
+// §6 — Unknown UDID sections (split per capability — ADR-0003 §1.2)
+// ---------------------------------------------------------------------------
+
+function describeUnknownUdidLifecycle(
+  getLifecycle: () => SimulatorLifecyclePartial,
+  fixtures: LifecycleFixtures,
+  errorClasses: LifecycleErrorClasses,
 ): void {
-  const { unknownUdid, validBundleId, knownSnapshotName, installablePath } = fixtures;
-  const { unknownDevice } = fixtures.errorClasses;
+  const { unknownUdid, validBundleId, installablePath } = fixtures;
+  const { unknownDevice } = errorClasses;
 
-  describe("§6 Unknown UDID — all port methods reject with typed UnknownDevice error", () => {
+  describe("§6(lifecycle) Unknown UDID — lifecycle methods reject with typed UnknownDevice error", () => {
     it("bootSimulator with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(getDriver().bootSimulator(unknownUdid)).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("snapshotAccessibilityTree with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriver().snapshotAccessibilityTree(unknownUdid),
-      ).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("screenshot with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(getDriver().screenshot(unknownUdid)).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("tap with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriver().tap(unknownUdid, { kind: "coordinate", x: 0, y: 0 }),
-      ).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("typeText with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriver().typeText(unknownUdid, "text"),
-      ).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("swipe with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(getDriver().swipe(unknownUdid, "up")).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getLifecycle().bootSimulator(unknownUdid)).rejects.toBeInstanceOf(unknownDevice);
     });
 
     it("installApp with unknown UDID throws UnknownDeviceError", async () => {
       await expect(
-        getDriver().installApp(unknownUdid, installablePath),
+        getLifecycle().installApp(unknownUdid, installablePath),
       ).rejects.toBeInstanceOf(unknownDevice);
     });
 
     it("launchApp with unknown UDID throws UnknownDeviceError", async () => {
       await expect(
-        getDriver().launchApp(unknownUdid, validBundleId),
-      ).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("takeSnapshot with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriver().takeSnapshot(unknownUdid, knownSnapshotName),
-      ).rejects.toBeInstanceOf(unknownDevice);
-    });
-
-    it("resetToSnapshot with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriver().resetToSnapshot(unknownUdid, knownSnapshotName),
+        getLifecycle().launchApp(unknownUdid, validBundleId),
       ).rejects.toBeInstanceOf(unknownDevice);
     });
 
     it("shutdownSimulator with unknown UDID throws UnknownDeviceError", async () => {
       await expect(
-        getDriver().shutdownSimulator(unknownUdid),
+        getLifecycle().shutdownSimulator(unknownUdid),
       ).rejects.toBeInstanceOf(unknownDevice);
     });
   });
 }
 
-function describeInjectionUdids(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+function describeUnknownUdidDriving(
+  getDriving: () => MobileDriverDrivingPartial,
+  fixtures: DrivingFixtures,
+  errorClasses: DrivingErrorClasses,
 ): void {
-  const badUdids = fixtures.injectionUdids ?? DEFAULT_INJECTION_UDIDS;
-  const { invalidInput } = fixtures.errorClasses;
+  const { unknownUdid } = fixtures;
+  const { unknownDevice } = errorClasses;
 
-  describe("§7 T1 — injection-shaped UDID values are rejected with InvalidInput error", () => {
-    for (const badUdid of badUdids) {
-      it(`bootSimulator rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-        await expect(getDriver().bootSimulator(badUdid)).rejects.toBeInstanceOf(invalidInput);
-      });
-      it(`snapshotAccessibilityTree rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-        await expect(
-          getDriver().snapshotAccessibilityTree(badUdid),
-        ).rejects.toBeInstanceOf(invalidInput);
-      });
-      it(`screenshot rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-        await expect(getDriver().screenshot(badUdid)).rejects.toBeInstanceOf(invalidInput);
-      });
-    }
+  describe("§6(driving) Unknown UDID — driving methods reject with typed UnknownDevice error", () => {
+    it("snapshotAccessibilityTree with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(
+        getDriving().snapshotAccessibilityTree(unknownUdid),
+      ).rejects.toBeInstanceOf(unknownDevice);
+    });
+
+    it("screenshot with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(getDriving().screenshot(unknownUdid)).rejects.toBeInstanceOf(unknownDevice);
+    });
+
+    it("tap with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(
+        getDriving().tap(unknownUdid, { kind: "coordinate", x: 0, y: 0 }),
+      ).rejects.toBeInstanceOf(unknownDevice);
+    });
+
+    it("typeText with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(getDriving().typeText(unknownUdid, "text")).rejects.toBeInstanceOf(unknownDevice);
+    });
+
+    it("swipe with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(getDriving().swipe(unknownUdid, "up")).rejects.toBeInstanceOf(unknownDevice);
+    });
   });
 }
 
+function describeUnknownUdidSnapshot(
+  getSnapshot: () => SnapshotPartial,
+  fixtures: SnapshotFixtures,
+  errorClasses: SnapshotErrorClasses,
+): void {
+  const { unknownUdid, knownSnapshotName } = fixtures;
+  const { unknownDevice } = errorClasses;
+
+  describe(
+    "§6(snapshot) Unknown UDID — snapshot methods reject with typed UnknownDevice error",
+    () => {
+      // ADR-0003 §2: device validation precedes snapshot registry lookup for BOTH operations.
+      it("takeSnapshot with unknown UDID throws UnknownDeviceError", async () => {
+        await expect(
+          getSnapshot().takeSnapshot(unknownUdid, knownSnapshotName),
+        ).rejects.toBeInstanceOf(unknownDevice);
+      });
+
+      it(
+        "resetToSnapshot with unknown UDID throws UnknownDeviceError (device-first — ADR-0003 §2)",
+        async () => {
+          await expect(
+            getSnapshot().resetToSnapshot(unknownUdid, knownSnapshotName),
+          ).rejects.toBeInstanceOf(unknownDevice);
+        },
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §7 — Injection UDID sections (split per capability)
+// ---------------------------------------------------------------------------
+
+function describeInjectionUdidsLifecycle(
+  getLifecycle: () => SimulatorLifecyclePartial,
+  fixtures: LifecycleFixtures,
+  errorClasses: LifecycleErrorClasses,
+): void {
+  const badUdids = fixtures.injectionUdids ?? DEFAULT_INJECTION_UDIDS;
+  const { invalidInput } = errorClasses;
+
+  describe(
+    "§7(lifecycle) T1 — injection-shaped UDID values are rejected with InvalidInput error",
+    () => {
+      for (const badUdid of badUdids) {
+        it(`bootSimulator rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+          await expect(getLifecycle().bootSimulator(badUdid)).rejects.toBeInstanceOf(invalidInput);
+        });
+      }
+    },
+  );
+}
+
+function describeInjectionUdidsDriving(
+  getDriving: () => MobileDriverDrivingPartial,
+  fixtures: DrivingFixtures,
+  errorClasses: DrivingErrorClasses,
+): void {
+  const badUdids = fixtures.injectionUdids ?? DEFAULT_INJECTION_UDIDS;
+  const { invalidInput } = errorClasses;
+
+  describe(
+    "§7(driving) T1 — injection-shaped UDID values are rejected with InvalidInput error",
+    () => {
+      for (const badUdid of badUdids) {
+        it(`snapshotAccessibilityTree rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+          await expect(
+            getDriving().snapshotAccessibilityTree(badUdid),
+          ).rejects.toBeInstanceOf(invalidInput);
+        });
+        it(`screenshot rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+          await expect(getDriving().screenshot(badUdid)).rejects.toBeInstanceOf(invalidInput);
+        });
+        it(`tap rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+          await expect(
+            getDriving().tap(badUdid, { kind: "coordinate", x: 0, y: 0 }),
+          ).rejects.toBeInstanceOf(invalidInput);
+        });
+      }
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// §8 — Injection bundleIds section (lifecycle capability)
+// ---------------------------------------------------------------------------
+
 function describeInjectionBundleIds(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getLifecycle: () => SimulatorLifecyclePartial,
+  fixtures: LifecycleFixtures,
+  errorClasses: LifecycleErrorClasses,
 ): void {
   const { validUdid, installablePath } = fixtures;
   const badBundleIds = fixtures.injectionBundleIds ?? DEFAULT_INJECTION_BUNDLE_IDS;
-  const { invalidInput } = fixtures.errorClasses;
+  const { invalidInput } = errorClasses;
 
   describe("§8 T1 — injection-shaped bundleId values are rejected with InvalidInput error", () => {
     for (const badBundleId of badBundleIds) {
       it(`launchApp rejects bundleId: ${JSON.stringify(badBundleId)}`, async () => {
-        const d = getDriver();
+        const d = getLifecycle();
         await d.bootSimulator(validUdid);
         await d.installApp(validUdid, installablePath);
         await expect(d.launchApp(validUdid, badBundleId)).rejects.toBeInstanceOf(invalidInput);
@@ -546,61 +779,77 @@ function describeInjectionBundleIds(
   });
 }
 
+// ---------------------------------------------------------------------------
+// §9 — Injection snapshot names section (snapshot capability)
+// ---------------------------------------------------------------------------
+
 function describeInjectionSnapshotNames(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getSnapshot: () => SnapshotPartial,
+  fixtures: SnapshotFixtures,
+  errorClasses: SnapshotErrorClasses,
 ): void {
   const { validUdid } = fixtures;
   const badNames = fixtures.injectionSnapshotNames ?? DEFAULT_INJECTION_SNAPSHOT_NAMES;
-  const { invalidInput } = fixtures.errorClasses;
+  const { invalidInput } = errorClasses;
 
   describe("§9 T1 — injection-shaped snapshotName values are rejected with InvalidInput error", () => {
     for (const badName of badNames) {
       it(`takeSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
-        const d = getDriver();
-        await d.bootSimulator(validUdid);
-        await expect(d.takeSnapshot(validUdid, badName)).rejects.toBeInstanceOf(invalidInput);
+        await expect(
+          getSnapshot().takeSnapshot(validUdid, badName),
+        ).rejects.toBeInstanceOf(invalidInput);
       });
       it(`resetToSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
-        const d = getDriver();
-        await d.bootSimulator(validUdid);
-        await expect(d.resetToSnapshot(validUdid, badName)).rejects.toBeInstanceOf(invalidInput);
+        await expect(
+          getSnapshot().resetToSnapshot(validUdid, badName),
+        ).rejects.toBeInstanceOf(invalidInput);
       });
     }
   });
 }
 
+// ---------------------------------------------------------------------------
+// §10 — Injection app paths section (lifecycle capability)
+// ---------------------------------------------------------------------------
+
 function describeInjectionAppPaths(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getLifecycle: () => SimulatorLifecyclePartial,
+  fixtures: LifecycleFixtures,
+  errorClasses: LifecycleErrorClasses,
 ): void {
   const { validUdid } = fixtures;
   const badPaths = fixtures.injectionAppPaths ?? DEFAULT_INJECTION_APP_PATHS;
-  const { invalidInput } = fixtures.errorClasses;
+  const { invalidInput } = errorClasses;
 
-  describe("§10 T1/T2 — injection-shaped appBundlePath values are rejected with InvalidInput error", () => {
-    for (const badPath of badPaths) {
-      it(`installApp rejects appBundlePath: ${JSON.stringify(badPath)}`, async () => {
-        const d = getDriver();
-        await d.bootSimulator(validUdid);
-        await expect(d.installApp(validUdid, badPath)).rejects.toBeInstanceOf(invalidInput);
-      });
-    }
-  });
+  describe(
+    "§10 T1/T2 — injection-shaped appBundlePath values are rejected with InvalidInput error",
+    () => {
+      for (const badPath of badPaths) {
+        it(`installApp rejects appBundlePath: ${JSON.stringify(badPath)}`, async () => {
+          const d = getLifecycle();
+          await d.bootSimulator(validUdid);
+          await expect(d.installApp(validUdid, badPath)).rejects.toBeInstanceOf(invalidInput);
+        });
+      }
+    },
+  );
 }
 
+// ---------------------------------------------------------------------------
+// §11 — Stress / repeat payloads section (driving capability)
+// ---------------------------------------------------------------------------
+
 function describeStressPayloads(
-  getDriver: () => FullDriver,
-  fixtures: ContractFixtures,
+  getDriving: () => MobileDriverDrivingPartial,
+  fixtures: DrivingFixtures,
 ): void {
-  const { validUdid, validBundleId, installablePath } = fixtures;
+  const { validUdid } = fixtures;
 
   describe("§11 T3 — observable error/payload contract under repeated calls", () => {
+    // No cross-capability lifecycle calls here (ADR-0003 §1.2 R-A).
+    // The driving factory's fake McpConnection makes validUdid observable.
     it("repeated snapshotAccessibilityTree calls return consistent non-empty results", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
-      await d.launchApp(validUdid, validBundleId);
+      const d = getDriving();
       const repeatCount = 3;
       for (let i = 0; i < repeatCount; i++) {
         const snap = await d.snapshotAccessibilityTree(validUdid);
@@ -610,10 +859,7 @@ function describeStressPayloads(
     });
 
     it("repeated screenshot calls return consistent non-empty Uint8Arrays", async () => {
-      const d = getDriver();
-      await d.bootSimulator(validUdid);
-      await d.installApp(validUdid, installablePath);
-      await d.launchApp(validUdid, validBundleId);
+      const d = getDriving();
       const repeatCount = 3;
       for (let i = 0; i < repeatCount; i++) {
         const bytes = await d.screenshot(validUdid);
@@ -625,15 +871,234 @@ function describeStressPayloads(
 }
 
 // ---------------------------------------------------------------------------
-// The exported parameterised suite
+// Per-capability section runners (ADR-0003 §1.1 — the new public API)
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the lifecycle conformance sections against any SimulatorLifecyclePartial implementation.
+ *
+ * Covers: §1 happy-path · §3 listDevices · §6(lifecycle) unknown-UDID ·
+ *         §7(lifecycle) injection UDIDs · §8 injection bundleIds · §10 injection appPaths.
+ *
+ * The `createLifecycle` factory must return an instance whose fake Exec/McpConnection
+ * makes `fixtures.validUdid` a recognised device and `fixtures.unknownUdid` unrecognised.
+ * No cross-capability lifecycle setup is performed inside this runner (ADR-0003 §1.2 R-A).
+ *
+ * @example
+ * ```ts
+ * runLifecycleContract({
+ *   createLifecycle: () => new SimulatorLifecycleManager(fakeExec, cfg),
+ *   fixtures: { validUdid: 'some-uuid', unknownUdid: '...', validBundleId: '...', installablePath: '...' },
+ *   errorClasses: { unknownDevice: DeviceNotFoundError, invalidInput: LifecycleInputError },
+ * });
+ * ```
+ */
+export function runLifecycleContract(opts: {
+  createLifecycle: LifecycleFactory;
+  fixtures: LifecycleFixtures;
+  errorClasses: LifecycleErrorClasses;
+}): void {
+  const { createLifecycle, fixtures, errorClasses } = opts;
+  const getLifecycle = (): SimulatorLifecyclePartial => createLifecycle();
+
+  describe("SimulatorLifecycle contract suite", () => {
+    describeLifecycleHappyPath(getLifecycle, fixtures);
+    describeListDevices(getLifecycle);
+    describeUnknownUdidLifecycle(getLifecycle, fixtures, errorClasses);
+    describeInjectionUdidsLifecycle(getLifecycle, fixtures, errorClasses);
+    describeInjectionBundleIds(getLifecycle, fixtures, errorClasses);
+    describeInjectionAppPaths(getLifecycle, fixtures, errorClasses);
+  });
+}
+
+/**
+ * Run the driving conformance sections against any MobileDriverDrivingPartial implementation.
+ *
+ * Covers: §4 observation · §5 actions · §6(driving) unknown-UDID ·
+ *         §7(driving) injection UDIDs · §11 stress/repeat payloads.
+ *
+ * The `createDriving` factory must return an instance whose fake McpConnection
+ * makes `fixtures.validUdid` observable. No lifecycle calls (bootSimulator, etc.)
+ * are performed inside this runner (ADR-0003 §1.2 R-A).
+ *
+ * @example
+ * ```ts
+ * runDrivingContract({
+ *   createDriving: () => new DeviceDriver(fakeMcpConnection, cfg),
+ *   fixtures: { validUdid: 'some-uuid', unknownUdid: '...' },
+ *   errorClasses: { unknownDevice: DeviceNotFoundError, invalidInput: DrivingInputError },
+ * });
+ * ```
+ */
+export function runDrivingContract(opts: {
+  createDriving: DrivingFactory;
+  fixtures: DrivingFixtures;
+  errorClasses: DrivingErrorClasses;
+}): void {
+  const { createDriving, fixtures, errorClasses } = opts;
+  const getDriving = (): MobileDriverDrivingPartial => createDriving();
+
+  describe("MobileDriverDriving contract suite", () => {
+    describeObservation(getDriving, fixtures);
+    describeActions(getDriving, fixtures);
+    describeUnknownUdidDriving(getDriving, fixtures, errorClasses);
+    describeInjectionUdidsDriving(getDriving, fixtures, errorClasses);
+    describeStressPayloads(getDriving, fixtures);
+  });
+}
+
+/**
+ * Run the snapshot conformance sections against any SnapshotPartial implementation.
+ *
+ * Covers: §2 snapshot/reset · §6(snapshot) unknown-UDID (both take+reset throw unknownDevice
+ * per ADR-0003 §2 device-first contract) · §9 injection snapshot names.
+ *
+ * The `createSnapshot` factory must return an instance whose fake Exec makes
+ * `fixtures.validUdid` an existing device. No lifecycle calls are performed inside
+ * this runner (ADR-0003 §1.2 R-A).
+ *
+ * @example
+ * ```ts
+ * runSnapshotContract({
+ *   createSnapshot: () => new SnapshotManager(fakeExec, cfg),
+ *   fixtures: { validUdid: 'some-uuid', knownSnapshotName: 'clean', knownSnapshotName2: 'step2', unknownUdid: '...' },
+ *   errorClasses: { unknownDevice: DeviceNotFoundError, invalidInput: InvalidSnapshotInputError, snapshotNotFound: SnapshotNotFoundError },
+ * });
+ * ```
+ */
+export function runSnapshotContract(opts: {
+  createSnapshot: SnapshotFactory;
+  fixtures: SnapshotFixtures;
+  errorClasses: SnapshotErrorClasses;
+}): void {
+  const { createSnapshot, fixtures, errorClasses } = opts;
+  const getSnapshot = (): SnapshotPartial => createSnapshot();
+
+  describe("SnapshotCapability contract suite", () => {
+    describeSnapshotReset(getSnapshot, fixtures, errorClasses);
+    describeUnknownUdidSnapshot(getSnapshot, fixtures, errorClasses);
+    describeInjectionSnapshotNames(getSnapshot, fixtures, errorClasses);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Aggregator helpers (extracted to satisfy max-lines-per-function)
+// ---------------------------------------------------------------------------
+
+/** Derive the LifecycleFixtures slice from a combined ContractFixtures. */
+function deriveLifecycleFixtures(fixtures: ContractFixtures): LifecycleFixtures {
+  return {
+    validUdid: fixtures.validUdid,
+    validBundleId: fixtures.validBundleId,
+    installablePath: fixtures.installablePath,
+    unknownUdid: fixtures.unknownUdid,
+    // Conditional spread satisfies exactOptionalPropertyTypes.
+    ...(fixtures.injectionUdids !== undefined && { injectionUdids: fixtures.injectionUdids }),
+    ...(fixtures.injectionBundleIds !== undefined && {
+      injectionBundleIds: fixtures.injectionBundleIds,
+    }),
+    ...(fixtures.injectionAppPaths !== undefined && {
+      injectionAppPaths: fixtures.injectionAppPaths,
+    }),
+  };
+}
+
+/** Derive the DrivingFixtures slice from a combined ContractFixtures. */
+function deriveDrivingFixtures(fixtures: ContractFixtures): DrivingFixtures {
+  return {
+    validUdid: fixtures.validUdid,
+    unknownUdid: fixtures.unknownUdid,
+    ...(fixtures.injectionUdids !== undefined && { injectionUdids: fixtures.injectionUdids }),
+  };
+}
+
+/** Derive the SnapshotFixtures slice from a combined ContractFixtures. */
+function deriveSnapshotFixtures(fixtures: ContractFixtures): SnapshotFixtures {
+  return {
+    validUdid: fixtures.validUdid,
+    knownSnapshotName: fixtures.knownSnapshotName,
+    knownSnapshotName2: fixtures.knownSnapshotName2,
+    unknownUdid: fixtures.unknownUdid,
+    ...(fixtures.injectionSnapshotNames !== undefined && {
+      injectionSnapshotNames: fixtures.injectionSnapshotNames,
+    }),
+  };
+}
+
+/**
+ * Build a LifecycleFactory that delegates to a FullDriver, exposing only the lifecycle partial.
+ */
+function buildLifecycleFactory(createDriver: DriverFactory): LifecycleFactory {
+  return () => {
+    const d = createDriver();
+    return {
+      bootSimulator: (udid) => d.bootSimulator(udid),
+      installApp: (udid, path) => d.installApp(udid, path),
+      launchApp: (udid, bundleId) => d.launchApp(udid, bundleId),
+      shutdownSimulator: (udid) => d.shutdownSimulator(udid),
+      listDevices: () => d.listDevices(),
+    };
+  };
+}
+
+/**
+ * Build a SnapshotFactory that delegates to a FullDriver.
+ * Sets up boot+install inside the factory closure so the Fake's state machine is satisfied
+ * without calling lifecycle methods inside the section runner (ADR-0003 §1.2 R-A).
+ * Real snapshot adapters (#16) use a fake Exec that treats validUdid as existing, so
+ * their factory does not need this setup.
+ */
+function buildSnapshotFactory(createDriver: DriverFactory, fixtures: ContractFixtures): SnapshotFactory {
+  return () => {
+    const d = createDriver();
+    const setupDone = d
+      .bootSimulator(fixtures.validUdid)
+      .then(() => d.installApp(fixtures.validUdid, fixtures.installablePath));
+    return {
+      takeSnapshot: async (udid, name) => { await setupDone; return d.takeSnapshot(udid, name); },
+      resetToSnapshot: async (udid, name) => { await setupDone; return d.resetToSnapshot(udid, name); },
+    };
+  };
+}
+
+/**
+ * Build a DrivingFactory that delegates to a FullDriver.
+ * Sets up boot+install+launch inside the factory closure so the Fake's state machine is
+ * satisfied without calling lifecycle methods inside the section runner (ADR-0003 §1.2 R-A).
+ */
+function buildDrivingFactory(createDriver: DriverFactory, fixtures: ContractFixtures): DrivingFactory {
+  return () => {
+    const d = createDriver();
+    const setupDone = d
+      .bootSimulator(fixtures.validUdid)
+      .then(() => d.installApp(fixtures.validUdid, fixtures.installablePath))
+      .then(() => d.launchApp(fixtures.validUdid, fixtures.validBundleId));
+    return {
+      snapshotAccessibilityTree: async (udid) => { await setupDone; return d.snapshotAccessibilityTree(udid); },
+      screenshot: async (udid) => { await setupDone; return d.screenshot(udid); },
+      tap: async (udid, target) => { await setupDone; return d.tap(udid, target); },
+      typeText: async (udid, text) => { await setupDone; return d.typeText(udid, text); },
+      swipe: async (udid, dir, dist) => { await setupDone; return d.swipe(udid, dir, dist); },
+    };
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Full-driver aggregator (thin wrapper — preserves the Fake's call site)
 // ---------------------------------------------------------------------------
 
 /**
  * Run the full driver conformance suite against any FullDriver implementation.
  *
- * Call at the top level of a test file (or inside a describe block).
+ * This is the RETAINED thin aggregator per ADR-0003 §1.1. It destructures the
+ * FullDriver into the three capability partials and delegates to the three
+ * per-capability section runners. The Fake's existing call site
+ * (`fake-driver.contract.test.ts`) continues to work unchanged.
  *
- * @param options.createDriver - factory producing a fresh driver for each test group
+ * For new real adapters implementing a single capability, use the targeted runner
+ * instead (runLifecycleContract / runDrivingContract / runSnapshotContract).
+ *
+ * @param options.createDriver - factory producing a fresh FullDriver for each test group
  * @param options.fixtures     - adapter-specific fixture values and error classes
  *
  * @example
@@ -650,21 +1115,39 @@ function describeStressPayloads(
  */
 export function runDriverContractSuite(options: DriverContractSuiteOptions): void {
   const { createDriver, fixtures } = options;
+  const { errorClasses } = fixtures;
+
+  const lifecycleErrorClasses: LifecycleErrorClasses = {
+    unknownDevice: errorClasses.unknownDevice,
+    invalidInput: errorClasses.invalidInput,
+  };
+  const drivingErrorClasses: DrivingErrorClasses = {
+    unknownDevice: errorClasses.unknownDevice,
+    invalidInput: errorClasses.invalidInput,
+  };
+  const snapshotErrorClasses: SnapshotErrorClasses = {
+    unknownDevice: errorClasses.unknownDevice,
+    invalidInput: errorClasses.invalidInput,
+    snapshotNotFound: errorClasses.snapshotNotFound,
+  };
 
   describe("MobileDriverPort + SimulatorLifecycle contract suite", () => {
-    // Each sub-suite receives a fresh driver via a closure.
-    const getDriver = (): FullDriver => createDriver();
+    runLifecycleContract({
+      createLifecycle: buildLifecycleFactory(createDriver),
+      fixtures: deriveLifecycleFixtures(fixtures),
+      errorClasses: lifecycleErrorClasses,
+    });
 
-    describeLifecycleHappyPath(getDriver, fixtures);
-    describeSnapshotReset(getDriver, fixtures);
-    describeListDevices(getDriver);
-    describeObservation(getDriver, fixtures);
-    describeActions(getDriver, fixtures);
-    describeUnknownUdid(getDriver, fixtures);
-    describeInjectionUdids(getDriver, fixtures);
-    describeInjectionBundleIds(getDriver, fixtures);
-    describeInjectionSnapshotNames(getDriver, fixtures);
-    describeInjectionAppPaths(getDriver, fixtures);
-    describeStressPayloads(getDriver, fixtures);
+    runSnapshotContract({
+      createSnapshot: buildSnapshotFactory(createDriver, fixtures),
+      fixtures: deriveSnapshotFixtures(fixtures),
+      errorClasses: snapshotErrorClasses,
+    });
+
+    runDrivingContract({
+      createDriving: buildDrivingFactory(createDriver, fixtures),
+      fixtures: deriveDrivingFixtures(fixtures),
+      errorClasses: drivingErrorClasses,
+    });
   });
 }
