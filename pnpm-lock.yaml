@@ -26,6 +26,9 @@ importers:
       eslint-plugin-boundaries:
         specifier: ^5.0.0
         version: 5.4.0(@typescript-eslint/parser@8.61.1(eslint@9.39.4)(typescript@5.9.3))(eslint@9.39.4)
+      eslint-plugin-security:
+        specifier: ^4.0.1
+        version: 4.0.1
       husky:
         specifier: ^9.0.0
         version: 9.1.7
@@ -41,6 +44,37 @@ importers:
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
+
+  e2e:
+    dependencies:
+      '@flowscout/adapter-mobile-mcp':
+        specifier: workspace:*
+        version: link:../packages/adapters/mobile-mcp
+      '@flowscout/api':
+        specifier: workspace:*
+        version: link:../packages/api
+      '@flowscout/domain':
+        specifier: workspace:*
+        version: link:../packages/domain
+    devDependencies:
+      '@flowscout/config':
+        specifier: workspace:*
+        version: link:../packages/config
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.43
+      '@vitest/coverage-v8':
+        specifier: ^3.0.0
+        version: 3.2.6(vitest@3.2.6(@types/node@20.19.43))
+      tsx:
+        specifier: ^4.0.0
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.6(@types/node@20.19.43)
 
   packages/adapters/llm:
     dependencies:
@@ -164,6 +198,9 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
+      '@vitest/coverage-v8':
+        specifier: ^3.0.0
+        version: 3.2.6(vitest@3.2.6(@types/node@20.19.43))
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -207,6 +244,9 @@ importers:
       eslint-plugin-boundaries:
         specifier: ^5.0.0
         version: 5.4.0(@typescript-eslint/parser@8.61.1(eslint@9.39.4)(typescript@5.9.3))(eslint@9.39.4)
+      eslint-plugin-security:
+        specifier: ^4.0.1
+        version: 4.0.1
       typescript:
         specifier: ^5.5.0
         version: 5.9.3
@@ -1876,6 +1916,10 @@ packages:
     engines: {node: '>=18.18'}
     peerDependencies:
       eslint: '>=6.0.0'
+
+  eslint-plugin-security@4.0.1:
+    resolution: {integrity: sha512-/lZCkOxPOWaf1jXAqgICrS8St3BMBccIPvhOSUYuV6VCr1o5nFVG998FnTLt6w2Nxb8Uo0nM8fzmnhp+GY/aEg==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
   eslint-scope@8.4.0:
     resolution: {integrity: sha512-sNXOfKCn74rt8RICKMvJS7XKV/Xk9kA7DyJr8mJik3S7Cwgy3qlkkmyS2uQB3jiJg6VNdZd/pDBJu0nvG2NlTg==}
@@ -4719,6 +4763,10 @@ snapshots:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack
       - supports-color
+
+  eslint-plugin-security@4.0.1:
+    dependencies:
+      safe-regex: 2.1.1
 
   eslint-scope@8.4.0:
     dependencies:
