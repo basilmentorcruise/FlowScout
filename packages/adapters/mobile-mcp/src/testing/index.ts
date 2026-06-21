@@ -5,15 +5,19 @@
  *   FakeMobileDriver        — deterministic in-memory driver for engine/unit tests.
  *   FAKE_CONTRACT_FIXTURES  — pre-built ContractFixtures for FakeMobileDriver;
  *                             pass to runDriverContractSuite when testing the Fake.
- *   runDriverContractSuite  — parameterised Vitest suite; import + call in any
- *                             adapter test file to assert port conformance.
+ *   runDriverContractSuite  — full-driver aggregator (thin wrapper); the Fake's existing
+ *                             call site continues to use this unchanged.
+ *   runLifecycleContract    — per-capability section runner for #14 (ADR-0003).
+ *   runDrivingContract      — per-capability section runner for #15 (ADR-0003).
+ *   runSnapshotContract     — per-capability section runner for #16 (ADR-0003).
  *   Error types             — for asserting the specific error class in tests.
  *
  * Tickets that consume this:
- *   #14 — lifecycle.contract.test.ts  imports runDriverContractSuite + FAKE_CONTRACT_FIXTURES
- *   #15 — driving.contract.test.ts    imports runDriverContractSuite + FAKE_CONTRACT_FIXTURES
- *   #16 — snapshot.contract.test.ts   imports runDriverContractSuite + FAKE_CONTRACT_FIXTURES
+ *   #14 — lifecycle.contract.test.ts  imports runLifecycleContract
+ *   #15 — driving.contract.test.ts    imports runDrivingContract
+ *   #16 — snapshot.contract.test.ts   imports runSnapshotContract
  *   E2  — crawl engine unit tests     import FakeMobileDriver
+ *   Fake — fake-driver.contract.test.ts imports runDriverContractSuite + FAKE_CONTRACT_FIXTURES
  */
 
 export { FakeMobileDriver, DEFAULT_FAKE_UDID } from "./FakeMobileDriver.js";
@@ -25,14 +29,36 @@ export {
   InvalidInputError,
 } from "./FakeMobileDriver.js";
 
-export { runDriverContractSuite } from "./driver-contract.js";
+export {
+  runDriverContractSuite,
+  runLifecycleContract,
+  runDrivingContract,
+  runSnapshotContract,
+} from "./driver-contract.js";
 export type {
+  // Combined (aggregator / Fake) types — backward compatible
   FullDriver,
   DriverFactory,
   ContractFixtures,
   ContractErrorClasses,
   DriverContractSuiteOptions,
   ErrorConstructor,
+  // Per-capability partial types (ADR-0003 §1.1)
+  SimulatorLifecyclePartial,
+  MobileDriverDrivingPartial,
+  SnapshotPartial,
+  // Per-capability factory types
+  LifecycleFactory,
+  DrivingFactory,
+  SnapshotFactory,
+  // Per-capability fixture types
+  LifecycleFixtures,
+  DrivingFixtures,
+  SnapshotFixtures,
+  // Per-capability error-class bundles
+  LifecycleErrorClasses,
+  DrivingErrorClasses,
+  SnapshotErrorClasses,
 } from "./driver-contract.js";
 
 // ---------------------------------------------------------------------------
