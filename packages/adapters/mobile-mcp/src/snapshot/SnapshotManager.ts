@@ -24,9 +24,13 @@
  *   resetToSnapshot: `simctl shutdown <udid>` (non-fatal) -> `simctl erase <udid>`.
  *   The same udid is preserved at factory-clean state.
  *
- * Security controls (threat model T1 / T8):
+ * Security controls (threat model T1 / T2 / T8):
  *   - snapshotName validated against ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ BEFORE argv construction.
  *   - udid validated against UUID format before argv construction.
+ *   - appBundlePath validated by AppBundlePathValidator (T2 / CWE-22 / CWE-88):
+ *       - Synchronous fast-fail at construction/ingress: leading '-', '..' segments, '.app' ext.
+ *       - Async confinement validation at takeSnapshot (ingress) AND at restore sink (depth).
+ *       - fs.realpath canonicalization + base-dir confinement + directory check.
  *   - All simctl calls go through the injected Exec seam (argv array, shell:false).
  *   - resetToSnapshot verifies the device exists (DeviceNotFoundError) BEFORE the registry
  *     lookup — device-first contract per ADR-0003 §2.
@@ -41,6 +45,7 @@ import type { McpServerConfig } from "../connection/connection-config.js";
 import type { Exec } from "../simctl.js";
 import { runSimctlWithTimeout } from "../simctl.js";
 import { McpAdapterError, DeviceNotFoundError } from "../connection/errors.js";
+import { AppBundlePathValidator, type FsAccess } from "./AppBundlePathValidator.js";
 
 // ---------------------------------------------------------------------------
 // Snapshot-specific error type (extends #12 base — DRY per ADR-0002 §2.4)
@@ -66,14 +71,14 @@ export class SnapshotNotFoundError extends McpAdapterError {
 }
 
 /**
- * Thrown when a snapshotName or udid fails the allowlist validation.
+ * Thrown when a snapshotName, udid, or appBundlePath fails allowlist validation.
  * Extends McpAdapterError so callers can catch the base and still distinguish.
  */
 export class InvalidSnapshotInputError extends McpAdapterError {
   constructor(field: string, value: unknown) {
     super(
       `InvalidSnapshotInputError: "${field}" value failed validation — ` +
-        `value rejected to prevent argument injection (T1 threat model). ` +
+        `value rejected to prevent argument injection (T1/T2 threat model). ` +
         `received: ${JSON.stringify(String(value)).slice(0, VALIDATION_DISPLAY_LIMIT)}`,
     );
     this.name = "InvalidSnapshotInputError";
@@ -144,6 +149,8 @@ interface SnapshotStrategy {
  *
  * erase-reinstall: erase the device then reinstall the captured app bundle.
  *   Used when an app bundle path was provided at SnapshotManager construction time.
+ *   appBundlePath is the CANONICALIZED path (output of AppBundlePathValidator.validate())
+ *   captured at takeSnapshot time.
  *
  * clean-install: erase only (factory reset, no app reinstall).
  *   Used when no app bundle path is available — resets to clean factory state.
@@ -154,7 +161,8 @@ type SnapshotRecord =
       /** The working device UDID that will be erased+reinstalled in place. */
       readonly sourceUdid: string;
       /**
-       * The .app bundle path captured at take-time.
+       * The canonicalized .app bundle path captured at take-time.
+       * Produced by AppBundlePathValidator.validate() — already confined + verified.
        * Used by simctl install <udid> <appBundlePath> during restore.
        */
       readonly appBundlePath: string;
@@ -180,7 +188,7 @@ type SnapshotRecord =
  *
  * takeSnapshot (no simctl op):
  *   Records { kind: 'erase-reinstall', sourceUdid, appBundlePath }.
- *   The app bundle path is provided at SnapshotManager construction time.
+ *   The app bundle path is the CANONICALIZED path from AppBundlePathValidator.validate().
  *
  * resetToSnapshot — exact simctl argv sequence issued (in order):
  *   1. xcrun simctl shutdown <sourceUdid>            (non-fatal; may already be shut down)
@@ -189,14 +197,16 @@ type SnapshotRecord =
  *   3. xcrun simctl install <sourceUdid> <appPath>   reinstalls the captured .app;
  *      the SAME udid now reflects the snapshotted clean state with the app present.
  *
- * Repeated take->mutate->reset cycles:
- *   Each reset issues the same shutdown->erase->install sequence on the same udid,
- *   producing the identical clean baseline every time.
+ * Security (T2 / defense-in-depth):
+ *   The appBundlePath in the record is already the canonicalized output of
+ *   AppBundlePathValidator.validate() from takeSnapshot. SnapshotManager.resetToSnapshot()
+ *   re-runs validate() before calling restore() (sink-level defense), so a record with a
+ *   stale or tampered path cannot reach simctl install.
  *
  * All T1 compliance: argv arrays only, validated inputs, injected Exec.
  */
 class EraseReinstallStrategy implements SnapshotStrategy {
-  constructor(private readonly appBundlePath: string) {}
+  constructor(private readonly validatedAppBundlePath: string) {}
 
   async take(
     udid: string,
@@ -204,11 +214,11 @@ class EraseReinstallStrategy implements SnapshotStrategy {
     _exec: Exec,
     _timeoutMs: number,
   ): Promise<SnapshotRecord> {
-    // No simctl op at take-time; record the app path to reinstall on restore.
+    // No simctl op at take-time; record the canonicalized path to reinstall on restore.
     return Promise.resolve({
       kind: "erase-reinstall",
       sourceUdid: udid,
-      appBundlePath: this.appBundlePath,
+      appBundlePath: this.validatedAppBundlePath,
     });
   }
 
@@ -236,6 +246,8 @@ class EraseReinstallStrategy implements SnapshotStrategy {
     );
 
     // Step 3 — reinstall the captured .app so the same udid reflects the snapshotted state.
+    // appBundlePath is the defense-in-depth re-validated canonicalized path
+    // (see SnapshotManager.resetToSnapshot — it re-validates before calling restore).
     await runSimctlWithTimeout(
       ["install", record.sourceUdid, record.appBundlePath],
       exec,
@@ -317,6 +329,9 @@ export type SnapshotKind = "erase-reinstall" | "clean-install";
  *   - appBundlePath: optional .app path; when provided, the default strategy is
  *     'erase-reinstall' (shutdown->erase->install on the same udid). When null/omitted,
  *     the default strategy is 'clean-install' (shutdown->erase only).
+ *   - appBundleBaseDir: allowlisted base directory for appBundlePath confinement (T2).
+ *     Required when appBundlePath is provided; ignored otherwise.
+ *   - fsAccess: injectable filesystem abstraction for AppBundlePathValidator (T2/unit tests).
  *
  * ADR-0003 §2 — device-first contract:
  *   Both takeSnapshot and resetToSnapshot call requireDeviceExists AFTER input
@@ -332,32 +347,61 @@ export class SnapshotManager implements SnapshotCapability {
   private readonly registry = new Map<string, SnapshotRecord>();
 
   /** Strategy instances (singleton within this manager). */
-  private readonly eraseReinstallStrategy: EraseReinstallStrategy | null;
   private readonly cleanInstallStrategy = new CleanInstallStrategy();
 
   /** The effective default strategy kind (resolved from constructor args). */
   private readonly resolvedKind: SnapshotKind;
 
   /**
-   * @param connection    - shared McpConnection (wave-1 seam; not used for simctl ops)
-   * @param config        - server config (callTimeoutMs used as simctl timeout)
-   * @param exec          - injectable xcrun executor (T1 compliance + unit-testability)
-   * @param appBundlePath - optional path to the .app bundle to reinstall on restore.
-   *                        When provided, 'erase-reinstall' is the default strategy
-   *                        (shutdown->erase->install). When omitted/null, 'clean-install'
-   *                        is the default (shutdown->erase only).
+   * AppBundlePathValidator for the injected appBundlePath.
+   * null when no appBundlePath is provided (clean-install strategy).
+   */
+  private readonly appBundleValidator: AppBundlePathValidator | null;
+
+  /**
+   * @param connection       - shared McpConnection (wave-1 seam; not used for simctl ops)
+   * @param config           - server config (callTimeoutMs used as simctl timeout)
+   * @param exec             - injectable xcrun executor (T1 compliance + unit-testability)
+   * @param appBundlePath    - optional path to the .app bundle to reinstall on restore.
+   *                           When provided, 'erase-reinstall' is the default strategy
+   *                           (shutdown->erase->install). When omitted/null, 'clean-install'
+   *                           is the default (shutdown->erase only).
+   * @param appBundleBaseDir - allowlisted base directory for appBundlePath confinement (T2).
+   *                           Required when appBundlePath is non-null; must be an absolute path
+   *                           to the directory that contains trusted .app bundles.
+   *                           When null/omitted and appBundlePath is provided, defaults to
+   *                           the parent directory of appBundlePath (conservative confinement).
+   * @param fsAccess         - injectable filesystem abstraction (for unit testing; defaults to
+   *                           node:fs/promises realpath + stat).
    */
   constructor(
     protected readonly connection: McpConnection,
     protected readonly config: McpServerConfig,
     protected readonly exec: Exec,
     appBundlePath: string | null = null,
+    appBundleBaseDir: string | null = null,
+    fsAccess?: FsAccess,
   ) {
     if (appBundlePath !== null) {
-      this.eraseReinstallStrategy = new EraseReinstallStrategy(appBundlePath);
+      // Resolve the effective base directory.
+      // If caller did not supply one, use the parent directory of the appBundlePath.
+      // This is the most conservative confinement: the .app must live in its own dir.
+      const effectiveBaseDir =
+        appBundleBaseDir !== null
+          ? appBundleBaseDir
+          : deriveParentDir(appBundlePath);
+
+      // AppBundlePathValidator performs synchronous fast-fail checks at construction
+      // (leading dash, '..' segments, '.app' extension).
+      // The async validate() call happens at takeSnapshot + restore sink (defense in depth).
+      this.appBundleValidator = new AppBundlePathValidator(
+        appBundlePath,
+        effectiveBaseDir,
+        fsAccess,
+      );
       this.resolvedKind = "erase-reinstall";
     } else {
-      this.eraseReinstallStrategy = null;
+      this.appBundleValidator = null;
       this.resolvedKind = "clean-install";
     }
   }
@@ -366,6 +410,8 @@ export class SnapshotManager implements SnapshotCapability {
    * Take a named snapshot of the simulator at udid.
    *
    * Security (T1): validates both udid and snapshotName before any argv construction.
+   * Security (T2 / ingress): validates appBundlePath via AppBundlePathValidator.validate()
+   *   BEFORE the snapshot is recorded — canonicalized path stored in the registry.
    * ADR-0003 §2: verifies device existence AFTER input validation, BEFORE any operation.
    * Security (T3): bounded by config.callTimeoutMs.
    */
@@ -374,10 +420,14 @@ export class SnapshotManager implements SnapshotCapability {
     validateUdid(udid);
     validateSnapshotName(snapshotName);
 
+    // T2 / ingress — validate and canonicalize appBundlePath BEFORE recording.
+    // For the clean-install strategy this is a no-op (validator is null).
+    const canonicalizedPath = await this.validateAppBundlePath();
+
     // ADR-0003 §2 — device-first: verify the udid exists before any operation.
     await this.requireDeviceExists(udid);
 
-    const strategy = this.selectStrategy(this.resolvedKind);
+    const strategy = this.selectStrategy(this.resolvedKind, canonicalizedPath);
     const record = await strategy.take(udid, snapshotName, this.exec, this.config.callTimeoutMs);
 
     this.registry.set(this.registryKey(udid, snapshotName), record);
@@ -389,6 +439,9 @@ export class SnapshotManager implements SnapshotCapability {
    * Security (T1): validates both udid and snapshotName before any argv construction.
    * ADR-0003 §2 — device-first: verifies device existence AFTER input validation, BEFORE
    *   the registry lookup. Unknown UDID -> DeviceNotFoundError regardless of registry state.
+   * Security (T2 / sink — defense in depth): re-validates appBundlePath via
+   *   AppBundlePathValidator.validate() immediately before simctl install is invoked.
+   *   This ensures the path is confined even if the record were somehow stale or tampered.
    * Security (T8): throws SnapshotNotFoundError if device is known but name was never
    *   registered (NEVER no-ops — known-device + unknown-snapshot is the T8 case).
    * Security (T3): bounded by config.callTimeoutMs.
@@ -409,8 +462,18 @@ export class SnapshotManager implements SnapshotCapability {
       throw new SnapshotNotFoundError(snapshotName, udid);
     }
 
-    const strategy = this.selectStrategy(record.kind);
-    await strategy.restore(record, this.exec, this.config.callTimeoutMs);
+    // T2 / sink — defense in depth: re-validate appBundlePath immediately before
+    // any simctl install call. This prevents a tampered or stale record from
+    // reaching the simctl sink.
+    // For clean-install records (no appBundlePath), this is a no-op.
+    const canonicalizedPath = await this.validateAppBundlePath();
+
+    // Build a fresh strategy using the re-validated canonicalized path.
+    // This overwrites the stored path in the record at restore time,
+    // ensuring the sink always uses the freshly validated path.
+    const strategy = this.selectStrategy(record.kind, canonicalizedPath);
+    const effectiveRecord = this.buildEffectiveRecord(record, canonicalizedPath);
+    await strategy.restore(effectiveRecord, this.exec, this.config.callTimeoutMs);
   }
 
   // ---------------------------------------------------------------------------
@@ -422,16 +485,50 @@ export class SnapshotManager implements SnapshotCapability {
     return `${udid}::${name}`;
   }
 
+  /**
+   * Validate and canonicalize the appBundlePath via AppBundlePathValidator.
+   * Returns the canonicalized path for erase-reinstall, or null for clean-install.
+   * Throws InvalidSnapshotInputError on any path violation (T2).
+   */
+  private async validateAppBundlePath(): Promise<string | null> {
+    if (this.appBundleValidator === null) {
+      return null;
+    }
+    return this.appBundleValidator.validate();
+  }
+
+  /**
+   * Build a SnapshotRecord that uses the freshly validated canonicalized path.
+   * For erase-reinstall records, replaces the stored appBundlePath with the
+   * defense-in-depth re-validated path. For clean-install records, returns as-is.
+   */
+  private buildEffectiveRecord(
+    record: SnapshotRecord,
+    canonicalizedPath: string | null,
+  ): SnapshotRecord {
+    if (record.kind === "erase-reinstall" && canonicalizedPath !== null) {
+      return {
+        kind: "erase-reinstall",
+        sourceUdid: record.sourceUdid,
+        appBundlePath: canonicalizedPath,
+      };
+    }
+    return record;
+  }
+
   /** Select the concrete strategy matching the requested kind. */
-  private selectStrategy(kind: SnapshotKind): SnapshotStrategy {
+  private selectStrategy(
+    kind: SnapshotKind,
+    canonicalizedPath: string | null,
+  ): SnapshotStrategy {
     if (kind === "erase-reinstall") {
-      if (!this.eraseReinstallStrategy) {
+      if (canonicalizedPath === null) {
         throw new McpAdapterError(
-          `EraseReinstallStrategy selected but no appBundlePath was provided. ` +
+          `EraseReinstallStrategy selected but no appBundlePath was provided or validated. ` +
             `Pass an appBundlePath to the SnapshotManager constructor to use 'erase-reinstall'.`,
         );
       }
-      return this.eraseReinstallStrategy;
+      return new EraseReinstallStrategy(canonicalizedPath);
     }
     return this.cleanInstallStrategy;
   }
@@ -486,4 +583,19 @@ export class SnapshotManager implements SnapshotCapability {
     // Recurse into all values.
     return Object.values(obj).some((val) => this.containsUdid(val, udid));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Module-private helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive the parent directory of a path string (without using path.dirname,
+ * to avoid importing node:path into a security-critical file unnecessarily).
+ * Falls back to "/" for paths with no directory component.
+ */
+function deriveParentDir(filePath: string): string {
+  const lastSlash = filePath.lastIndexOf("/");
+  if (lastSlash <= 0) return "/";
+  return filePath.slice(0, lastSlash);
 }

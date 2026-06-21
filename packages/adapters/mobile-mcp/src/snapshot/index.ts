@@ -17,3 +17,6 @@ export {
 } from "./SnapshotManager.js";
 
 export type { SnapshotKind } from "./SnapshotManager.js";
+
+export { AppBundlePathValidator } from "./AppBundlePathValidator.js";
+export type { FsAccess } from "./AppBundlePathValidator.js";
