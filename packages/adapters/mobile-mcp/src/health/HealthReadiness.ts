@@ -3,14 +3,26 @@
  *
  * E1.6 — Health / readiness checks.
  *
- * Implements `checkReadiness(bundleId?)` with:
- *   1. MCP reachability: `listTools()` — if this fails terminally, the MCP server is down.
- *   2. WebDriverAgent probe: calls a lightweight driving tool (`mobile_get_screen_size`)
- *      that exercises WDA. If the tool is absent in the tool list, WDA is considered not ready.
- *   3. App launched (optional): calls `mobile_list_apps` with a bundleId to detect if the
- *      target app is in the foreground (only when a bundleId is provided).
- *   4. Bounded polling: retries every `pollIntervalMs` until `readinessTimeoutMs` elapses,
- *      then resolves with a `timed-out` result — never hangs (T3 / AC5).
+ * Implements two public methods:
+ *
+ * `checkOnce(bundleId?)` — performs a SINGLE probe cycle (no retry loop).
+ *   Returns one of:
+ *     - `ready`     : MCP up + WDA up + (optionally) app launched.
+ *     - `not-ready` : MCP up but WDA / app not yet ready; `retryable:true`.
+ *                     The caller (or E2E orchestrator) polls at their chosen rate.
+ *     - `terminal`  : MCP unreachable — no retry will help; `retryable:false`.
+ *   This is the canonical way to observe the RETRYABLE not-ready signal (AC2/AC3).
+ *
+ * `checkReadiness(bundleId?)` — bounded polling loop; implements HealthCapability.
+ *   Calls `checkOnce()` repeatedly until `ready`, `terminal`, or `readinessTimeoutMs`
+ *   elapses, then resolves with a `timed-out` result (never hangs — T3/AC5).
+ *   Callers that want the poll loop use this; callers that poll themselves use `checkOnce`.
+ *
+ * Steps inside each probe:
+ *   1. MCP reachability: `listTools()` — if this fails terminally, MCP server is down.
+ *   2. WebDriverAgent probe: `mobile_get_screen_size` — exercises WDA without UI side-effect.
+ *      If the tool is absent in the tool list, WDA is considered not ready.
+ *   3. App launched (optional): `mobile_list_apps` — checks if bundleId is in the app list.
  *
  * Design (ADR-0002 §2.1, §5/#17):
  *   - SRP: HealthReadiness owns ONLY the readiness check; no lifecycle, no driving.
@@ -42,6 +54,7 @@ import type {
   NowFn,
   SleepFn,
 } from "./readiness-result.js";
+import { HealthCheckTerminalError } from "./readiness-result.js";
 
 // ---------------------------------------------------------------------------
 // MCP tool names used for probing
@@ -54,8 +67,9 @@ import type {
 const TOOL_WDA_PROBE = "mobile_get_screen_size";
 
 /**
- * Tool used to enumerate running apps — used to detect whether a specific bundleId
- * is in the foreground. Returns a list of installed/running apps with their bundle ids.
+ * Tool used to enumerate the apps known to the simulator.
+ * Used to detect whether a specific bundleId is present in the list.
+ * Returns a list of app objects with `bundleId` and other metadata.
  */
 const TOOL_LIST_APPS = "mobile_list_apps";
 
@@ -106,16 +120,42 @@ export class HealthReadiness implements HealthCapability {
   }
 
   // ---------------------------------------------------------------------------
-  // Public API — implements HealthCapability (covariant return type)
+  // Public API — single-probe (AC2 observable retryable not-ready signal)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Perform a SINGLE readiness probe — no retry loop.
+   *
+   * This is the canonical API for AC2: it directly returns a `not-ready (retryable:true)`
+   * result when WDA has not yet come up, without hanging or waiting for the full timeout.
+   * Callers (e.g. an E2E orchestrator) can poll `checkOnce()` at their own rate.
+   *
+   * Returns:
+   *   - `ready`     : MCP up + WDA up; optionally appLaunched per bundleId.
+   *   - `not-ready` : MCP reachable but WDA / app not yet ready. `retryable:true`.
+   *   - `terminal`  : MCP server unreachable. `retryable:false`.
+   *
+   * Never hangs: each internal tool call is bounded by `probeTimeoutMs` (T3).
+   *
+   * @param bundleId - optional app bundle id; when provided, also probes app-launched.
+   */
+  checkOnce(bundleId?: string): Promise<DetailedReadinessResult> {
+    return this.probeOnce(bundleId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public API — bounded polling loop (implements HealthCapability)
   // ---------------------------------------------------------------------------
 
   /**
    * Check readiness with bounded polling.
    *
-   * Polls until:
+   * Polls `checkOnce()` until:
    *   a) the adapter-spawned MCP server + WDA are ready (optionally app launched), OR
    *   b) the configured `readinessTimeoutMs` elapses → resolves with `timed-out`, OR
    *   c) a terminal (non-retryable) error occurs → resolves with `terminal`.
+   *
+   * Implements `HealthCapability.checkReadiness()` (covariant return type).
    *
    * @param bundleId - optional app bundle id; when provided, also probes app-launched.
    *                   Callers pass the target app's bundleId here (the HealthCapability
@@ -173,13 +213,12 @@ export class HealthReadiness implements HealthCapability {
 
   /**
    * Probe MCP reachability via listTools(). Returns the tool list on success.
-   * On failure, returns a terminal result.
+   * Throws `HealthCheckTerminalError` on hard failures, which `probeOnce` converts
+   * to a `terminal` result (resolves — never propagates the throw to callers).
    *
    * Security (T5): catch blocks capture only the error category, not secrets.
    */
-  private async probeMcp(): Promise<
-    { ok: true; tools: readonly { name: string }[] } | { ok: false; terminal: DetailedReadinessResult }
-  > {
+  private async probeMcp(): Promise<{ ok: true; tools: readonly { name: string }[] }> {
     try {
       const tools = await this.withProbeTimeout(
         this.connection.listTools(),
@@ -188,29 +227,15 @@ export class HealthReadiness implements HealthCapability {
       return { ok: true, tools };
     } catch (err) {
       if (err instanceof McpNotConnectedError) {
-        return {
-          ok: false,
-          terminal: {
-            kind: "terminal",
-            mcpReachable: false,
-            wdaUp: false,
-            appLaunched: null,
-            retryable: false,
-            cause: "MCP server not connected — call connect() before checking readiness",
-          },
-        };
+        throw new HealthCheckTerminalError(
+          "MCP server not connected — call connect() before checking readiness",
+          err,
+        );
       }
-      return {
-        ok: false,
-        terminal: {
-          kind: "terminal",
-          mcpReachable: false,
-          wdaUp: false,
-          appLaunched: null,
-          retryable: false,
-          cause: `MCP server unreachable: ${categorizeError(err)}`,
-        },
-      };
+      throw new HealthCheckTerminalError(
+        `MCP server unreachable: ${categorizeError(err)}`,
+        err instanceof Error ? err : new Error(String(err)),
+      );
     }
   }
 
@@ -220,7 +245,7 @@ export class HealthReadiness implements HealthCapability {
 
   /**
    * Probe WebDriverAgent via the lightweight screen-size tool call.
-   * Returns `true` if WDA responded, a retryable not-ready result otherwise.
+   * Returns `{ ok: true }` if WDA responded, or a retryable not-ready result otherwise.
    *
    * Security (T5): only error category is included in the reason string.
    */
@@ -263,12 +288,30 @@ export class HealthReadiness implements HealthCapability {
    *   - `terminal`  : MCP server is unreachable (hard fail — no retry will help).
    *   - `not-ready` : MCP is up but WDA / app is not ready yet (retry is appropriate).
    *   - `ready`     : both MCP and WDA are up; appLaunched matches bundleId check.
+   *
+   * Never throws: `HealthCheckTerminalError` from `probeMcp` is caught and converted
+   * to a `terminal` result here, keeping the API resolve-only.
    */
   private async probeOnce(bundleId?: string): Promise<DetailedReadinessResult> {
     // Step 1 — MCP reachability.
-    const mcpResult = await this.probeMcp();
-    if (!mcpResult.ok) {
-      return mcpResult.terminal;
+    let mcpResult: { ok: true; tools: readonly { name: string }[] };
+    try {
+      mcpResult = await this.probeMcp();
+    } catch (err) {
+      // probeMcp throws HealthCheckTerminalError on hard failures.
+      // Convert to terminal result so callers never see a thrown exception.
+      const cause =
+        err instanceof HealthCheckTerminalError
+          ? err.message.replace(/^Health check terminal failure:\s*/, "")
+          : categorizeError(err);
+      return {
+        kind: "terminal",
+        mcpReachable: false,
+        wdaUp: false,
+        appLaunched: null,
+        retryable: false,
+        cause,
+      };
     }
 
     const { tools } = mcpResult;
@@ -311,11 +354,14 @@ export class HealthReadiness implements HealthCapability {
   // ---------------------------------------------------------------------------
 
   /**
-   * Check whether the target bundleId app is launched / in the foreground.
+   * Check whether the target bundleId app is present in the simulator's app list.
    *
    * Calls `mobile_list_apps` and checks if the bundleId appears in the result.
-   * Returns `true` if launched, `false` if not, `null` on probe error
-   * (we do not fail the whole readiness check if the app-list call fails).
+   * Returns `true` if the bundleId is found, `false` if not found, `null` on
+   * probe error (we do not fail the whole readiness check if the app-list call fails).
+   *
+   * Note: presence in the list indicates the app is known/running; the exact launch
+   * state (foreground/background) is not checked here.
    *
    * Security (T5): bundleId is used only as a comparison value — never echoed in output.
    */
@@ -403,7 +449,8 @@ function categorizeError(err: unknown): string {
  * Parse the `mobile_list_apps` tool result and check if `bundleId` appears.
  *
  * The tool returns an array of app objects with a `bundleId` string field.
- * If the response shape is unexpected, returns `null` (unknown — do not fail readiness).
+ * Presence in the list indicates the app is known/running (exact launch state
+ * is not inspected here). Returns `null` when the response shape is unexpected.
  *
  * Security: bundleId is used only as a comparison value — never echoed into error output.
  */
