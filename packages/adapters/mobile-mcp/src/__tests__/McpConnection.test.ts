@@ -394,10 +394,15 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
     await expect(stub.resetToSnapshot("udid", "snap")).rejects.toThrow(/InvalidSnapshotInputError/);
   });
 
-  it("HealthStub.checkReadiness throws NotImplemented", async () => {
+  it("HealthStub.checkReadiness resolves with ReadinessTerminal (#17 real impl — McpNotConnectedError)", async () => {
+    // #17 replaced the HealthStub with the real HealthReadiness implementation.
+    // fakeConnection.listTools() throws McpNotConnectedError (connection not yet established),
+    // so the real impl returns a terminal result rather than "not yet implemented".
     const { HealthStub } = await import("../health/index.js");
     const stub = new HealthStub(fakeConnection, BASE_CONFIG);
-    await expect(stub.checkReadiness()).rejects.toThrow("not yet implemented");
+    const result = await stub.checkReadiness();
+    expect(result.mcpReachable).toBe(false);
+    expect(result.wdaUp).toBe(false);
   });
 });
 

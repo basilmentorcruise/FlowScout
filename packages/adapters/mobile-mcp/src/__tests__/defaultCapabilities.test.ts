@@ -111,7 +111,7 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     // We verify exec is wired in by confirming listDevices() calls exec (not rejected).
     // Since #15 landed, driving is the real DeviceDriver that validates UDIDs.
     // Since #16 landed, snapshot is the real SnapshotManager — validates inputs (T1) first.
-    // health (#17 not yet landed) still rejects with NotImplemented.
+    // Since #17 landed, health is the real HealthReadiness — resolves (no longer throws).
     const distinctExec: Exec = vi
       .fn()
       .mockResolvedValue({ stdout: '{"devices":{}}', stderr: '' });
@@ -128,8 +128,12 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     // driving (#15 real impl) — rejects "udid" with InvalidInputError (T1 UDID validation).
     const { InvalidInputError } = await import("../driving/normalization.js");
     await expect(bundle.driving.screenshot("udid")).rejects.toBeInstanceOf(InvalidInputError);
-    // health (#17 stub) — still not yet implemented.
-    await expect(bundle.health.checkReadiness()).rejects.toThrow("not yet implemented");
+    // health (#17 real impl) — HealthReadiness replaces the stub.
+    // The McpConnection injected into the bundle is not yet connected, so listTools()
+    // throws McpNotConnectedError → checkReadiness() returns a terminal result (not a rejection).
+    const healthResult = await bundle.health.checkReadiness();
+    expect(healthResult.mcpReachable).toBe(false);
+    expect(healthResult.wdaUp).toBe(false);
   });
 
   it("bundle contains all four capability keys with correct method surfaces", async () => {

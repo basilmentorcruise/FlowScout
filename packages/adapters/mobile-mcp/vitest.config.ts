@@ -26,7 +26,8 @@ export default mergeConfig(
           // now covered by src/__tests__/driving.test.ts).
           // NOTE: "src/snapshot/**" REMOVED (#16 landed — SnapshotManager is now the real
           // impl and its coverage is measured by snapshot.test.ts).
-          "src/health/**",
+          // NOTE: "src/health/**" REMOVED (#17 landed — HealthReadiness + readiness-result.ts
+          // are now the real impl and their coverage is measured by health.test.ts).
           // createDefaultExec / createDefaultTransport: real I/O implementations
           // (child_process.execFile, StdioClientTransport). These are covered by
           // the #18 macOS E2E round-trip. Unit tests inject fake Exec / TransportFactory

@@ -1,44 +1,36 @@
 /**
- * health/index.ts — stub for the health/readiness capability module.
+ * health/index.ts — real implementation barrel for the health/readiness capability.
  *
- * #12 OWNS THIS FILE as a NotImplemented stub.
- * #17 (E1.6 — Health/readiness checks) REPLACES this file entirely with
- * the real HealthReadiness implementation.
+ * #17 (E1.6 — Health/readiness checks) OWNS AND REPLACES this file.
+ * The stub (`HealthStub`) shipped by #12 is removed; this file re-exports the real
+ * `HealthReadiness` class under the alias `HealthStub` so `capabilities.ts` (which is
+ * FROZEN by #12) continues to compile without any edits.
  *
- * Do NOT add logic here — stub only.
+ * Alias rationale: `capabilities.ts` imports `{ HealthStub }` from `../health/index.js`.
+ * We preserve that import name by re-exporting `HealthReadiness` as `HealthStub`.
+ * Any caller that imported `HealthStub` now gets the real implementation transparently.
  *
- * Constructor seam (Wave-1 contract):
- * #17 replaces this class body ONLY — it receives the shared McpConnection
- * and the server config (for call timeouts).
- * It NEVER edits capabilities.ts or the facade.
+ * Public surface for callers who want the richer types directly:
+ *   - `HealthReadiness`          — the capability class
+ *   - `DetailedReadinessResult`  — the discriminated union
+ *   - `HealthReadinessConfig`    — the config slice
+ *   - `DEFAULT_HEALTH_CONFIG`    — sensible production defaults
+ *   - `HealthCheckTerminalError` — error class for terminal failures
  */
 
-import type { HealthCapability, ReadinessResult } from "../connection/capabilities.js";
-import type { McpConnection } from "../connection/McpConnection.js";
-import type { McpServerConfig } from "../connection/connection-config.js";
+export { HealthReadiness } from "./HealthReadiness.js";
+export { HealthReadiness as HealthStub } from "./HealthReadiness.js";
+export { DEFAULT_HEALTH_CONFIG } from "./HealthReadiness.js";
 
-function notImplemented(method: string): Promise<never> {
-  return Promise.reject(
-    new Error(`HealthCapability.${method} is not yet implemented — see ticket #17 (E1.6).`),
-  );
-}
+export type {
+  DetailedReadinessResult,
+  ReadinessReady,
+  ReadinessNotReady,
+  ReadinessTimedOut,
+  ReadinessTerminal,
+  HealthReadinessConfig,
+  NowFn,
+  SleepFn,
+} from "./readiness-result.js";
 
-/** Stub implementation — all methods throw NotImplemented. */
-export class HealthStub implements HealthCapability {
-  /**
-   * Wave-1 seam: #17 replaces this class and wires these params into the real implementation.
-   * Stored as protected fields so Wave-1 inherits the declarations without touching
-   * capabilities.ts (the frozen file).
-   *
-   * @param connection - shared McpConnection (used by real impl for MCP tool calls)
-   * @param config     - server config slice (callTimeoutMs for every tool call)
-   */
-  constructor(
-    protected readonly connection: McpConnection,
-    protected readonly config: McpServerConfig,
-  ) {}
-
-  checkReadiness(_udid?: string): Promise<ReadinessResult> {
-    return notImplemented("checkReadiness");
-  }
-}
+export { HealthCheckTerminalError } from "./readiness-result.js";
