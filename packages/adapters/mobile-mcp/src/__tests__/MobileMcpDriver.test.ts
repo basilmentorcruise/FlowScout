@@ -186,7 +186,7 @@ describe("MobileMcpDriver — facade delegation", () => {
 // As of #14, lifecycle is the real SimulatorLifecycleManager.
 // As of #15, driving is the real DeviceDriver.
 // As of #16, snapshot is the real SnapshotManager.
-// health (#17) is still a stub.
+// As of #17, health is the real HealthReadiness.
 // ---------------------------------------------------------------------------
 
 describe("MobileMcpDriver — default capability behavior", () => {
