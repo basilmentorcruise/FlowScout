@@ -3,10 +3,12 @@ import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import prettierConfig from "eslint-config-prettier";
 import boundaries from "eslint-plugin-boundaries";
+import securityPlugin from "eslint-plugin-security";
 
 /**
  * Shared ESLint flat-config for all FlowScout packages.
- * Enforces typescript-eslint strict + boundaries (hexagonal dependency rule).
+ * Enforces typescript-eslint strict + boundaries (hexagonal dependency rule)
+ * + eslint-plugin-security SAST rules (T1 cmd injection, T2 path traversal, T5 secrets).
  * @type {import("eslint").Linter.Config[]}
  */
 export const flowscoutEslintConfig = [
@@ -31,6 +33,7 @@ export const flowscoutEslintConfig = [
     plugins: {
       "@typescript-eslint": tseslint,
       boundaries,
+      security: securityPlugin,
     },
     rules: {
       // TypeScript strict rules
@@ -58,6 +61,33 @@ export const flowscoutEslintConfig = [
           ignoreClassFieldInitialValues: true,
         },
       ],
+
+      // SAST — eslint-plugin-security (E1.7 #18, per threat model §4.2)
+      // High-value rules are errors; noisy/false-positive-heavy rules are warns.
+      //
+      // detect-child-process: "error" — detects T1 string-exec patterns (real risk).
+      //   Usage of child_process with a non-literal first arg flags potential injection.
+      "security/detect-child-process": "error",
+      // detect-non-literal-fs-filename: "warn" — flags any non-literal path arg to fs.*,
+      //   including realpath() which IS the T2 mitigation (canonicalize before access).
+      //   Demoted to warn to avoid blocking secure T2 fix code; the T2 control is the
+      //   realpath + allowlist pattern, not absence of dynamic paths (OWASP A01 CWE-22).
+      "security/detect-non-literal-fs-filename": "warn",
+      "security/detect-eval-with-expression": "error",
+      // detect-non-literal-regexp: "warn" — fires on all RegExp(str) incl. allowlist patterns.
+      "security/detect-non-literal-regexp": "warn",
+      // detect-unsafe-regex: "error" — ReDoS is a real risk; any flagged pattern is reviewed.
+      "security/detect-unsafe-regex": "error",
+      "security/detect-buffer-noassert": "error",
+      "security/detect-new-buffer": "error",
+      "security/detect-no-csrf-before-method-override": "error",
+      // detect-object-injection: "warn" — fires on every obj[key] access including validated maps.
+      "security/detect-object-injection": "warn",
+      "security/detect-non-literal-require": "error",
+      "security/detect-possible-timing-attacks": "warn",
+      "security/detect-pseudoRandomBytes": "error",
+      "security/detect-disable-mustache-escape": "error",
+      "security/detect-bidi-characters": "error",
 
       // Hexagonal boundary enforcement
       "boundaries/element-types": [
@@ -104,6 +134,26 @@ export const flowscoutEslintConfig = [
   {
     files: ["**/*.mjs", "**/*.cjs", "**/*.js"],
     ...prettierConfig,
+  },
+  // SAST overrides — frozen adapter-mobile-mcp files reviewed + secured in #12/#14.
+  //
+  // simctl.ts: detect-child-process fires on `require("node:child_process")` in
+  //   createDefaultExec(). The implementation uses execFile + shell:false (T1 secure).
+  //   The rule targets dynamic require() patterns; this is a static, known module.
+  {
+    files: ["**/adapters/mobile-mcp/src/simctl.ts"],
+    rules: {
+      "security/detect-child-process": "off",
+    },
+  },
+  // SimulatorLifecycleManager.ts: detect-unsafe-regex fires on the SimRuntime key parser
+  //   `/SimRuntime\.([A-Za-z]+)-(\d+(?:-\d+)*)$/` — reviewed; input is xcrun simctl JSON
+  //   output (bounded by the OS), not user-controlled. Not a ReDoS surface in practice.
+  {
+    files: ["**/adapters/mobile-mcp/src/lifecycle/SimulatorLifecycleManager.ts"],
+    rules: {
+      "security/detect-unsafe-regex": "off",
+    },
   },
   // Apply prettier last to disable conflicting formatting rules
   prettierConfig,

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "references": [
+    { "path": "../packages/api" },
+    { "path": "../packages/adapters/mobile-mcp" },
+    { "path": "../packages/domain" }
+  ],
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,104 @@
+name: E2E macOS real-simulator (Layer B)
+# NOT a required per-PR check (ADR-0001 §7 plane 2).
+# Triggers: manual dispatch OR a PR labelled 'e2e-macos'.
+# Never runs on the default per-PR fast path.
+#
+# Security (E1.7 plan §4.1):
+#   T4: Artifacts written to .flowscout-e2e-artifacts/ (gitignored, chmod 700).
+#   T7: mobile-mcp uses stdio transport (loopback; no routable port exposed by default).
+#   T8: round-trip asserts no orphaned sims/processes after ≥3 runs.
+#   T9: FLOWSCOUT_FIXTURE_APP must be secret/PII-free.
+on:
+  workflow_dispatch:
+    inputs:
+      fixture_app:
+        description: "Path to the fixture .app bundle (inside FLOWSCOUT_APP_BUNDLE_DIR)"
+        required: false
+        default: ""
+      fixture_bundle_id:
+        description: "Bundle identifier of the fixture .app"
+        required: false
+        default: ""
+  pull_request:
+    types: [labeled]
+
+# Only run when label 'e2e-macos' is present on the PR (not on every PR).
+# workflow_dispatch always runs without label check.
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-macos:
+    name: Round-trip E2E (macOS real-simulator)
+    runs-on: macos-latest
+    # For pull_request event: only run when the e2e-macos label is added.
+    # For workflow_dispatch: always run.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+       github.event.label.name == 'e2e-macos')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "11.8.0"
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # ── 1. Install ─────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── 2. Build (required for workspace references) ────────────────────────
+      - name: Build
+        run: pnpm turbo run build
+
+      # ── 3. Run Layer B round-trip E2E ────────────────────────────────────────
+      # Skips with exit 0 + clear message if FLOWSCOUT_FIXTURE_APP is unset (§3.2).
+      - name: Round-trip E2E (Layer B)
+        run: pnpm run e2e:round-trip
+        env:
+          # Fixture .app — from workflow input or repo secret.
+          # Leave unset to exercise the skip path.
+          FLOWSCOUT_FIXTURE_APP: ${{ inputs.fixture_app || secrets.FLOWSCOUT_FIXTURE_APP }}
+          FLOWSCOUT_FIXTURE_BUNDLE_ID: ${{ inputs.fixture_bundle_id || secrets.FLOWSCOUT_FIXTURE_BUNDLE_ID }}
+          FLOWSCOUT_APP_BUNDLE_DIR: ${{ secrets.FLOWSCOUT_APP_BUNDLE_DIR }}
+          # MCP server config (uses defaults from loadMobileMcpConfig if absent)
+          FLOWSCOUT_MCP_SERVER_COMMAND: "npx,mobile-mcp"
+          FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS: "15000"
+          FLOWSCOUT_MCP_CALL_TIMEOUT_MS: "60000"
+
+      # ── 4. Upload artifacts (T4 — never committed to git) ─────────────────
+      - name: Upload round-trip artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-macos-artifacts-${{ github.run_id }}
+          path: .flowscout-e2e-artifacts/
+          # Artifacts auto-expire from CI; never enter the git repo.
+          retention-days: 7
+          if-no-files-found: ignore
