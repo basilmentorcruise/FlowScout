@@ -11,7 +11,13 @@ import type { AppPorts } from "@flowscout/application";
 // Adapters — the only files in this package that import concrete adapter classes.
 // *** SWAP POINT ***: change the import + the two MobileMcpDriver lines below to swap the driver.
 import { MobileMcpDriver } from "@flowscout/adapter-mobile-mcp";
-import { LlmAdapter, LlmDecisionPolicy } from "@flowscout/adapter-llm";
+import {
+  LlmAdapter,
+  createAnthropicClient,
+  assembleLlmPolicyFromPorts,
+  createPolicyChain,
+} from "@flowscout/adapter-llm";
+import { InMemoryDecisionCache } from "@flowscout/application";
 import {
   PrismaRunRepository,
   PrismaStateGraphRepository,
@@ -62,14 +68,22 @@ export function buildAppContext(): AppContext {
   // Read env-driven config once at root. No parsing logic inline (T5 — never log full config).
   const { driverConfig } = loadMobileMcpConfig();
 
-  const llm = new LlmAdapter();
+  // Build LLM chain: LLMPolicy (with InMemoryDecisionCache) as the leaf.
+  // NOTE: CachedKnowledgePolicy wrapping is wired in #37 (composition root E2.7).
+  // TODO (#37): wrap llmPolicy with CachedKnowledgePolicy as chain head.
+  const anthropicClient = createAnthropicClient();
+  const llm = new LlmAdapter(anthropicClient);
+  const cache = new InMemoryDecisionCache();
+  const llmPolicy = assembleLlmPolicyFromPorts(llm, cache);
+  const decisionPolicy = createPolicyChain(llmPolicy, llmPolicy);
+
   // SWAP POINT: change MobileMcpDriver to an alternate driver implementation here.
   const mobileDriver = new MobileMcpDriver(driverConfig);
 
   const ports: AppPorts = {
     mobileDriver,
     simulatorLifecycle: mobileDriver, // MobileMcpDriver implements both ports — single instance
-    decisionPolicy: new LlmDecisionPolicy(llm),
+    decisionPolicy,
     runRepository: new PrismaRunRepository(),
     stateGraphRepository: new PrismaStateGraphRepository(),
     reportRepository: new PrismaReportRepository(),

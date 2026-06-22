@@ -83,3 +83,6 @@ export type {
 
 export { A11ySignatureStrategy } from "./models/state-identity/A11ySignatureStrategy.js";
 export { CompositeStateIdentityStrategy } from "./models/state-identity/CompositeStateIdentityStrategy.js";
+
+// DecisionCachePort — additive domain port for the LLM decision cache (#36)
+export type { DecisionCachePort } from "./ports/DecisionCachePort.js";
