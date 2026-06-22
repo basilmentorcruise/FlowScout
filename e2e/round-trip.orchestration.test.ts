@@ -154,6 +154,47 @@ describe("roundTrip() — Layer A orchestration (FakeMobileDriver)", () => {
   });
 
   // -------------------------------------------------------------------------
+  // AC5/AC2: failure-injection — allSucceeded is genuinely falsifiable
+  // -------------------------------------------------------------------------
+
+  it("allSucceeded=false when tap throws (tapSucceeded captured from real outcome)", async () => {
+    // Inject a tap failure; the step is now wrapped in try/catch so it does NOT
+    // propagate — instead tapSucceeded=false and allSucceeded=false in the report.
+    vi.spyOn(driver, "tap").mockRejectedValueOnce(new Error("tap hardware fault"));
+
+    const report = await roundTrip(driver, { ...BASE_OPTS, iterations: 1 });
+    expect(report.allSucceeded).toBe(false);
+    expect(report.iterations[0]?.tapSucceeded).toBe(false);
+    // resetSucceeded can still be true (reset runs after tap failure)
+    expect(report.totalIterations).toBe(1);
+  });
+
+  it("allSucceeded=false when resetToSnapshot throws (resetSucceeded captured from real outcome)", async () => {
+    // Inject a reset failure; the step is now wrapped in try/catch so it does NOT
+    // propagate — instead resetSucceeded=false and allSucceeded=false in the report.
+    vi.spyOn(driver, "resetToSnapshot").mockRejectedValueOnce(new Error("reset hardware fault"));
+
+    const report = await roundTrip(driver, { ...BASE_OPTS, iterations: 1 });
+    expect(report.allSucceeded).toBe(false);
+    expect(report.iterations[0]?.resetSucceeded).toBe(false);
+    expect(report.iterations[0]?.tapSucceeded).toBe(true);
+    expect(report.totalIterations).toBe(1);
+  });
+
+  it("allSucceeded=false even when only one iteration fails its tap out of multiple", async () => {
+    // First iteration tap fails; second and third succeed.
+    vi.spyOn(driver, "tap").mockRejectedValueOnce(new Error("transient tap fail"));
+
+    const report = await roundTrip(driver, { ...BASE_OPTS, iterations: 3 });
+    // Not all iterations succeeded → allSucceeded must be false.
+    expect(report.allSucceeded).toBe(false);
+    expect(report.totalIterations).toBe(3);
+    expect(report.iterations[0]?.tapSucceeded).toBe(false);
+    expect(report.iterations[1]?.tapSucceeded).toBe(true);
+    expect(report.iterations[2]?.tapSucceeded).toBe(true);
+  });
+
+  // -------------------------------------------------------------------------
   // AC3: teardown (shutdownSimulator) always called (T8)
   // -------------------------------------------------------------------------
 

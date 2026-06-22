@@ -195,9 +195,16 @@ async function runIteration(
   // Step 4: Take a clean-state snapshot (so reset can return to this state)
   await driver.takeSnapshot(udid, snapshotName);
 
-  // Step 5: Tap (simulates a UI interaction)
-  await driver.tap(udid, { kind: "coordinate", x: 0, y: 0 });
-  const tapSucceeded = true;
+  // Step 5: Tap (simulates a UI interaction).
+  // Wrapped in try/catch so a failing tap produces tapSucceeded=false rather than
+  // propagating immediately. allSucceeded is then derived from real outcomes.
+  let tapSucceeded: boolean;
+  try {
+    await driver.tap(udid, { kind: "coordinate", x: 0, y: 0 });
+    tapSucceeded = true;
+  } catch {
+    tapSucceeded = false;
+  }
 
   // Step 6: Screenshot + a11y snapshot (verify driving works post-tap)
   const screenshotBytes = await driver.screenshot(udid);
@@ -209,9 +216,16 @@ async function runIteration(
     fs.writeFileSync(screenshotPath, Buffer.from(screenshotBytes));
   }
 
-  // Step 7: Reset to the clean snapshot
-  await driver.resetToSnapshot(udid, snapshotName);
-  const resetSucceeded = true;
+  // Step 7: Reset to the clean snapshot.
+  // Wrapped in try/catch so a failing reset produces resetSucceeded=false rather than
+  // propagating immediately. allSucceeded is then derived from real outcomes.
+  let resetSucceeded: boolean;
+  try {
+    await driver.resetToSnapshot(udid, snapshotName);
+    resetSucceeded = true;
+  } catch {
+    resetSucceeded = false;
+  }
 
   return {
     iteration,
