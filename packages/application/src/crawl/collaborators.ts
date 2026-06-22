@@ -24,10 +24,10 @@ import type {
   StateGraphRepository,
   CrawlEventStream,
 } from "@flowscout/domain";
+import { A11ySignatureStrategy, CompositeStateIdentityStrategy } from "@flowscout/domain";
 import { BudgetEnforcer } from "./budget/BudgetEnforcer.js";
 import type { BudgetContext } from "./budget/BudgetEnforcer.js";
 import { Frontier } from "./frontier/Frontier.js";
-import { placeholderIdentify } from "./identity/PlaceholderIdentity.js";
 
 // ── Collaborator interfaces ───────────────────────────────────────────────────
 
@@ -94,10 +94,23 @@ export interface CollaboratorOptions {
  * `CollaboratorOptions` with an optional field and update this factory body.
  * The `CrawlCollaborators` shape and this function's parameter type are the
  * seam contract; they do not change without a new ADR.
+ *
+ * #34 (E2.4) body edit: swaps the default identifyState from placeholderIdentify
+ * to the real A11ySignatureStrategy wrapped in CompositeStateIdentityStrategy.
+ * The StateIdentityFn seam is (snapshot) => StateIdentity; the strategy takes a
+ * richer StateIdentityInput, so we adapt with a closure supplying the MVP-default
+ * platform constant "ios" (FlowScout MVP is iOS-first; #37 can pass a real platform
+ * via options.identifyState if multi-platform support lands).
  */
 export function defaultCollaborators(options: CollaboratorOptions): CrawlCollaborators {
+  // #34: real strategy default. One-line closure adapts StateIdentityStrategy.identify
+  // (which takes StateIdentityInput) to StateIdentityFn ((snapshot) => StateIdentity).
+  const defaultStrategy = new CompositeStateIdentityStrategy(new A11ySignatureStrategy());
+  const defaultIdentifyState: StateIdentityFn = (snapshot) =>
+    defaultStrategy.identify({ a11ySnapshot: snapshot, platform: "ios" });
+
   return {
-    identifyState: options.identifyState ?? placeholderIdentify,
+    identifyState: options.identifyState ?? defaultIdentifyState,
     budgetEnforcer: options.budgetEnforcer ?? new BudgetEnforcer(),
     frontier: options.frontier ?? new Frontier(),
     stateGraphRepository: options.stateGraphRepository,
