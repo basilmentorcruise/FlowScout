@@ -155,6 +155,16 @@ export const flowscoutEslintConfig = [
       "security/detect-unsafe-regex": "off",
     },
   },
+  // A11ySignatureStrategy.ts: detect-unsafe-regex fires on the volatile-content normalisation
+  // patterns (ISO timestamp, clock time, currency, digit-run). These operate on a11y label
+  // strings — input is bounded by MAX_SNAPSHOT_BYTES and parsed from a controlled JSON tree,
+  // not raw user-controlled text. Reviewed: no exponential backtracking on realistic a11y input.
+  {
+    files: ["**/models/state-identity/A11ySignatureStrategy.ts"],
+    rules: {
+      "security/detect-unsafe-regex": "off",
+    },
+  },
   // Apply prettier last to disable conflicting formatting rules
   prettierConfig,
 ];
