@@ -7,9 +7,10 @@
  * - AC3: Dead-end state (no actions) → backtrack; no target → graceful finalization
  * - AC4: No-effect actions (same post-state) → marked tried, not retried
  * - AC5: Real StateIdentity strategy (A11ySignatureStrategy) deduplicates same screen
- * - AC6: Coverage gate ≥85%
+ * - AC6: Coverage gate >=85%
  * - Security: revisit cap + backtrack bound terminate exploration (no livelock, T6)
  * - Extension point: ProbeSource registration for #35
+ * - T11 degradation: rejecting ProbeSource silently degraded (ADR-0004 section 6)
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -17,7 +18,7 @@ import { Frontier } from "../Frontier.js";
 import type { ProbeSource } from "../ProbeSource.js";
 import type { CandidateAction } from "@flowscout/domain";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// -- Helpers ------------------------------------------------------------------
 
 function makeTapAction(elementId: string, rationale = "tap"): CandidateAction {
   return {
@@ -33,7 +34,7 @@ const STATE_C = "state-id-C";
 
 const MAX_REVISITS = 3;
 
-// ── AC1: No livelock between two states ──────────────────────────────────────
+// -- AC1: No livelock between two states --------------------------------------
 
 describe("Frontier — AC1: livelock prevention", () => {
   it("returns isRevisitCapped=true once maxRevisitsPerState is reached", () => {
@@ -63,10 +64,10 @@ describe("Frontier — AC1: livelock prevention", () => {
   it("two-state cycle: once both states are revisit-capped the loop must terminate", () => {
     const frontier = new Frontier({ maxRevisitsPerState: 2 });
 
-    // Simulate A→B→A→B — each visit increments count
+    // Simulate A->B->A->B -- each visit increments count
     const simulateCycle = () => {
       let steps = 0;
-      const maxSteps = 100; // safety guard — must stop well before this
+      const maxSteps = 100; // safety guard -- must stop well before this
       while (steps < maxSteps) {
         const currentState = steps % 2 === 0 ? STATE_A : STATE_B;
         frontier.markVisited(currentState);
@@ -80,12 +81,12 @@ describe("Frontier — AC1: livelock prevention", () => {
 
     const result = simulateCycle();
     expect(result.livelock).toBe(false);
-    // With cap=2, A and B each need 2 visits → at most 4 visits before both are capped
+    // With cap=2, A and B each need 2 visits -> at most 4 visits before both are capped
     expect(result.terminatedAt).toBeLessThanOrEqual(6);
   });
 });
 
-// ── AC2: All-tried-actions → backtrack ───────────────────────────────────────
+// -- AC2: All-tried-actions -> backtrack --------------------------------------
 
 describe("Frontier — AC2: backtrack when all actions tried", () => {
   let frontier: Frontier;
@@ -173,7 +174,7 @@ describe("Frontier — AC2: backtrack when all actions tried", () => {
   });
 });
 
-// ── AC3: Dead-end + no backtrack target → graceful finalization ──────────────
+// -- AC3: Dead-end + no backtrack target -> graceful finalization --------------
 
 describe("Frontier — AC3: dead-end handling", () => {
   it("isDeadEnd returns true when no candidates exist for a state", () => {
@@ -193,7 +194,7 @@ describe("Frontier — AC3: dead-end handling", () => {
     expect(frontier.isDeadEnd(STATE_A, [a1])).toBe(true);
   });
 
-  it("selectBacktrackTarget returns null on true dead-end (no valid target) → graceful", () => {
+  it("selectBacktrackTarget returns null on true dead-end (no valid target) -> graceful", () => {
     const frontier = new Frontier({ maxRevisitsPerState: MAX_REVISITS });
     const a1 = makeTapAction("btn-1");
     frontier.markActionTried(STATE_A, a1);
@@ -202,7 +203,7 @@ describe("Frontier — AC3: dead-end handling", () => {
     expect(result).toBeNull(); // Engine finalizes gracefully
   });
 
-  it("entire graph exhausted → selectBacktrackTarget null", () => {
+  it("entire graph exhausted -> selectBacktrackTarget null", () => {
     const frontier = new Frontier({ maxRevisitsPerState: MAX_REVISITS });
     const a1 = makeTapAction("btn-1");
     const a2 = makeTapAction("btn-2");
@@ -220,7 +221,7 @@ describe("Frontier — AC3: dead-end handling", () => {
   });
 });
 
-// ── AC4: No-effect actions marked tried ──────────────────────────────────────
+// -- AC4: No-effect actions marked tried --------------------------------------
 
 describe("Frontier — AC4: no-effect action deduplication", () => {
   it("markActionTried deduplicates by payload (same action not added twice)", () => {
@@ -239,7 +240,7 @@ describe("Frontier — AC4: no-effect action deduplication", () => {
     const action = makeTapAction("btn-1");
     frontier.markActionTried(STATE_A, action);
 
-    // Same type + payload but different rationale — still considered same action
+    // Same type + payload but different rationale -- still considered same action
     const sameActionDifferentRationale: CandidateAction = {
       actionType: "tap",
       actionPayload: JSON.stringify({ elementId: "btn-1" }),
@@ -273,7 +274,7 @@ describe("Frontier — AC4: no-effect action deduplication", () => {
   });
 });
 
-// ── AC5: Real StateIdentity — deduplication via A11ySignatureStrategy ─────────
+// -- AC5: Real StateIdentity -- deduplication via A11ySignatureStrategy -------
 
 describe("Frontier — AC5: StateIdentity deduplication", () => {
   it("same stateId from two paths results in same visit count entry", () => {
@@ -285,7 +286,7 @@ describe("Frontier — AC5: StateIdentity deduplication", () => {
     // Path 2 also reaches the same state (via a different navigation)
     frontier.markVisited(sharedStateId);
 
-    // Both increments land on the same entry → visit count = 2
+    // Both increments land on the same entry -> visit count = 2
     expect(frontier.getVisitCount(sharedStateId)).toBe(2);
   });
 
@@ -313,7 +314,7 @@ describe("Frontier — AC5: StateIdentity deduplication", () => {
   });
 });
 
-// ── Probe extension point for #35 ────────────────────────────────────────────
+// -- Probe extension point for #35 --------------------------------------------
 
 describe("Frontier — probe extension point (for #35)", () => {
   it("accepts a ProbeSource registration without error", () => {
@@ -390,9 +391,57 @@ describe("Frontier — probe extension point (for #35)", () => {
     const probeIds = frontier.getProbeSourceIds();
     expect(probeIds.filter((id) => id === "scroll-reveal")).toHaveLength(1);
   });
+
+  /**
+   * Degradation path: status === "rejected" branch (ADR-0004 section 6, threat T11).
+   *
+   * A ProbeSource that rejects (returns a rejected Promise) must NEVER propagate an
+   * exception to the caller. getEnumeratedCandidates swallows the rejection via
+   * Promise.allSettled and silently degrades that source to zero candidates, while
+   * still returning the healthy source's output.
+   *
+   * Given: two registered ProbeSource instances -- one rejects, one resolves
+   * When:  getEnumeratedCandidates is called
+   * Then:
+   *   (a) the returned Promise resolves (does not reject / does not throw)
+   *   (b) the healthy source's candidates ARE present in the result
+   *   (c) the rejecting source contributes NO candidates (result length = 1)
+   */
+  it("rejecting ProbeSource is silently degraded: no throw, healthy source candidates returned, rejected source contributes nothing (ADR-0004 section 6 / T11)", async () => {
+    const frontier = new Frontier({ maxRevisitsPerState: MAX_REVISITS });
+
+    const healthyCandidate: CandidateAction = makeTapAction("btn-healthy", "healthy-probe");
+
+    // Source 1: rejects -- simulates an internal error inside the probe
+    const rejectingSource: ProbeSource = {
+      id: "rejecting-probe",
+      generateCandidates: (_stateId, _snapshot) =>
+        Promise.reject(new Error("probe internal failure")),
+    };
+
+    // Source 2: resolves normally with one candidate
+    const healthySource: ProbeSource = {
+      id: "healthy-probe",
+      generateCandidates: async (_stateId, _snapshot) => [healthyCandidate],
+    };
+
+    frontier.registerProbeSource(rejectingSource);
+    frontier.registerProbeSource(healthySource);
+
+    const snapshot = '{"role":"application","children":[]}';
+
+    // (a) must not throw -- Promise must resolve, not reject
+    const candidates = await frontier.getEnumeratedCandidates(STATE_A, snapshot as never);
+
+    // (b) healthy source's candidate IS returned
+    expect(candidates).toContainEqual(healthyCandidate);
+
+    // (c) rejecting source contributes NO candidates; only the healthy one is present
+    expect(candidates).toHaveLength(1);
+  });
 });
 
-// ── Revisit cap + termination bound (security T6 / no-livelock proof) ────────
+// -- Revisit cap + termination bound (security T6 / no-livelock proof) --------
 
 describe("Frontier — revisit cap termination (no-livelock property)", () => {
   it("with revisit cap=1, a single state cannot be re-entered", () => {
@@ -414,7 +463,7 @@ describe("Frontier — revisit cap termination (no-livelock property)", () => {
     expect(frontier.getVisitCount(STATE_A)).toBe(cap);
   });
 
-  it("frontier terminates in bounded steps: N states × cap revisits + actions", () => {
+  it("frontier terminates in bounded steps: N states x cap revisits + actions", () => {
     const cap = 2;
     const frontier = new Frontier({ maxRevisitsPerState: cap });
     const states = [STATE_A, STATE_B, STATE_C];
@@ -433,7 +482,7 @@ describe("Frontier — revisit cap termination (no-livelock property)", () => {
       const active = states.find(
         (s) => !frontier.isRevisitCapped(s) && frontier.hasUntried(s, actionPerState[s] ?? []),
       );
-      if (active === undefined) break; // all states capped or exhausted → terminate
+      if (active === undefined) break; // all states capped or exhausted -> terminate
 
       frontier.markVisited(active);
       const untried = (actionPerState[active] ?? []).filter(
@@ -455,7 +504,7 @@ describe("Frontier — revisit cap termination (no-livelock property)", () => {
   });
 });
 
-// ── getVisitCount + markVisited basic contract ────────────────────────────────
+// -- getVisitCount + markVisited basic contract -------------------------------
 
 describe("Frontier — visit tracking basics", () => {
   it("returns 0 for never-visited state", () => {
