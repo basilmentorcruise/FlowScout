@@ -28,6 +28,7 @@ import { A11ySignatureStrategy, CompositeStateIdentityStrategy } from "@flowscou
 import { BudgetEnforcer } from "./budget/BudgetEnforcer.js";
 import type { BudgetContext } from "./budget/BudgetEnforcer.js";
 import { Frontier } from "./frontier/Frontier.js";
+import { registerHiddenAffordanceProbes } from "./frontier/probes/index.js";
 
 // ── Collaborator interfaces ───────────────────────────────────────────────────
 
@@ -109,10 +110,16 @@ export function defaultCollaborators(options: CollaboratorOptions): CrawlCollabo
   const defaultIdentifyState: StateIdentityFn = (snapshot) =>
     defaultStrategy.identify({ a11ySnapshot: snapshot, platform: "ios" });
 
+  // #35 (E2.5) body edit: register hidden-affordance probe sources on the default Frontier.
+  // When a custom frontier is supplied via options, the caller is responsible for probe registration.
+  // This is the ONLY body change #35 makes to this file; the interface/signature is unchanged.
+  const defaultFrontier = new Frontier();
+  registerHiddenAffordanceProbes(defaultFrontier);
+
   return {
     identifyState: options.identifyState ?? defaultIdentifyState,
     budgetEnforcer: options.budgetEnforcer ?? new BudgetEnforcer(),
-    frontier: options.frontier ?? new Frontier(),
+    frontier: options.frontier ?? defaultFrontier,
     stateGraphRepository: options.stateGraphRepository,
     crawlEventStream: options.crawlEventStream,
   };
