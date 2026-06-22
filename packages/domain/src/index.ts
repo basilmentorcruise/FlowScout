@@ -20,6 +20,7 @@ export { makeConfidenceScore } from "./models/workflow.js";
 export type { RunStatus, ReportMetadata, Report } from "./models/report.js";
 
 export type { CrawlBudget, Run } from "./models/run.js";
+export { defaultCrawlBudget } from "./models/run.js";
 
 // Ports
 export type {
