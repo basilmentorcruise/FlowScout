@@ -1,17 +1,16 @@
 /**
  * Composition root — the ONLY place that names concrete adapters and wires DI.
- * Swapping a driver, store, or policy is a one-line change here.
+ * Swapping the concrete driver is a single-line change here (ADR-0001 §2.3).
  *
- * TODO (E1+): Replace stub adapters with real implementations as epics land.
- *             Add environment-config loading (dotenv / config) for DATABASE_URL,
- *             FLOWSCOUT_VAULT_KEY, etc.
+ * E1.7 (#18): loadMobileMcpConfig() replaces the hardcoded defaultMcpConfig block.
+ * No business logic in this file — parsing lives in packages/api/src/config/.
  */
 import { AppContext } from "@flowscout/application";
 import type { AppPorts } from "@flowscout/application";
 
-// Adapters — the only files in this package that import concrete adapter classes
-import { MobileMcpDriver, defaultServerEnv } from "@flowscout/adapter-mobile-mcp";
-import type { MobileMcpDriverConfig } from "@flowscout/adapter-mobile-mcp";
+// Adapters — the only files in this package that import concrete adapter classes.
+// *** SWAP POINT ***: change the import + the two MobileMcpDriver lines below to swap the driver.
+import { MobileMcpDriver } from "@flowscout/adapter-mobile-mcp";
 import { LlmAdapter, LlmDecisionPolicy } from "@flowscout/adapter-llm";
 import {
   PrismaRunRepository,
@@ -20,6 +19,9 @@ import {
 } from "@flowscout/adapter-persistence";
 import { VaultAdapter } from "@flowscout/adapter-vault";
 import { HtmlReportRenderer } from "@flowscout/adapter-report-html";
+
+// Config loader — the sole env-reading logic for the mobile driver.
+import { loadMobileMcpConfig } from "../config/index.js";
 
 // TODO (E1+): Add a real CrawlEventStream adapter (in-process event bus or Redis pub/sub)
 import type { CrawlEventStream, CrawlEvent } from "@flowscout/domain";
@@ -52,28 +54,21 @@ class InProcessCrawlEventStream implements CrawlEventStream {
 /**
  * Build and return the wired AppContext.
  * Called once at startup (server entry point).
+ *
+ * The env config loader is called here so config is resolved at construction time,
+ * not lazily — startup failures surface immediately.
  */
-/**
- * Default MCP driver config used until E1.7 (#18) wires real env loading.
- * TODO (E1.7 #18): Replace with real config loaded from env
- *   (FLOWSCOUT_MCP_SERVER_COMMAND, FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS, etc.).
- */
-const defaultMcpConfig: MobileMcpDriverConfig = {
-  server: {
-    serverCommand: ["npx", "mobile-mcp"],
-    serverEnv: defaultServerEnv(), // scoped — only PATH forwarded (T5)
-    connectTimeoutMs: 10000, // documented in .env.example; replaced with env config in #18
-    callTimeoutMs: 30000,    // documented in .env.example; replaced with env config in #18
-  },
-};
-
 export function buildAppContext(): AppContext {
+  // Read env-driven config once at root. No parsing logic inline (T5 — never log full config).
+  const { driverConfig } = loadMobileMcpConfig();
+
   const llm = new LlmAdapter();
-  const mobileDriver = new MobileMcpDriver(defaultMcpConfig);
+  // SWAP POINT: change MobileMcpDriver to an alternate driver implementation here.
+  const mobileDriver = new MobileMcpDriver(driverConfig);
 
   const ports: AppPorts = {
     mobileDriver,
-    simulatorLifecycle: mobileDriver, // MobileMcpDriver implements both ports
+    simulatorLifecycle: mobileDriver, // MobileMcpDriver implements both ports — single instance
     decisionPolicy: new LlmDecisionPolicy(llm),
     runRepository: new PrismaRunRepository(),
     stateGraphRepository: new PrismaStateGraphRepository(),
