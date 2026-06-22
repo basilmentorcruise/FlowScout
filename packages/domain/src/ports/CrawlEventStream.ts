@@ -66,7 +66,17 @@ export interface CredentialPromptEvent {
 export interface BudgetWarningEvent {
   readonly kind: "budget:warning";
   readonly runId: string;
-  readonly budgetType: "steps" | "llm-calls" | "tokens";
+  /**
+   * Which budget dimension is nearing exhaustion.
+   * - "steps"    — approaching maxSteps cap.
+   * - "llm-calls"— approaching maxLlmCalls cap.
+   * - "tokens"   — approaching maxTokens cap.
+   * - "revisits" — a state has been visited near its maxRevisitsPerState limit.
+   * - "plateau"  — steps-since-new-state is nearing the plateauWindow limit.
+   *
+   * "revisits" and "plateau" added by #33 (ADR-0004 §8).
+   */
+  readonly budgetType: "steps" | "llm-calls" | "tokens" | "revisits" | "plateau";
   readonly used: number;
   readonly limit: number;
   readonly timestamp: string;

@@ -19,7 +19,7 @@ const fakeRun: Run = {
   appId: "app-1",
   appVersion: "1.0.0",
   platform: "ios",
-  budget: { maxSteps: 100, maxLlmCalls: 50, maxTokens: 10000, maxRevisitsPerState: 3 },
+  budget: { maxSteps: 100, maxLlmCalls: 50, maxTokens: 10000, maxRevisitsPerState: 3, plateauWindow: 40, plateauWarnRatio: 0.75 },
   status: "completed",
   startedAt: "2026-06-20T00:00:00.000Z",
   finishedAt: null,
