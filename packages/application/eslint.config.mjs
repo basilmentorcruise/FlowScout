@@ -9,6 +9,6 @@ import { flowscoutEslintConfig } from "@flowscout/config/eslint";
 
 export default [
   // Ignore test directories — they import from test-support/ which is outside rootDir
-  { ignores: ["src/__tests__/**"] },
+  { ignores: ["src/**/__tests__/**"] },
   ...flowscoutEslintConfig,
 ];
