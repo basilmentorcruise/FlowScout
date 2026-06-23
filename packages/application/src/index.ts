@@ -11,10 +11,28 @@ export { AppContext } from "./composition-root/AppContext.js";
 export { StartCrawlRun } from "./crawl/StartCrawlRun.js";
 export type { StartCrawlRunInput } from "./crawl/StartCrawlRun.js";
 export { defaultCollaborators } from "./crawl/collaborators.js";
-export type { CrawlCollaborators, CollaboratorOptions, StateIdentityFn } from "./crawl/collaborators.js";
+export type {
+  CrawlCollaborators,
+  CollaboratorOptions,
+  StateIdentityFn,
+} from "./crawl/collaborators.js";
 export { InMemoryStateGraphRepository } from "./crawl/persistence/InMemoryStateGraphRepository.js";
 
 // E2.6 — Decision cache (in-memory implementation) + cached-knowledge policy (chain link)
 export { InMemoryDecisionCache } from "./crawl/policy/InMemoryDecisionCache.js";
 export { CachedKnowledgePolicy } from "./crawl/policy/CachedKnowledgePolicy.js";
 export type { DecisionContextWithCandidates } from "./crawl/policy/CachedKnowledgePolicy.js";
+
+// E2.7 — Capstone: redaction / 2FA boundary / duplicate-path / usage-reporter / safety
+export { CredentialRedactor, REDACTED_MARKER } from "./crawl/redaction/CredentialRedactor.js";
+export { CredentialBoundaryDetector } from "./crawl/twofa/CredentialBoundaryDetector.js";
+export type {
+  DetectionResult,
+  CredentialPromptType,
+} from "./crawl/twofa/CredentialBoundaryDetector.js";
+export { DuplicatePathDetector } from "./crawl/duplicate/DuplicatePathDetector.js";
+export { defaultEnumerateBaseCandidates } from "./crawl/BaseCandidateEnumerator.js";
+export type { BaseCandidateEnumeratorFn } from "./crawl/BaseCandidateEnumerator.js";
+export type { UsageReporter, LlmCallUsage } from "./crawl/UsageReporter.js";
+export { NoOpUsageReporter } from "./crawl/UsageReporter.js";
+export type { CrawlRunSafety } from "./crawl/CrawlRunSafety.js";

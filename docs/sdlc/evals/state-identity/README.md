@@ -15,30 +15,38 @@ observations differ only in volatile content (an injected `StaticText` with a ti
 scroll view with two buttons) is identical.
 
 **Input A — path 1 (no volatile leaf):**
+
 ```json
 {
   "type": "Application",
   "children": [
     { "type": "NavigationBar", "label": "Home" },
-    { "type": "ScrollView", "children": [
-      { "type": "Button", "label": "Settings" },
-      { "type": "Button", "label": "Profile" }
-    ]}
+    {
+      "type": "ScrollView",
+      "children": [
+        { "type": "Button", "label": "Settings" },
+        { "type": "Button", "label": "Profile" }
+      ]
+    }
   ]
 }
 ```
 
 **Input B — path 2 (volatile StaticText added):**
+
 ```json
 {
   "type": "Application",
   "children": [
     { "type": "NavigationBar", "label": "Home" },
-    { "type": "ScrollView", "children": [
-      { "type": "Button", "label": "Settings" },
-      { "type": "Button", "label": "Profile" },
-      { "type": "StaticText", "label": "Last sync: 2024-01-15T10:30:00Z — 42 items" }
-    ]}
+    {
+      "type": "ScrollView",
+      "children": [
+        { "type": "Button", "label": "Settings" },
+        { "type": "Button", "label": "Profile" },
+        { "type": "StaticText", "label": "Last sync: 2024-01-15T10:30:00Z — 42 items" }
+      ]
+    }
   ]
 }
 ```
@@ -92,6 +100,7 @@ string before the app fully rendered). This is the edge case "empty/oversized sn
 handled, not swallowed" from PRD-e2 edge cases and T11 in the threat model.
 
 **Expected behavior:**
+
 - `strategy.identify({ a11ySnapshot: "" })` returns an identity matching `/^degraded:/`.
 - The call does NOT throw.
 - The degraded identity is a valid `StateIdentity` (non-empty branded string).
@@ -104,15 +113,15 @@ handled, not swallowed" from PRD-e2 edge cases and T11 in the threat model.
 
 ## Normalization rules implemented
 
-| Volatile pattern | Normalization | Example |
-|---|---|---|
-| ISO-8601 timestamps | `<ts>` | `2024-01-15T10:30:00Z` → `<ts>` |
-| Clock times (12/24h) | `<ts>` | `10:30 AM` → `<ts>` |
-| Currency amounts | `<num>` | `$12.99`, `€9.99` → `<num>` |
-| Percentages | `<num>` | `45%`, `78.5%` → `<num>` |
-| Digit runs (2+ digits) | `#` | `42`, `100`, `2024` → `#` |
-| Repeated sibling rows | cap at `MAX_SIBLING_ROWS = 3` | 200 `Cell` rows → 3 |
-| Content-only leaves | dropped | `StaticText`/`Text`/`Label` with no a11y id |
+| Volatile pattern       | Normalization                 | Example                                     |
+| ---------------------- | ----------------------------- | ------------------------------------------- |
+| ISO-8601 timestamps    | `<ts>`                        | `2024-01-15T10:30:00Z` → `<ts>`             |
+| Clock times (12/24h)   | `<ts>`                        | `10:30 AM` → `<ts>`                         |
+| Currency amounts       | `<num>`                       | `$12.99`, `€9.99` → `<num>`                 |
+| Percentages            | `<num>`                       | `45%`, `78.5%` → `<num>`                    |
+| Digit runs (2+ digits) | `#`                           | `42`, `100`, `2024` → `#`                   |
+| Repeated sibling rows  | cap at `MAX_SIBLING_ROWS = 3` | 200 `Cell` rows → 3                         |
+| Content-only leaves    | dropped                       | `StaticText`/`Text`/`Label` with no a11y id |
 
 ---
 
@@ -126,6 +135,7 @@ makeStateIdentity("degraded:" + sha256hex(truncatedRawSnapshot))
 ```
 
 This means:
+
 - The run never crashes on a bad snapshot.
 - Distinct bad snapshots still get distinct ids (different hashes of different raw inputs).
 - The loop can record a telemetry note and continue.
@@ -138,9 +148,9 @@ This means:
 ```ts
 // packages/domain/src/ports/StateIdentityPort.ts
 export interface StateIdentityInput {
-  readonly a11ySnapshot: A11ySnapshot;        // mandatory (E2)
+  readonly a11ySnapshot: A11ySnapshot; // mandatory (E2)
   readonly screenEmbedding?: readonly number[]; // additive, E3-supplied (optional, ignored by default impl)
-  readonly semanticLabel?: string;              // additive, E3-supplied (optional)
+  readonly semanticLabel?: string; // additive, E3-supplied (optional)
   readonly platform: Platform;
 }
 

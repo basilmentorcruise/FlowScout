@@ -112,9 +112,7 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     // Since #15 landed, driving is the real DeviceDriver that validates UDIDs.
     // Since #16 landed, snapshot is the real SnapshotManager — validates inputs (T1) first.
     // Since #17 landed, health is the real HealthReadiness — resolves (no longer throws).
-    const distinctExec: Exec = vi
-      .fn()
-      .mockResolvedValue({ stdout: '{"devices":{}}', stderr: '' });
+    const distinctExec: Exec = vi.fn().mockResolvedValue({ stdout: '{"devices":{}}', stderr: "" });
 
     const { defaultCapabilities } = await import("../connection/capabilities.js");
     const bundle = defaultCapabilities(TEST_CONFIG, distinctExec);
@@ -124,7 +122,9 @@ describe("defaultCapabilities — shared McpConnection + config wiring", () => {
     expect(distinctExec).toHaveBeenCalled(); // confirms exec was wired into lifecycle
 
     // snapshot (#16 real impl) — validates inputs (T1); invalid UUID throws InvalidSnapshotInputError.
-    await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow(/InvalidSnapshotInputError/);
+    await expect(bundle.snapshot.takeSnapshot("udid", "snap")).rejects.toThrow(
+      /InvalidSnapshotInputError/,
+    );
     // driving (#15 real impl) — rejects "udid" with InvalidInputError (T1 UDID validation).
     const { InvalidInputError } = await import("../driving/normalization.js");
     await expect(bundle.driving.screenshot("udid")).rejects.toBeInstanceOf(InvalidInputError);

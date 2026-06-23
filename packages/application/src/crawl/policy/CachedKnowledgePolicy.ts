@@ -54,9 +54,7 @@ export class CachedKnowledgePolicy implements DecisionPolicy {
    * The `rationale` field is telemetry-only and does not affect identity.
    */
   private findFirstUntried(context: DecisionContext): CandidateAction | null {
-    const triedKeys = new Set<string>(
-      context.triedActions.map((a) => actionKey(a)),
-    );
+    const triedKeys = new Set<string>(context.triedActions.map((a) => actionKey(a)));
 
     // context.candidateActions comes from the loop; if not provided, use triedActions as hint
     // The loop passes a11ySnapshot but not explicit candidates — the policy must derive them.

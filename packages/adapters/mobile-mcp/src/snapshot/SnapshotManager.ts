@@ -190,20 +190,12 @@ class EraseReinstallStrategy implements SnapshotStrategy {
     }
 
     // Step 1 — shut down (non-fatal; device may already be shut down).
-    await runSimctlWithTimeout(
-      ["shutdown", record.sourceUdid],
-      exec,
-      timeoutMs,
-    ).catch(() => {
+    await runSimctlWithTimeout(["shutdown", record.sourceUdid], exec, timeoutMs).catch(() => {
       // Shutdown failures are non-fatal during restore.
     });
 
     // Step 2 — erase: factory-resets the device IN PLACE on the SAME udid.
-    await runSimctlWithTimeout(
-      ["erase", record.sourceUdid],
-      exec,
-      timeoutMs,
-    );
+    await runSimctlWithTimeout(["erase", record.sourceUdid], exec, timeoutMs);
 
     // Step 3 — reinstall the captured .app so the same udid reflects the snapshotted state.
     // appBundlePath is the defense-in-depth re-validated canonicalized path
@@ -254,20 +246,12 @@ class CleanInstallStrategy implements SnapshotStrategy {
     }
 
     // Step 1 — shut down (non-fatal; device may already be shut down).
-    await runSimctlWithTimeout(
-      ["shutdown", record.sourceUdid],
-      exec,
-      timeoutMs,
-    ).catch(() => {
+    await runSimctlWithTimeout(["shutdown", record.sourceUdid], exec, timeoutMs).catch(() => {
       // Shutdown failures are non-fatal during restore.
     });
 
     // Step 2 — erase resets the device to factory state IN PLACE on the SAME udid.
-    await runSimctlWithTimeout(
-      ["erase", record.sourceUdid],
-      exec,
-      timeoutMs,
-    );
+    await runSimctlWithTimeout(["erase", record.sourceUdid], exec, timeoutMs);
   }
 }
 
@@ -347,9 +331,7 @@ export class SnapshotManager implements SnapshotCapability {
       // If caller did not supply one, use the parent directory of the appBundlePath.
       // This is the most conservative confinement: the .app must live in its own dir.
       const effectiveBaseDir =
-        appBundleBaseDir !== null
-          ? appBundleBaseDir
-          : deriveParentDir(appBundlePath);
+        appBundleBaseDir !== null ? appBundleBaseDir : deriveParentDir(appBundlePath);
 
       // AppBundlePathValidator performs synchronous fast-fail checks at construction
       // (leading dash, '..' segments, '.app' extension).
@@ -477,10 +459,7 @@ export class SnapshotManager implements SnapshotCapability {
   }
 
   /** Select the concrete strategy matching the requested kind. */
-  private selectStrategy(
-    kind: SnapshotKind,
-    canonicalizedPath: string | null,
-  ): SnapshotStrategy {
+  private selectStrategy(kind: SnapshotKind, canonicalizedPath: string | null): SnapshotStrategy {
     if (kind === "erase-reinstall") {
       if (canonicalizedPath === null) {
         throw new McpAdapterError(

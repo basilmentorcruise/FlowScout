@@ -166,9 +166,7 @@ function splitMessages(messages: readonly LlmMessage[]): {
  * Returns an empty string if no text block is found.
  * Never uses eval or dynamic code execution (T2).
  */
-function extractTextContent(
-  content: Array<{ type: string; text?: string }>,
-): string {
+function extractTextContent(content: Array<{ type: string; text?: string }>): string {
   for (const block of content) {
     if (block.type === "text" && typeof block.text === "string") {
       return block.text;

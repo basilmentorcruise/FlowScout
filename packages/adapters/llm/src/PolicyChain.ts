@@ -69,10 +69,7 @@ export class PolicyChain implements DecisionPolicy {
  *   6. Inject the returned chain as DecisionPolicy into StartCrawlRun.
  *   7. After each crawl step: read `chain.llmPolicy.lastCallResult` for budget updates.
  */
-export function createPolicyChain(
-  chainHead: DecisionPolicy,
-  llmPolicy: LLMPolicy,
-): PolicyChain {
+export function createPolicyChain(chainHead: DecisionPolicy, llmPolicy: LLMPolicy): PolicyChain {
   return new PolicyChain(chainHead, llmPolicy);
 }
 
@@ -81,9 +78,6 @@ export function createPolicyChain(
  * The actual CachedKnowledgePolicy must be provided by the caller (it lives in application).
  * The composition root (#37) uses the full factory pattern above.
  */
-export function assembleLlmPolicyFromPorts(
-  llm: LlmPort,
-  cache: DecisionCachePort,
-): LLMPolicy {
+export function assembleLlmPolicyFromPorts(llm: LlmPort, cache: DecisionCachePort): LLMPolicy {
   return new LLMPolicy(llm, cache);
 }

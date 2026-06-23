@@ -80,9 +80,7 @@ export async function runSimctlWithTimeout(
 ): Promise<ExecResult> {
   return new Promise<ExecResult>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(
-        new Error(`simctl ${args[0] ?? ""} timed out after ${String(timeoutMs)}ms`),
-      );
+      reject(new Error(`simctl ${args[0] ?? ""} timed out after ${String(timeoutMs)}ms`));
     }, timeoutMs);
 
     runSimctl(args, exec).then(
@@ -93,8 +91,7 @@ export async function runSimctlWithTimeout(
       (err: unknown) => {
         clearTimeout(timer);
         // Preserve the original error — wrap in Error if it is not already one.
-        const wrapped =
-          err instanceof Error ? err : new Error(`simctl error: ${String(err)}`);
+        const wrapped = err instanceof Error ? err : new Error(`simctl error: ${String(err)}`);
         reject(wrapped);
       },
     );

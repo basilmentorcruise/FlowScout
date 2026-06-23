@@ -198,16 +198,7 @@ describe("A11ySignatureStrategy — degraded path (AC3)", () => {
   });
 
   it("never throws for any malformed input", () => {
-    const malformed = [
-      "",
-      "   ",
-      "not json",
-      '{"unclosed": ',
-      '["array"]',
-      "null",
-      "42",
-      "true",
-    ];
+    const malformed = ["", "   ", "not json", '{"unclosed": ', '["array"]', "null", "42", "true"];
     for (const raw of malformed) {
       expect(() => strategy.identify(makeInput(raw))).not.toThrow();
     }
@@ -369,9 +360,7 @@ describe("A11ySignatureStrategy — content-only leaf handling", () => {
   it("keeps a StaticText with accessibilityIdentifier (structurally meaningful)", () => {
     const s = JSON.stringify({
       type: "Application",
-      children: [
-        { type: "StaticText", accessibilityIdentifier: "hero-title", label: "Welcome" },
-      ],
+      children: [{ type: "StaticText", accessibilityIdentifier: "hero-title", label: "Welcome" }],
     });
     expect(strategy.identify(makeInput(s))).not.toMatch(/^degraded:/);
   });

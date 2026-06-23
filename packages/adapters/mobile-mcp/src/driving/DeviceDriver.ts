@@ -154,7 +154,9 @@ export class DeviceDriver implements DrivingCapability {
       } catch (err) {
         if (err instanceof McpToolError) {
           // Re-throw as ActionError so the caller gets a typed action error
-          throw new ActionError(`Element tap failed for elementId "${target.elementId}": ${String(err)}`);
+          throw new ActionError(
+            `Element tap failed for elementId "${target.elementId}": ${String(err)}`,
+          );
         }
         throw err;
       }

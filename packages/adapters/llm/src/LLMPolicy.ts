@@ -247,18 +247,13 @@ function buildPrompt(context: DecisionContext): {
 
   // Format candidate list for the prompt
   const candidateLines = candidatesSlice
-    .map(
-      (c, idx) =>
-        `  candidate-${String(idx)}: [${c.actionType}] ${c.rationale}`,
-    )
+    .map((c, idx) => `  candidate-${String(idx)}: [${c.actionType}] ${c.rationale}`)
     .join("\n");
 
   // Tried actions summary
   const triedSummary =
     context.triedActions.length > 0
-      ? context.triedActions
-          .map((a) => `[${a.actionType}] ${a.rationale}`)
-          .join(", ")
+      ? context.triedActions.map((a) => `[${a.actionType}] ${a.rationale}`).join(", ")
       : "none";
 
   // User message: structured, delimited untrusted-data block (P / T1)
@@ -331,9 +326,7 @@ function parseAndValidate(
 
   // 4. Validate against engine allowlist (O / T2 — must be in candidateIds)
   if (!candidateIds.has(choice)) {
-    return safeBacktrack(
-      `LLM chose '${choice}' which is not in the engine-generated allowlist`,
-    );
+    return safeBacktrack(`LLM chose '${choice}' which is not in the engine-generated allowlist`);
   }
 
   // 5. Map candidate ID back to a CandidateAction (engine-controlled, never LLM-invented)

@@ -137,9 +137,9 @@ describe("FakeMobileDriver — typed error classes", () => {
 
   it("resetToSnapshot with missing name throws SnapshotNotFoundError (T8)", async () => {
     await driver.bootSimulator(DEFAULT_FAKE_UDID);
-    await expect(
-      driver.resetToSnapshot(DEFAULT_FAKE_UDID, "never-taken"),
-    ).rejects.toBeInstanceOf(SnapshotNotFoundError);
+    await expect(driver.resetToSnapshot(DEFAULT_FAKE_UDID, "never-taken")).rejects.toBeInstanceOf(
+      SnapshotNotFoundError,
+    );
   });
 
   it("bootSimulator with injection UDID throws InvalidInputError (T1)", async () => {
@@ -149,23 +149,23 @@ describe("FakeMobileDriver — typed error classes", () => {
   it("launchApp with injection bundleId throws InvalidInputError (T1)", async () => {
     await driver.bootSimulator(DEFAULT_FAKE_UDID);
     await driver.installApp(DEFAULT_FAKE_UDID, APP_PATH);
-    await expect(
-      driver.launchApp(DEFAULT_FAKE_UDID, "; rm -rf ~"),
-    ).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(driver.launchApp(DEFAULT_FAKE_UDID, "; rm -rf ~")).rejects.toBeInstanceOf(
+      InvalidInputError,
+    );
   });
 
   it("takeSnapshot with injection name throws InvalidInputError (T1)", async () => {
     await driver.bootSimulator(DEFAULT_FAKE_UDID);
-    await expect(
-      driver.takeSnapshot(DEFAULT_FAKE_UDID, "$(injection)"),
-    ).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(driver.takeSnapshot(DEFAULT_FAKE_UDID, "$(injection)")).rejects.toBeInstanceOf(
+      InvalidInputError,
+    );
   });
 
   it("installApp with traversal path throws InvalidInputError (T2)", async () => {
     await driver.bootSimulator(DEFAULT_FAKE_UDID);
-    await expect(
-      driver.installApp(DEFAULT_FAKE_UDID, "../../etc/passwd"),
-    ).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(driver.installApp(DEFAULT_FAKE_UDID, "../../etc/passwd")).rejects.toBeInstanceOf(
+      InvalidInputError,
+    );
   });
 
   it("SnapshotNotFoundError message mentions 'snapshot' (T8 informative error)", async () => {

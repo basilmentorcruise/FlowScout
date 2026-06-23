@@ -24,9 +24,7 @@ import { twoScreenFixture } from "../../../test-support/fixtures/twoScreenFixtur
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function makeInput(
-  overrides: Partial<StartCrawlRunInput> = {},
-): StartCrawlRunInput {
+function makeInput(overrides: Partial<StartCrawlRunInput> = {}): StartCrawlRunInput {
   return {
     runId: "run-test-001",
     appId: "com.example.fake",
@@ -230,7 +228,9 @@ describe("StartCrawlRun — AC3: done decision -> completed", () => {
     await useCase.execute(makeInput({ runId: "run-ac3" }));
 
     const events = eventStream.eventsFor("run-ac3");
-    const finished = events.find((e) => e.kind === "crawl:finished") as CrawlFinishedEvent | undefined;
+    const finished = events.find((e) => e.kind === "crawl:finished") as
+      | CrawlFinishedEvent
+      | undefined;
     expect(finished).toBeDefined();
     expect(finished!.status).toBe("completed");
   });
@@ -266,7 +266,11 @@ describe("StartCrawlRun — AC4: step ceiling -> partial", () => {
       rationale: "keep tapping",
     };
     const policy = new FakeDecisionPolicy(
-      Array.from({ length: 20 }, () => ({ kind: "act" as const, action: tapAction, usedLlm: false })),
+      Array.from({ length: 20 }, () => ({
+        kind: "act" as const,
+        action: tapAction,
+        usedLlm: false,
+      })),
     );
     const eventStream = new FakeCrawlEventStream();
     const graphRepo = new InMemoryStateGraphRepository();
@@ -280,7 +284,9 @@ describe("StartCrawlRun — AC4: step ceiling -> partial", () => {
     await useCase.execute(makeInput({ runId: "run-ac4", maxSteps: 3 }));
 
     const events = eventStream.eventsFor("run-ac4");
-    const finished = events.find((e) => e.kind === "crawl:finished") as CrawlFinishedEvent | undefined;
+    const finished = events.find((e) => e.kind === "crawl:finished") as
+      | CrawlFinishedEvent
+      | undefined;
     expect(finished).toBeDefined();
     expect(finished!.status).toBe("partial");
   });
@@ -293,7 +299,11 @@ describe("StartCrawlRun — AC4: step ceiling -> partial", () => {
       rationale: "tap",
     };
     const policy = new FakeDecisionPolicy(
-      Array.from({ length: 50 }, () => ({ kind: "act" as const, action: tapAction, usedLlm: false })),
+      Array.from({ length: 50 }, () => ({
+        kind: "act" as const,
+        action: tapAction,
+        usedLlm: false,
+      })),
     );
     const eventStream = new FakeCrawlEventStream();
     const graphRepo = new InMemoryStateGraphRepository();
@@ -393,7 +403,9 @@ describe("InMemoryStateGraphRepository", () => {
 
     const found = await repo.findByRunId("run-mem-02");
     expect(found!.nodes.size).toBe(1);
-    expect(found!.nodes.get("state-abc" as import("@flowscout/domain").StateIdentity)).toEqual(node);
+    expect(found!.nodes.get("state-abc" as import("@flowscout/domain").StateIdentity)).toEqual(
+      node,
+    );
   });
 
   it("appends edges to an existing graph", async () => {
@@ -454,7 +466,9 @@ describe("InMemoryStateGraphRepository", () => {
     const found = await repo.findByRunId("run-upsert");
     // After upsert, node should be updated
     expect(found!.nodes.size).toBe(1);
-    expect(found!.nodes.get("state-x" as import("@flowscout/domain").StateIdentity)!.label).toBe("Screen X Updated");
+    expect(found!.nodes.get("state-x" as import("@flowscout/domain").StateIdentity)!.label).toBe(
+      "Screen X Updated",
+    );
   });
 
   it("upsertNode is a no-op if the runId does not exist", async () => {
@@ -499,7 +513,9 @@ describe("defaultCollaborators stubs", () => {
       defaultCollaborators({ stateGraphRepository: graphRepo, crawlEventStream: eventStream }),
     );
 
-    await expect(useCase.execute(makeInput({ runId: "run-budget-ok", maxSteps: 10 }))).resolves.toBeUndefined();
+    await expect(
+      useCase.execute(makeInput({ runId: "run-budget-ok", maxSteps: 10 })),
+    ).resolves.toBeUndefined();
   });
 
   it("Frontier provides candidates when policy acts", async () => {
@@ -547,7 +563,9 @@ describe("StartCrawlRun — crawl:finished payload", () => {
     await useCase.execute(makeInput({ runId: "run-totals" }));
 
     const events = eventStream.eventsFor("run-totals");
-    const finished = events.find((e) => e.kind === "crawl:finished") as CrawlFinishedEvent | undefined;
+    const finished = events.find((e) => e.kind === "crawl:finished") as
+      | CrawlFinishedEvent
+      | undefined;
     const graph = await graphRepo.findByRunId("run-totals");
 
     expect(finished).toBeDefined();
@@ -568,7 +586,9 @@ describe("StartCrawlRun — crawl:finished payload", () => {
     await useCase.execute(makeInput({ runId: "run-steps" }));
 
     const events = eventStream.eventsFor("run-steps");
-    const finished = events.find((e) => e.kind === "crawl:finished") as CrawlFinishedEvent | undefined;
+    const finished = events.find((e) => e.kind === "crawl:finished") as
+      | CrawlFinishedEvent
+      | undefined;
     expect(finished!.totalSteps).toBeGreaterThanOrEqual(0);
   });
 });
@@ -777,7 +797,9 @@ describe("StartCrawlRun — executeAction branch coverage", () => {
     await useCase.execute(makeInput({ runId: "run-backtrack" }));
 
     const events = eventStream.eventsFor("run-backtrack");
-    const finished = events.find((e) => e.kind === "crawl:finished") as CrawlFinishedEvent | undefined;
+    const finished = events.find((e) => e.kind === "crawl:finished") as
+      | CrawlFinishedEvent
+      | undefined;
     expect(finished).toBeDefined();
     expect(finished!.status).toBe("completed");
   });
@@ -867,9 +889,9 @@ describe("StartCrawlRun — executeAction branch coverage", () => {
   });
 });
 
-// ── PlaceholderIdentity edge cases ────────────────────────────────────────────
+// ── StateIdentity edge cases ──────────────────────────────────────────────────
 
-describe("PlaceholderIdentity", () => {
+describe("StateIdentity edge cases", () => {
   it("empty snapshot gets a degraded identity", async () => {
     const driver = new FakeMobileDriver();
     driver.snapshotOverride = "" as A11ySnapshot;
@@ -933,9 +955,9 @@ describe("StartCrawlRun — security: no a11y body in ActionTakenEvent", () => {
   });
 });
 
-// ── Placeholder identity strategy: same snapshot -> same StateIdentity ────────
+// ── Identity strategy: same snapshot -> same StateIdentity ────────────────────
 
-describe("StartCrawlRun — PlaceholderIdentity deduplication", () => {
+describe("StartCrawlRun — StateIdentity deduplication", () => {
   it("same a11y snapshot always produces the same node id (no graph explosion)", async () => {
     const driver = new FakeMobileDriver();
     // Driver always returns the same snapshot -> same identity -> only 1 node
