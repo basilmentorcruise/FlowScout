@@ -276,7 +276,11 @@ describe("SimulatorLifecycleManager — listDevices (AC1)", () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await mgr.listDevices();
-    expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "list", "devices", "--json"]);
+    expect(exec).toHaveBeenCalledWith(
+      "xcrun",
+      ["simctl", "list", "devices", "--json"],
+      expect.any(AbortSignal),
+    );
   });
 
   it("maps 'Booted' -> 'booted' and unknown states -> 'unknown'", async () => {
@@ -333,7 +337,11 @@ describe("SimulatorLifecycleManager — bootSimulator (AC2/AC6/T1)", () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await mgr.bootSimulator(VALID_UDID);
-    expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "boot", VALID_UDID]);
+    expect(exec).toHaveBeenCalledWith(
+      "xcrun",
+      ["simctl", "boot", VALID_UDID],
+      expect.any(AbortSignal),
+    );
   });
 
   it("AC6: throws DeviceNotFoundError for unknown UDID", async () => {
@@ -397,6 +405,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
     expect(exec).toHaveBeenCalledWith(
       "xcrun",
       expect.arrayContaining(["simctl", "install", VALID_UDID]),
+      expect.any(AbortSignal),
     );
     await tempDir.cleanup();
   });
@@ -491,7 +500,11 @@ describe("SimulatorLifecycleManager — launchApp (AC4/AC6/T1)", () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await mgr.launchApp(VALID_UDID, VALID_BUNDLE_ID);
-    expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "launch", VALID_UDID, VALID_BUNDLE_ID]);
+    expect(exec).toHaveBeenCalledWith(
+      "xcrun",
+      ["simctl", "launch", VALID_UDID, VALID_BUNDLE_ID],
+      expect.any(AbortSignal),
+    );
   });
 
   it("AC6: throws DeviceNotFoundError for unknown UDID", async () => {
@@ -559,7 +572,11 @@ describe("SimulatorLifecycleManager — shutdownSimulator (AC7/AC6/T1/T8)", () =
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await mgr.shutdownSimulator(VALID_UDID);
-    expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "shutdown", VALID_UDID]);
+    expect(exec).toHaveBeenCalledWith(
+      "xcrun",
+      ["simctl", "shutdown", VALID_UDID],
+      expect.any(AbortSignal),
+    );
   });
 
   it("AC6: throws DeviceNotFoundError for unknown UDID", async () => {
