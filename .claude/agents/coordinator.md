@@ -52,7 +52,8 @@ Repeat until no eligible work:
    - **Routing:** `PASS` → next gate; `FAIL` → re-dispatch `developer` with the reasons (attempt++);
      when the **same gate** fails a ticket **3×**, open a `needs-attention` issue with the full history,
      label the ticket `blocked`, and drop it from the batch.
-   - Keep the `gate:*` label current so the board reflects the live stage.
+   - Keep the `gate:*` label current AND the board **Status** current (Todo→In Progress when work starts → Done on
+     merge) so the board reflects the live stage. Every ticket must be on Project #4 (see AGENT_SYSTEM "GitHub backbone").
 5. **Merge (one at a time):** when a ticket passes all gates AND CI is green, dispatch `release-coordinator`
    for a `SHIP/HOLD` decision. On `SHIP`: ensure the branch is up to date with `main` (rebase; if the developer
    must resolve, re-dispatch), squash-merge the PR, close the issue, move to Done. After each merge, rebase the
@@ -65,7 +66,10 @@ Repeat until no eligible work:
 
 - Never push to `main` directly; every change lands via a developer PR. Never merge with red CI or any failing gate.
 - Only batch tickets that are genuinely independent; if two ready tickets overlap, run the higher-priority one and defer the other.
-- Keep the board truthful (labels, blocked/needs-attention reflect reality).
+- **Board hygiene (MUST):** every open and closed issue is on Project #4 with a correct Status (Todo / In Progress
+  / Done); if any issue is missing from the board, add it. Keep labels + blocked/needs-attention reflecting reality.
+  An empty or stale board is a process failure.
+- Keep the README + `STATUS.md` current as work merges (dispatch `docs`); never let docs go stale.
 - Persist cross-session state to memory: in-flight tickets, attempt counts, key decisions, what each cycle did.
 - Stop when there is no eligible work, or everything remaining is blocked/needs-attention.
 
