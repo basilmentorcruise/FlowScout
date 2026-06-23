@@ -227,6 +227,58 @@ describe("§1 normalizeScreenshot", () => {
     const raw = { content: [{ type: "image", data: bigBase64 }] };
     expect(() => normalizeScreenshot(raw, tinyConfig)).toThrow(MalformedPayloadError);
   });
+
+  // ---------------------------------------------------------------------------
+  // §1 normalizeScreenshot — pre-decode base64 size gate (ticket #27, T3 / CWE-400)
+  // Oversized payloads must be rejected on their base64 string length BEFORE
+  // Buffer.from() is called, preventing partial-OOM allocation.
+  // ---------------------------------------------------------------------------
+
+  it("rejects an oversized base64 payload WITHOUT decoding it (pre-decode gate, T3/#27)", () => {
+    // Construct a base64 string whose estimated decoded size exceeds maxScreenshotBytes.
+    // 100 bytes encoded → base64 string of 136 chars; decoded estimate = floor(136*3/4) = 102.
+    // tinyConfig.maxScreenshotBytes = 10, so the pre-decode gate must fire before any allocation.
+    const oversizedBuffer = Buffer.alloc(100, 0xab);
+    const oversizedBase64 = oversizedBuffer.toString("base64");
+    const tinyConfig: NormalizationConfig = { ...TEST_NORM_CONFIG, maxScreenshotBytes: 10 };
+    const raw = { content: [{ type: "image", data: oversizedBase64 }] };
+
+    // Spy on Buffer.from to verify it is NOT called with "base64" encoding.
+    const bufferFromSpy = vi.spyOn(Buffer, "from");
+    expect(() => normalizeScreenshot(raw, tinyConfig)).toThrow(MalformedPayloadError);
+    // Pre-decode gate must have fired before Buffer.from("base64") is reached.
+    const base64Calls = bufferFromSpy.mock.calls.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (args: any[]) => args[1] === "base64",
+    );
+    expect(base64Calls).toHaveLength(0);
+    bufferFromSpy.mockRestore();
+  });
+
+  it("accepts a valid payload well within the limit (pre-decode gate passes, T3/#27)", () => {
+    // The pre-decode estimate (Math.floor(base64Length * 3 / 4)) may over-count by up to
+    // 2 bytes vs the actual decoded size due to base64 padding characters.
+    // A buffer of (maxScreenshotBytes - 2) is guaranteed to produce an estimate
+    // ≤ maxScreenshotBytes for any padding combination.
+    // TEST_NORM_CONFIG.maxScreenshotBytes = 2048.
+    const safeBuffer = Buffer.alloc(TEST_NORM_CONFIG.maxScreenshotBytes - 2, 0xcc);
+    const safeBase64 = safeBuffer.toString("base64");
+    const raw = {
+      content: [
+        { type: "text", text: "screenshot info" },
+        { type: "image", data: safeBase64 },
+      ],
+    };
+    expect(() => normalizeScreenshot(raw, TEST_NORM_CONFIG)).not.toThrow();
+  });
+
+  it("rejects a payload 1 byte over the limit (boundary check, T3/#27)", () => {
+    // A buffer of maxScreenshotBytes + 1 must be rejected by the pre-decode gate.
+    const overBuffer = Buffer.alloc(TEST_NORM_CONFIG.maxScreenshotBytes + 1, 0xdd);
+    const overBase64 = overBuffer.toString("base64");
+    const raw = { content: [{ type: "image", data: overBase64 }] };
+    expect(() => normalizeScreenshot(raw, TEST_NORM_CONFIG)).toThrow(MalformedPayloadError);
+  });
 });
 
 describe("§1 validateCoordinateTarget", () => {
