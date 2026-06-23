@@ -76,16 +76,16 @@ function makeFakeDeps(): CapabilityBundle {
   };
 
   const health: HealthCapability = {
-    checkReadiness: vi
-      .fn()
-      .mockResolvedValue({
-        mcpReachable: true,
-        wdaUp: true,
-        appLaunched: null,
-      }) as unknown as HealthCapability["checkReadiness"],
+    checkReadiness: vi.fn().mockResolvedValue({
+      mcpReachable: true,
+      wdaUp: true,
+      appLaunched: null,
+    }) as unknown as HealthCapability["checkReadiness"],
   };
 
-  return { lifecycle, driving, snapshot, health };
+  const dispose = vi.fn().mockResolvedValue(undefined) as unknown as CapabilityBundle["dispose"];
+
+  return { lifecycle, driving, snapshot, health, dispose };
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +200,33 @@ describe("MobileMcpDriver — facade delegation", () => {
     const driver = new MobileMcpDriver(fakeConfig, deps);
     await expect(driver.bootSimulator(fakeUdid)).rejects.toThrow("capability-error");
   });
+
+  // -------------------------------------------------------------------------
+  // dispose() delegation — #28 MCP transport teardown
+  // -------------------------------------------------------------------------
+
+  it("dispose() delegates to deps.dispose() to close the shared McpConnection (#28)", async () => {
+    const deps = makeFakeDeps();
+    const driver = new MobileMcpDriver(fakeConfig, deps);
+    await driver.dispose();
+    expect(deps.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("dispose() is idempotent — calling twice still delegates both times (#28)", async () => {
+    const deps = makeFakeDeps();
+    const driver = new MobileMcpDriver(fakeConfig, deps);
+    await driver.dispose();
+    await driver.dispose();
+    expect(deps.dispose).toHaveBeenCalledTimes(2);
+  });
+
+  it("dispose() propagates rejections from deps.dispose() (#28)", async () => {
+    const deps = makeFakeDeps();
+    const teardownErr = new Error("transport-close-failed");
+    (deps.dispose as ReturnType<typeof vi.fn>).mockRejectedValue(teardownErr);
+    const driver = new MobileMcpDriver(fakeConfig, deps);
+    await expect(driver.dispose()).rejects.toThrow("transport-close-failed");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -269,4 +296,11 @@ describe("MobileMcpDriver — default capability behavior", () => {
 
   // Note: lifecycle (#14 real impl) — shutdownSimulator, bootSimulator, etc. are tested
   // via lifecycle.contract.test.ts. We do not re-test them here with the facade default.
+
+  it("dispose() resolves without error on a real (default-deps) driver (#28)", async () => {
+    // defaultCapabilities wires dispose() → connection.dispose(), which is safe before connect().
+    // This verifies the real wiring end-to-end without needing a live MCP server.
+    const realDriver = new MobileMcpDriver(fakeConfig);
+    await expect(realDriver.dispose()).resolves.toBeUndefined();
+  });
 });
