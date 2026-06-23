@@ -43,10 +43,7 @@ import { defaultCapabilities } from "./connection/index.js";
 export class MobileMcpDriver implements MobileDriverPort, SimulatorLifecycle {
   private readonly deps: CapabilityBundle;
 
-  constructor(
-    config: MobileMcpDriverConfig,
-    deps?: CapabilityBundle,
-  ) {
+  constructor(config: MobileMcpDriverConfig, deps?: CapabilityBundle) {
     this.deps = deps ?? defaultCapabilities(config.server);
   }
 

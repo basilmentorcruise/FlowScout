@@ -62,10 +62,7 @@ export class ActionError extends McpAdapterError {
 export class InvalidInputError extends McpAdapterError {
   constructor(field: string, value: unknown) {
     const truncated = JSON.stringify(String(value)).slice(0, INVALID_INPUT_MESSAGE_TRUNCATE_LENGTH);
-    super(
-      `InvalidInputError: "${field}" value failed validation — ` +
-        `received: ${truncated}`,
-    );
+    super(`InvalidInputError: "${field}" value failed validation — ` + `received: ${truncated}`);
     this.name = "InvalidInputError";
   }
 }
@@ -205,9 +202,7 @@ export function normalizeA11ySnapshot(
   }
 
   // Step 2: Extract text from first text-type content item
-  const textContent = raw.content.find(
-    (item) => item.type === "text" && item.text !== undefined,
-  );
+  const textContent = raw.content.find((item) => item.type === "text" && item.text !== undefined);
   if (
     textContent === undefined ||
     textContent.text === undefined ||
@@ -258,9 +253,7 @@ export function normalizeScreenshot(
   }
 
   // Step 2: Find image content item (base64-encoded data)
-  const imageContent = raw.content.find(
-    (item) => item.type === "image" && item.data !== undefined,
-  );
+  const imageContent = raw.content.find((item) => item.type === "image" && item.data !== undefined);
   if (
     imageContent === undefined ||
     imageContent.data === undefined ||
@@ -288,11 +281,7 @@ export function normalizeScreenshot(
  * Validate a coordinate tap target is within the configured screen bounds (T1/T3).
  * Throws ActionError if the coordinate is off-screen.
  */
-export function validateCoordinateTarget(
-  x: number,
-  y: number,
-  config: NormalizationConfig,
-): void {
+export function validateCoordinateTarget(x: number, y: number, config: NormalizationConfig): void {
   if (x < 0 || y < 0 || x >= config.screenWidthPx || y >= config.screenHeightPx) {
     throw new ActionError(
       `Coordinate (${String(x)}, ${String(y)}) is off-screen ` +

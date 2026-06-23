@@ -102,9 +102,8 @@ export class SwipeRevealProbeSource implements ProbeSource {
       for (const row of swipeableRows) {
         if (seenIds.size >= SwipeRevealProbeSource.MAX_ROWS_TO_PROBE) break;
 
-        const elementId = typeof row.accessibilityIdentifier === "string"
-          ? row.accessibilityIdentifier
-          : undefined;
+        const elementId =
+          typeof row.accessibilityIdentifier === "string" ? row.accessibilityIdentifier : undefined;
 
         // Generic rows without an identifier share one probe slot (first encounter only).
         const dedupKey = elementId ?? "__generic-row__";

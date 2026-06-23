@@ -194,7 +194,11 @@ describe("CachedKnowledgePolicy", () => {
     it("returns the next policy's decision when falling through (act from LLM)", async () => {
       const llmDecision: PolicyDecision = {
         kind: "act",
-        action: { actionType: "tap", actionPayload: '{"elementId":"llm-choice"}', rationale: "llm" },
+        action: {
+          actionType: "tap",
+          actionPayload: '{"elementId":"llm-choice"}',
+          rationale: "llm",
+        },
         usedLlm: true,
       };
       const next = new FakeNextPolicy(llmDecision);

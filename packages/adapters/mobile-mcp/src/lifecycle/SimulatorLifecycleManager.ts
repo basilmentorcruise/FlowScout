@@ -201,9 +201,7 @@ async function assertReadableDirectory(canonicalPath: string): Promise<void> {
   try {
     stat = await fsPromises.stat(canonicalPath);
   } catch {
-    throw new InstallFailedError(
-      "app bundle path could not be stat-ed — check file permissions",
-    );
+    throw new InstallFailedError("app bundle path could not be stat-ed — check file permissions");
   }
   if (!stat.isDirectory()) {
     throw new InstallFailedError(
@@ -232,11 +230,11 @@ async function assertReadableDirectory(canonicalPath: string): Promise<void> {
  * T5: raw path values are never echoed in error messages.
  */
 async function canonicalizeAppPath(rawPath: string, baseDir: string): Promise<string> {
-  validateAppPathFormat(rawPath);                            // Step 1
-  const canonicalPath = await resolveRealpath(rawPath);     // Step 2
+  validateAppPathFormat(rawPath); // Step 1
+  const canonicalPath = await resolveRealpath(rawPath); // Step 2
   const canonicalBase = await resolveCanonicalBase(baseDir); // Step 3a
-  assertConfined(canonicalPath, canonicalBase);              // Step 3b
-  await assertReadableDirectory(canonicalPath);              // Step 4
+  assertConfined(canonicalPath, canonicalBase); // Step 3b
+  await assertReadableDirectory(canonicalPath); // Step 4
   return canonicalPath;
 }
 
@@ -448,11 +446,7 @@ export class SimulatorLifecycleManager implements LifecycleCapability {
     validateBundleId(bundleId); // T1
 
     try {
-      await runSimctlWithTimeout(
-        ["launch", udid, bundleId],
-        this.exec,
-        this.config.callTimeoutMs,
-      );
+      await runSimctlWithTimeout(["launch", udid, bundleId], this.exec, this.config.callTimeoutMs);
     } catch (err) {
       const msg = extractMessage(err);
       if (isUnknownDevice(msg)) {

@@ -25,4 +25,3 @@ export {
 // simctl helper (Wave-1 lifecycle + snapshot tickets import this).
 export { runSimctl, runSimctlWithTimeout, createDefaultExec } from "./simctl.js";
 export type { Exec, ExecResult } from "./simctl.js";
-

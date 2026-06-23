@@ -59,8 +59,7 @@ interface A11yNode {
 // ---------------------------------------------------------------------------
 
 /** Regex patterns for volatile content. */
-const ISO_TIMESTAMP_RE =
-  /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?/g;
+const ISO_TIMESTAMP_RE = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?/g;
 const CLOCK_TIME_RE = /\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\b/g;
 const CURRENCY_RE = /[$€£¥]\s*\d+(?:[.,]\d+)*/g;
 const PERCENTAGE_RE = /\b\d+(?:\.\d+)?%/g;
@@ -205,11 +204,7 @@ export class A11ySignatureStrategy implements StateIdentityStrategy {
     }
 
     // Must be a plain object (not array, null, primitive).
-    if (
-      parsed === null ||
-      typeof parsed !== "object" ||
-      Array.isArray(parsed)
-    ) {
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
       return this._degraded(raw);
     }
 

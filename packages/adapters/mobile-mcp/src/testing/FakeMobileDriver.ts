@@ -48,9 +48,7 @@ export class FakeDriverError extends Error {
 /** Thrown when an operation is called with an unknown (unregistered) UDID. */
 export class UnknownDeviceError extends FakeDriverError {
   constructor(udid: string) {
-    super(
-      `UnknownDeviceError: device with UDID "${udid}" is not registered in FakeMobileDriver`,
-    );
+    super(`UnknownDeviceError: device with UDID "${udid}" is not registered in FakeMobileDriver`);
     this.name = "UnknownDeviceError";
   }
 }
@@ -175,30 +173,36 @@ function validateAppBundlePath(path: string): void {
 // ---------------------------------------------------------------------------
 
 /** Synthetic a11y snapshot — plainly fake XML-like structure. */
-const CANNED_A11Y_SNAPSHOT =
-  (`<AXApplication title="FlowScout Fixture" role="AXApplication">` +
-    `<AXButton title="OK" role="AXButton" identifier="btn-ok"/>` +
-    `<AXStaticText value="Hello from synthetic fixture" role="AXStaticText"/>` +
-    `</AXApplication>`) as A11ySnapshot;
+const CANNED_A11Y_SNAPSHOT = (`<AXApplication title="FlowScout Fixture" role="AXApplication">` +
+  `<AXButton title="OK" role="AXButton" identifier="btn-ok"/>` +
+  `<AXStaticText value="Hello from synthetic fixture" role="AXStaticText"/>` +
+  `</AXApplication>`) as A11ySnapshot;
 
-/** Synthetic screenshot: minimal valid 1×1 white PNG (T9: no real image). */
-const CANNED_SCREENSHOT_BYTES: ScreenshotBytes = buildSyntheticPng();
+/**
+ * Minimal valid PNG bytes: 1×1 white pixel.
+ * Signature + IHDR + IDAT (1 white pixel) + IEND.
+ * Must be declared before CANNED_SCREENSHOT_BYTES to avoid TDZ error.
+ */
+// prettier-ignore
+const SYNTHETIC_PNG_BYTES: readonly number[] = [
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // width=1, height=1
+  0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // bit depth, color type, CRC
+  0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, // IDAT chunk
+  0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, // IDAT data
+  0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, // IDAT CRC
+  0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, // IEND chunk
+  0x44, 0xae, 0x42, 0x60, 0x82,                   // IEND CRC
+];
 
 /** Build the 1×1 synthetic PNG byte array. Isolated to keep the class slim. */
 function buildSyntheticPng(): ScreenshotBytes {
-  // Minimal PNG: signature + IHDR + IDAT (1 white pixel) + IEND
-  return new Uint8Array([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
-    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // width=1, height=1
-    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // bit depth, color type
-    0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, // IDAT chunk
-    0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, // IDAT data
-    0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, // IDAT CRC
-    0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, // IEND chunk
-    0x44, 0xae, 0x42, 0x60, 0x82, // IEND CRC
-  ]);
+  return new Uint8Array(SYNTHETIC_PNG_BYTES);
 }
+
+/** Synthetic screenshot: minimal valid 1×1 white PNG (T9: no real image). */
+const CANNED_SCREENSHOT_BYTES: ScreenshotBytes = buildSyntheticPng();
 
 // ---------------------------------------------------------------------------
 // Default registered device (synthetic, no real UDID)

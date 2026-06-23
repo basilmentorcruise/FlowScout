@@ -55,9 +55,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as fsPromises from "node:fs/promises";
-import {
-  runLifecycleContract,
-} from "../testing/index.js";
+import { runLifecycleContract } from "../testing/index.js";
 import {
   SimulatorLifecycleManager,
   LifecycleInputError,
@@ -195,9 +193,7 @@ async function makeTempAppDir(): Promise<{
 
 // Create the contract fixture .app dir synchronously so it is available before
 // describe() blocks execute (describe() runs synchronously at module load time).
-const CONTRACT_BASE_DIR: string = fs.mkdtempSync(
-  nodePath.join(os.tmpdir(), "flowscout-contract-"),
-);
+const CONTRACT_BASE_DIR: string = fs.mkdtempSync(nodePath.join(os.tmpdir(), "flowscout-contract-"));
 const CONTRACT_APP_PATH: string = nodePath.join(CONTRACT_BASE_DIR, "Contract.app");
 fs.mkdirSync(CONTRACT_APP_PATH, { recursive: true });
 
@@ -286,7 +282,10 @@ describe("SimulatorLifecycleManager — listDevices (AC1)", () => {
   it("maps 'Booted' -> 'booted' and unknown states -> 'unknown'", async () => {
     const execBooted = makeSimctlExec();
     const mgrBooted = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, execBooted, os.tmpdir(),
+      STUB_CONNECTION,
+      TEST_CONFIG,
+      execBooted,
+      os.tmpdir(),
     );
     expect((await mgrBooted.listDevices())[0]?.state).toBe("booted");
 
@@ -301,7 +300,10 @@ describe("SimulatorLifecycleManager — listDevices (AC1)", () => {
       stderr: "",
     });
     const mgrUnknown = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, execUnknown, os.tmpdir(),
+      STUB_CONNECTION,
+      TEST_CONFIG,
+      execUnknown,
+      os.tmpdir(),
     );
     expect((await mgrUnknown.listDevices())[0]?.state).toBe("unknown");
   });
@@ -383,18 +385,14 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("AC3: resolves for a valid .app directory within the allowlisted base dir", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(mgr.installApp(VALID_UDID, tempDir.appPath)).resolves.toBeUndefined();
     await tempDir.cleanup();
   });
 
   it("calls xcrun simctl install <udid> <canonical-path> (T1 — argv, no shell)", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await mgr.installApp(VALID_UDID, tempDir.appPath);
     expect(exec).toHaveBeenCalledWith(
       "xcrun",
@@ -405,9 +403,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("AC5/T2: throws InstallFailedError for a non-existent path", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(
       mgr.installApp(VALID_UDID, nodePath.join(tempDir.baseDir, "nonexistent.app")),
     ).rejects.toBeInstanceOf(InstallFailedError);
@@ -416,9 +412,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("T2: throws LifecycleInputError for path not ending with .app", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(
       mgr.installApp(VALID_UDID, nodePath.join(tempDir.baseDir, "Fixture.ipa")),
     ).rejects.toBeInstanceOf(LifecycleInputError);
@@ -427,18 +421,14 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("T2: throws LifecycleInputError for empty path", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(mgr.installApp(VALID_UDID, "")).rejects.toBeInstanceOf(LifecycleInputError);
     await tempDir.cleanup();
   });
 
   it("T2: throws LifecycleInputError for path outside the allowlisted base dir", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     // Create a .app dir OUTSIDE the base dir (confinement check, path traversal defence).
     const outsideBase = await fsPromises.mkdtemp(nodePath.join(os.tmpdir(), "outside-"));
     const outsideApp = nodePath.join(outsideBase, "Evil.app");
@@ -452,9 +442,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("T1: throws LifecycleInputError for invalid UDID (validated before path check)", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(mgr.installApp("; rm -rf ~", tempDir.appPath)).rejects.toBeInstanceOf(
       LifecycleInputError,
     );
@@ -463,9 +451,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("T2: does NOT call exec when path validation fails (argv never built)", async () => {
     const exec = makeSimctlExec();
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(mgr.installApp(VALID_UDID, "")).rejects.toBeInstanceOf(LifecycleInputError);
     expect(exec).not.toHaveBeenCalled();
     await tempDir.cleanup();
@@ -473,9 +459,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("AC6: throws DeviceNotFoundError for unknown UDID (simctl error)", async () => {
     const exec = makeSimctlExec({ unknownUdids: [UNKNOWN_UDID] });
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     await expect(mgr.installApp(UNKNOWN_UDID, tempDir.appPath)).rejects.toBeInstanceOf(
       DeviceNotFoundError,
     );
@@ -484,9 +468,7 @@ describe("SimulatorLifecycleManager — installApp (AC3/AC5/AC6/T1/T2)", () => {
 
   it("throws InstallFailedError when simctl install fails (distinct from LaunchFailedError)", async () => {
     const exec = makeSimctlExec({ installFails: true });
-    const mgr = new SimulatorLifecycleManager(
-      STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir,
-    );
+    const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, tempDir.baseDir);
     const err = await mgr.installApp(VALID_UDID, tempDir.appPath).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(InstallFailedError);
     expect(err).not.toBeInstanceOf(LaunchFailedError);
@@ -509,9 +491,7 @@ describe("SimulatorLifecycleManager — launchApp (AC4/AC6/T1)", () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await mgr.launchApp(VALID_UDID, VALID_BUNDLE_ID);
-    expect(exec).toHaveBeenCalledWith("xcrun", [
-      "simctl", "launch", VALID_UDID, VALID_BUNDLE_ID,
-    ]);
+    expect(exec).toHaveBeenCalledWith("xcrun", ["simctl", "launch", VALID_UDID, VALID_BUNDLE_ID]);
   });
 
   it("AC6: throws DeviceNotFoundError for unknown UDID", async () => {
@@ -549,7 +529,9 @@ describe("SimulatorLifecycleManager — launchApp (AC4/AC6/T1)", () => {
   it("T1: does NOT call exec when bundleId is invalid (validation before argv)", async () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
-    await expect(mgr.launchApp(VALID_UDID, "; rm -rf ~")).rejects.toBeInstanceOf(LifecycleInputError);
+    await expect(mgr.launchApp(VALID_UDID, "; rm -rf ~")).rejects.toBeInstanceOf(
+      LifecycleInputError,
+    );
     expect(exec).not.toHaveBeenCalled();
   });
 
@@ -587,9 +569,9 @@ describe("SimulatorLifecycleManager — shutdownSimulator (AC7/AC6/T1/T8)", () =
   });
 
   it("AC7/T8: 'already shutdown / invalid state' -> success (idempotent, no orphan)", async () => {
-    const exec = vi.fn().mockRejectedValue(
-      new Error("Invalid state: The simulator is already in shutdown state"),
-    );
+    const exec = vi
+      .fn()
+      .mockRejectedValue(new Error("Invalid state: The simulator is already in shutdown state"));
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
     await expect(mgr.shutdownSimulator(VALID_UDID)).resolves.toBeUndefined();
   });
@@ -603,13 +585,7 @@ describe("SimulatorLifecycleManager — shutdownSimulator (AC7/AC6/T1/T8)", () =
   it("T1: throws LifecycleInputError for injection-shaped UDID (all vectors)", async () => {
     const exec = makeSimctlExec();
     const mgr = new SimulatorLifecycleManager(STUB_CONNECTION, TEST_CONFIG, exec, os.tmpdir());
-    const injections = [
-      "$(evil)",
-      "-leading-dash",
-      "",
-      "; rm -rf ~",
-      "a".repeat(512),
-    ];
+    const injections = ["$(evil)", "-leading-dash", "", "; rm -rf ~", "a".repeat(512)];
     for (const bad of injections) {
       await expect(mgr.shutdownSimulator(bad)).rejects.toBeInstanceOf(LifecycleInputError);
     }

@@ -117,10 +117,7 @@ export class LongPressProbeSource implements ProbeSource {
    * Detects long-press affordances in the snapshot and emits telemetry.
    * Always returns [] — no candidates are emitted (the driver cannot execute this gesture).
    */
-  generateCandidates(
-    stateId: string,
-    snapshot: A11ySnapshot,
-  ): Promise<readonly CandidateAction[]> {
+  generateCandidates(stateId: string, snapshot: A11ySnapshot): Promise<readonly CandidateAction[]> {
     try {
       const root = safeParseSnapshot(snapshot);
       if (root !== null) {

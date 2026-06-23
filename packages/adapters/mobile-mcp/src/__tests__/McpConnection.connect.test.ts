@@ -181,7 +181,10 @@ describe("McpConnection — callTool() (AC1 + error path)", () => {
   it("callTool() throws McpTimeoutError when the call exceeds callTimeoutMs (AC4)", async () => {
     const { McpConnection } = await import("../connection/McpConnection.js");
     mockCallTool.mockImplementation(
-      () => new Promise<void>(() => { /* never resolves */ }),
+      () =>
+        new Promise<void>(() => {
+          /* never resolves */
+        }),
     );
     const transport = makeFastTransport();
     const conn = new McpConnection(

@@ -11,7 +11,13 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { MobileMcpDriver } from "../MobileMcpDriver.js";
-import type { CapabilityBundle, LifecycleCapability, DrivingCapability, SnapshotCapability, HealthCapability } from "../connection/capabilities.js";
+import type {
+  CapabilityBundle,
+  LifecycleCapability,
+  DrivingCapability,
+  SnapshotCapability,
+  HealthCapability,
+} from "../connection/capabilities.js";
 import type { A11ySnapshot } from "@flowscout/domain";
 import type { MobileMcpDriverConfig } from "../connection/connection-config.js";
 
@@ -34,16 +40,24 @@ const fakeSnapshotName = "clean-state";
 function makeFakeDeps(): CapabilityBundle {
   const lifecycle: LifecycleCapability = {
     listDevices: vi.fn().mockResolvedValue([]) as unknown as LifecycleCapability["listDevices"],
-    bootSimulator: vi.fn().mockResolvedValue(undefined) as unknown as LifecycleCapability["bootSimulator"],
-    installApp: vi.fn().mockResolvedValue(undefined) as unknown as LifecycleCapability["installApp"],
+    bootSimulator: vi
+      .fn()
+      .mockResolvedValue(undefined) as unknown as LifecycleCapability["bootSimulator"],
+    installApp: vi
+      .fn()
+      .mockResolvedValue(undefined) as unknown as LifecycleCapability["installApp"],
     launchApp: vi.fn().mockResolvedValue(undefined) as unknown as LifecycleCapability["launchApp"],
-    shutdownSimulator: vi.fn().mockResolvedValue(undefined) as unknown as LifecycleCapability["shutdownSimulator"],
+    shutdownSimulator: vi
+      .fn()
+      .mockResolvedValue(undefined) as unknown as LifecycleCapability["shutdownSimulator"],
   };
 
   const driving: DrivingCapability = {
     snapshotAccessibilityTree: vi
       .fn()
-      .mockResolvedValue("fake-a11y" as A11ySnapshot) as unknown as DrivingCapability["snapshotAccessibilityTree"],
+      .mockResolvedValue(
+        "fake-a11y" as A11ySnapshot,
+      ) as unknown as DrivingCapability["snapshotAccessibilityTree"],
     screenshot: vi
       .fn()
       .mockResolvedValue(new Uint8Array([1, 2, 3])) as unknown as DrivingCapability["screenshot"],
@@ -53,14 +67,22 @@ function makeFakeDeps(): CapabilityBundle {
   };
 
   const snapshot: SnapshotCapability = {
-    takeSnapshot: vi.fn().mockResolvedValue(undefined) as unknown as SnapshotCapability["takeSnapshot"],
-    resetToSnapshot: vi.fn().mockResolvedValue(undefined) as unknown as SnapshotCapability["resetToSnapshot"],
+    takeSnapshot: vi
+      .fn()
+      .mockResolvedValue(undefined) as unknown as SnapshotCapability["takeSnapshot"],
+    resetToSnapshot: vi
+      .fn()
+      .mockResolvedValue(undefined) as unknown as SnapshotCapability["resetToSnapshot"],
   };
 
   const health: HealthCapability = {
     checkReadiness: vi
       .fn()
-      .mockResolvedValue({ mcpReachable: true, wdaUp: true, appLaunched: null }) as unknown as HealthCapability["checkReadiness"],
+      .mockResolvedValue({
+        mcpReachable: true,
+        wdaUp: true,
+        appLaunched: null,
+      }) as unknown as HealthCapability["checkReadiness"],
   };
 
   return { lifecycle, driving, snapshot, health };

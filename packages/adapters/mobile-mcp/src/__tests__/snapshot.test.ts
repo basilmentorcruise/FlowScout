@@ -27,10 +27,7 @@ import {
 } from "../snapshot/SnapshotManager.js";
 import { AppBundlePathValidator, type FsAccess } from "../snapshot/AppBundlePathValidator.js";
 import { DeviceNotFoundError } from "../connection/errors.js";
-import {
-  DEFAULT_FAKE_UDID,
-  runSnapshotContract,
-} from "../testing/index.js";
+import { DEFAULT_FAKE_UDID, runSnapshotContract } from "../testing/index.js";
 import type { SnapshotFixtures, SnapshotErrorClasses } from "../testing/index.js";
 
 // ---------------------------------------------------------------------------
@@ -81,14 +78,13 @@ function makeDeviceListJson(udid: string): string {
 }
 
 /** Build a fake Exec that handles simctl list, install, erase, shutdown. */
-function makeFakeExec(options: {
-  deviceUdid?: string;
-  listDevicesResult?: string | null;
-} = {}): Exec {
-  const {
-    deviceUdid = VALID_UDID,
-    listDevicesResult,
-  } = options;
+function makeFakeExec(
+  options: {
+    deviceUdid?: string;
+    listDevicesResult?: string | null;
+  } = {},
+): Exec {
+  const { deviceUdid = VALID_UDID, listDevicesResult } = options;
 
   return async (_file: string, args: readonly string[]): Promise<ExecResult> => {
     const subcommand = args[1]; // args = ["simctl", "<subcommand>", ...]
@@ -144,10 +140,7 @@ function makeHappyFsAccess(baseDir = APP_BUNDLE_BASE_DIR, path = APP_BUNDLE_PATH
  * When appBundlePath is provided, uses erase-reinstall strategy.
  * When null/omitted, uses clean-install strategy.
  */
-function makeManager(
-  exec: Exec,
-  appBundlePath: string | null = null,
-): SnapshotManager {
+function makeManager(exec: Exec, appBundlePath: string | null = null): SnapshotManager {
   const connection = {} as McpConnection; // not used for simctl ops
   if (appBundlePath !== null) {
     // Inject happy-path FsAccess so the validator doesn't touch real disk.
@@ -347,9 +340,9 @@ describe("SnapshotManager.resetToSnapshot — T8 fail-closed (F6 safety backstop
   it("throws SnapshotNotFoundError when snapshot name was never taken (known udid)", async () => {
     const exec = makeFakeExec({ deviceUdid: VALID_UDID });
     const mgr = makeManager(exec, APP_BUNDLE_PATH);
-    await expect(
-      mgr.resetToSnapshot(VALID_UDID, "never-taken"),
-    ).rejects.toBeInstanceOf(SnapshotNotFoundError);
+    await expect(mgr.resetToSnapshot(VALID_UDID, "never-taken")).rejects.toBeInstanceOf(
+      SnapshotNotFoundError,
+    );
   });
 
   it("error message mentions 'snapshot' (T8 informative error requirement)", async () => {
@@ -375,9 +368,9 @@ describe("SnapshotManager.resetToSnapshot — T8 fail-closed (F6 safety backstop
     const mgr = makeManager(exec, APP_BUNDLE_PATH);
     await mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME);
     // Name-B was never taken — must throw.
-    await expect(
-      mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME_2),
-    ).rejects.toBeInstanceOf(SnapshotNotFoundError);
+    await expect(mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME_2)).rejects.toBeInstanceOf(
+      SnapshotNotFoundError,
+    );
   });
 
   it("SnapshotNotFoundError carries the snapshot name and udid", async () => {
@@ -400,17 +393,17 @@ describe("SnapshotManager — T1: injection-shaped snapshotName rejected", () =>
     it(`takeSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
       const exec = makeFakeExec({ deviceUdid: VALID_UDID });
       const mgr = makeManager(exec, APP_BUNDLE_PATH);
-      await expect(
-        mgr.takeSnapshot(VALID_UDID, badName),
-      ).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+      await expect(mgr.takeSnapshot(VALID_UDID, badName)).rejects.toBeInstanceOf(
+        InvalidSnapshotInputError,
+      );
     });
 
     it(`resetToSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
       const exec = makeFakeExec({ deviceUdid: VALID_UDID });
       const mgr = makeManager(exec, APP_BUNDLE_PATH);
-      await expect(
-        mgr.resetToSnapshot(VALID_UDID, badName),
-      ).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+      await expect(mgr.resetToSnapshot(VALID_UDID, badName)).rejects.toBeInstanceOf(
+        InvalidSnapshotInputError,
+      );
     });
   }
 });
@@ -424,17 +417,17 @@ describe("SnapshotManager — T1: injection-shaped udid rejected", () => {
     it(`takeSnapshot rejects udid: ${JSON.stringify(badUdid)}`, async () => {
       const exec = makeFakeExec({ deviceUdid: VALID_UDID });
       const mgr = makeManager(exec, APP_BUNDLE_PATH);
-      await expect(
-        mgr.takeSnapshot(badUdid, SNAPSHOT_NAME),
-      ).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+      await expect(mgr.takeSnapshot(badUdid, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+        InvalidSnapshotInputError,
+      );
     });
 
     it(`resetToSnapshot rejects udid: ${JSON.stringify(badUdid)}`, async () => {
       const exec = makeFakeExec({ deviceUdid: VALID_UDID });
       const mgr = makeManager(exec, APP_BUNDLE_PATH);
-      await expect(
-        mgr.resetToSnapshot(badUdid, SNAPSHOT_NAME),
-      ).rejects.toBeInstanceOf(InvalidSnapshotInputError);
+      await expect(mgr.resetToSnapshot(badUdid, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+        InvalidSnapshotInputError,
+      );
     });
   }
 });
@@ -449,13 +442,13 @@ describe("SnapshotManager — T1: injection-shaped udid rejected", () => {
 describe("SnapshotManager — Fix #2: unknown udid -> DeviceNotFoundError (device-first)", () => {
   it("takeSnapshot throws DeviceNotFoundError when udid is absent from simctl list", async () => {
     const exec = makeFakeExec({
-      deviceUdid: VALID_UDID,      // list only knows VALID_UDID
+      deviceUdid: VALID_UDID, // list only knows VALID_UDID
       listDevicesResult: makeDeviceListJson(VALID_UDID),
     });
     const mgr = makeManager(exec, APP_BUNDLE_PATH);
-    await expect(
-      mgr.takeSnapshot(VALID_UDID_2, SNAPSHOT_NAME),
-    ).rejects.toBeInstanceOf(DeviceNotFoundError);
+    await expect(mgr.takeSnapshot(VALID_UDID_2, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      DeviceNotFoundError,
+    );
   });
 
   it("resetToSnapshot throws DeviceNotFoundError for unknown udid (device-first — not SnapshotNotFoundError)", async () => {
@@ -468,9 +461,9 @@ describe("SnapshotManager — Fix #2: unknown udid -> DeviceNotFoundError (devic
       return { stdout: "", stderr: "" };
     };
     const mgr = makeManager(exec, APP_BUNDLE_PATH);
-    await expect(
-      mgr.resetToSnapshot(VALID_UDID_2, SNAPSHOT_NAME),
-    ).rejects.toBeInstanceOf(DeviceNotFoundError);
+    await expect(mgr.resetToSnapshot(VALID_UDID_2, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      DeviceNotFoundError,
+    );
   });
 
   it("resetToSnapshot: known udid + unknown snapshot name still throws SnapshotNotFoundError (T8 preserved)", async () => {
@@ -492,9 +485,9 @@ describe("SnapshotManager — Fix #2: unknown udid -> DeviceNotFoundError (devic
       return { stdout: "", stderr: "" };
     };
     const mgr = makeManager(exec, APP_BUNDLE_PATH);
-    await expect(
-      mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME),
-    ).rejects.toBeInstanceOf(DeviceNotFoundError);
+    await expect(mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      DeviceNotFoundError,
+    );
   });
 });
 
@@ -668,9 +661,9 @@ describe("SnapshotManager — registry isolation between instances", () => {
   });
 
   it("fresh manager starts with empty registry (no snapshots)", async () => {
-    await expect(
-      mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME),
-    ).rejects.toBeInstanceOf(SnapshotNotFoundError);
+    await expect(mgr.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      SnapshotNotFoundError,
+    );
   });
 
   it("taking a snapshot in instance A does not affect instance B", async () => {
@@ -681,9 +674,9 @@ describe("SnapshotManager — registry isolation between instances", () => {
     const mgr2 = makeManager(exec2, APP_BUNDLE_PATH);
     await mgr.takeSnapshot(VALID_UDID, SNAPSHOT_NAME); // register in mgr
     // mgr2 should not know about it
-    await expect(
-      mgr2.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME),
-    ).rejects.toBeInstanceOf(SnapshotNotFoundError);
+    await expect(mgr2.resetToSnapshot(VALID_UDID, SNAPSHOT_NAME)).rejects.toBeInstanceOf(
+      SnapshotNotFoundError,
+    );
   });
 });
 
@@ -727,7 +720,10 @@ const SNAPSHOT_ERROR_CLASSES: SnapshotErrorClasses = {
 
 runSnapshotContract({
   createSnapshot: () => {
-    const contractExec: Exec = async (_file: string, args: readonly string[]): Promise<ExecResult> => {
+    const contractExec: Exec = async (
+      _file: string,
+      args: readonly string[],
+    ): Promise<ExecResult> => {
       const sub = args[1];
 
       if (sub === "list") {
@@ -779,10 +775,7 @@ const SECURE_BASE_DIR = "/safe/builds";
 /**
  * Happy-path FsAccess: realpath succeeds and returns identity; stat says directory.
  */
-function makeValidatorHappyFs(
-  resolvedBase = SECURE_BASE_DIR,
-  resolvedPath?: string,
-): FsAccess {
+function makeValidatorHappyFs(resolvedBase = SECURE_BASE_DIR, resolvedPath?: string): FsAccess {
   return {
     realpath: async (p: string) => {
       if (p === SECURE_BASE_DIR || p === resolvedBase) return resolvedBase;
@@ -794,8 +787,12 @@ function makeValidatorHappyFs(
 
 describe("AppBundlePathValidator — synchronous fast-fail (constructor)", () => {
   const dummyFsAccess: FsAccess = {
-    realpath: async () => { throw new Error("should not be called"); },
-    stat: async () => { throw new Error("should not be called"); },
+    realpath: async () => {
+      throw new Error("should not be called");
+    },
+    stat: async () => {
+      throw new Error("should not be called");
+    },
   };
 
   it("rejects an empty string (constructor)", () => {
@@ -805,54 +802,49 @@ describe("AppBundlePathValidator — synchronous fast-fail (constructor)", () =>
   });
 
   it("rejects a leading '-' (CWE-88 argument injection)", () => {
-    expect(() =>
-      new AppBundlePathValidator("-evil.app", SECURE_BASE_DIR, dummyFsAccess),
-    ).toThrow(InvalidSnapshotInputError);
+    expect(() => new AppBundlePathValidator("-evil.app", SECURE_BASE_DIR, dummyFsAccess)).toThrow(
+      InvalidSnapshotInputError,
+    );
   });
 
   it("rejects a path with '..' segment (CWE-22 traversal)", () => {
-    expect(() =>
-      new AppBundlePathValidator(
-        `${SECURE_BASE_DIR}/../escape.app`,
-        SECURE_BASE_DIR,
-        dummyFsAccess,
-      ),
+    expect(
+      () =>
+        new AppBundlePathValidator(
+          `${SECURE_BASE_DIR}/../escape.app`,
+          SECURE_BASE_DIR,
+          dummyFsAccess,
+        ),
     ).toThrow(InvalidSnapshotInputError);
   });
 
   it("rejects a path with '..' at the start", () => {
-    expect(() =>
-      new AppBundlePathValidator("../../escape.app", SECURE_BASE_DIR, dummyFsAccess),
+    expect(
+      () => new AppBundlePathValidator("../../escape.app", SECURE_BASE_DIR, dummyFsAccess),
     ).toThrow(InvalidSnapshotInputError);
   });
 
   it("rejects a non-.app extension (e.g. .ipa)", () => {
-    expect(() =>
-      new AppBundlePathValidator(
-        `${SECURE_BASE_DIR}/MyApp.ipa`,
-        SECURE_BASE_DIR,
-        dummyFsAccess,
-      ),
+    expect(
+      () =>
+        new AppBundlePathValidator(`${SECURE_BASE_DIR}/MyApp.ipa`, SECURE_BASE_DIR, dummyFsAccess),
     ).toThrow(InvalidSnapshotInputError);
   });
 
   it("rejects a path with no extension", () => {
-    expect(() =>
-      new AppBundlePathValidator(
-        `${SECURE_BASE_DIR}/MyApp`,
-        SECURE_BASE_DIR,
-        dummyFsAccess,
-      ),
+    expect(
+      () => new AppBundlePathValidator(`${SECURE_BASE_DIR}/MyApp`, SECURE_BASE_DIR, dummyFsAccess),
     ).toThrow(InvalidSnapshotInputError);
   });
 
   it("accepts a valid-looking path at construction time (no I/O error)", () => {
-    expect(() =>
-      new AppBundlePathValidator(
-        `${SECURE_BASE_DIR}/MyApp.app`,
-        SECURE_BASE_DIR,
-        makeValidatorHappyFs(),
-      ),
+    expect(
+      () =>
+        new AppBundlePathValidator(
+          `${SECURE_BASE_DIR}/MyApp.app`,
+          SECURE_BASE_DIR,
+          makeValidatorHappyFs(),
+        ),
     ).not.toThrow();
   });
 });
@@ -890,11 +882,7 @@ describe("AppBundlePathValidator — async validate() confinement", () => {
       },
       stat: async () => ({ isDirectory: () => true }),
     };
-    const v = new AppBundlePathValidator(
-      "/safe/builds-evil/MyApp.app",
-      SECURE_BASE_DIR,
-      siblingFs,
-    );
+    const v = new AppBundlePathValidator("/safe/builds-evil/MyApp.app", SECURE_BASE_DIR, siblingFs);
     await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
   });
 
@@ -922,11 +910,7 @@ describe("AppBundlePathValidator — async validate() confinement", () => {
       },
       stat: async () => ({ isDirectory: () => false }), // not a directory
     };
-    const v = new AppBundlePathValidator(
-      `${SECURE_BASE_DIR}/NotADir.app`,
-      SECURE_BASE_DIR,
-      fileFs,
-    );
+    const v = new AppBundlePathValidator(`${SECURE_BASE_DIR}/NotADir.app`, SECURE_BASE_DIR, fileFs);
     await expect(v.validate()).rejects.toBeInstanceOf(InvalidSnapshotInputError);
   });
 
@@ -999,9 +983,9 @@ describe("SnapshotManager — appBundlePath reject tests (T2 / CWE-22 / CWE-88)"
 
   it("rejects a leading-dash appBundlePath at construction time (CWE-88)", () => {
     const spy = makeExecSpy();
-    expect(() =>
-      makeManagerWithFsAccess("-evil.app", SECURE_BASE_DIR, goodFs, spy),
-    ).toThrow(InvalidSnapshotInputError);
+    expect(() => makeManagerWithFsAccess("-evil.app", SECURE_BASE_DIR, goodFs, spy)).toThrow(
+      InvalidSnapshotInputError,
+    );
     // Exec must NEVER have been called — fail before any I/O.
     expect(spy).not.toHaveBeenCalled();
   });
@@ -1009,12 +993,7 @@ describe("SnapshotManager — appBundlePath reject tests (T2 / CWE-22 / CWE-88)"
   it("rejects '..' traversal in appBundlePath at construction time (CWE-22)", () => {
     const spy = makeExecSpy();
     expect(() =>
-      makeManagerWithFsAccess(
-        `${SECURE_BASE_DIR}/../escape.app`,
-        SECURE_BASE_DIR,
-        goodFs,
-        spy,
-      ),
+      makeManagerWithFsAccess(`${SECURE_BASE_DIR}/../escape.app`, SECURE_BASE_DIR, goodFs, spy),
     ).toThrow(InvalidSnapshotInputError);
     expect(spy).not.toHaveBeenCalled();
   });
@@ -1022,21 +1001,16 @@ describe("SnapshotManager — appBundlePath reject tests (T2 / CWE-22 / CWE-88)"
   it("rejects a non-.app path at construction time", () => {
     const spy = makeExecSpy();
     expect(() =>
-      makeManagerWithFsAccess(
-        `${SECURE_BASE_DIR}/MyApp.ipa`,
-        SECURE_BASE_DIR,
-        goodFs,
-        spy,
-      ),
+      makeManagerWithFsAccess(`${SECURE_BASE_DIR}/MyApp.ipa`, SECURE_BASE_DIR, goodFs, spy),
     ).toThrow(InvalidSnapshotInputError);
     expect(spy).not.toHaveBeenCalled();
   });
 
   it("rejects an empty appBundlePath at construction time", () => {
     const spy = makeExecSpy();
-    expect(() =>
-      makeManagerWithFsAccess("", SECURE_BASE_DIR, goodFs, spy),
-    ).toThrow(InvalidSnapshotInputError);
+    expect(() => makeManagerWithFsAccess("", SECURE_BASE_DIR, goodFs, spy)).toThrow(
+      InvalidSnapshotInputError,
+    );
     expect(spy).not.toHaveBeenCalled();
   });
 

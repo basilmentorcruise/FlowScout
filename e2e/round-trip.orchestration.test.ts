@@ -19,10 +19,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  FakeMobileDriver,
-  DEFAULT_FAKE_UDID,
-} from "@flowscout/adapter-mobile-mcp/testing";
+import { FakeMobileDriver, DEFAULT_FAKE_UDID } from "@flowscout/adapter-mobile-mcp/testing";
 import { roundTrip, ReadinessTimeoutError } from "./round-trip.js";
 import type { RoundTripOptions } from "./round-trip.js";
 
@@ -240,9 +237,7 @@ describe("roundTrip() — Layer A orchestration (FakeMobileDriver)", () => {
 
   it("throws ReadinessTimeoutError when readiness never succeeds", async () => {
     // Make snapshotAccessibilityTree always reject to simulate an unready driver.
-    vi.spyOn(driver, "snapshotAccessibilityTree").mockRejectedValue(
-      new Error("driver not ready"),
-    );
+    vi.spyOn(driver, "snapshotAccessibilityTree").mockRejectedValue(new Error("driver not ready"));
 
     await expect(
       roundTrip(driver, {
