@@ -8,8 +8,10 @@
  *   - System message separation (P/T1)
  *   - API key is NEVER in the result (T5)
  *   - Token usage is truthfully reported (T6)
+ *   - AbortController: signal passed to SDK; abort() called on timeout (#44)
+ *   - clearTimeout: timer cleared on success AND error paths (no leak) (#44)
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { LlmAdapter, DEFAULT_MODEL_ID } from "../LlmAdapter.js";
 import type { AnthropicClientLike } from "../LlmAdapter.js";
 import type { LlmMessage, LlmCompletionOptions } from "@flowscout/domain";
@@ -47,20 +49,24 @@ const MESSAGES: LlmMessage[] = [
 
 // Captured call data stored externally to avoid unbound-method lint issues
 type CapturedCall = Parameters<AnthropicClientLike["messages"]["create"]>[0];
+type CapturedOptions = Parameters<AnthropicClientLike["messages"]["create"]>[1];
 
 function makeClientWithSpy(response: FakeResponse): {
   client: AnthropicClientLike;
   getCalls: () => CapturedCall[];
+  getOptions: () => CapturedOptions[];
 } {
   const calls: CapturedCall[] = [];
-  const createFn = vi.fn((params: CapturedCall) => {
+  const options: CapturedOptions[] = [];
+  const createFn = vi.fn((params: CapturedCall, opts?: CapturedOptions) => {
     calls.push(params);
+    options.push(opts);
     return Promise.resolve(response);
   });
   const client: AnthropicClientLike = {
     messages: { create: createFn },
   };
-  return { client, getCalls: () => calls };
+  return { client, getCalls: () => calls, getOptions: () => options };
 }
 
 function makeFailingClient(errorMessage: string): AnthropicClientLike {
@@ -199,5 +205,91 @@ describe("LlmAdapter — API key isolation (T5)", () => {
     expect(serialized).not.toContain("sk-ant");
     expect(serialized).not.toContain("LLM_API_KEY");
     expect(serialized).not.toContain("apiKey");
+  });
+});
+
+// ── AbortController / timer-leak fixes (#44) ──────────────────────────────────
+
+describe("LlmAdapter — AbortController: signal passed to SDK (#44)", () => {
+  it("passes an AbortSignal to the SDK create() call on success path", async () => {
+    const { client, getOptions } = makeClientWithSpy(STANDARD_RESPONSE);
+    const adapter = new LlmAdapter(client);
+    await adapter.complete(MESSAGES, STANDARD_OPTIONS);
+    const opts = getOptions()[0];
+    expect(opts).toBeDefined();
+    expect(opts?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("the signal is NOT aborted when the SDK call succeeds", async () => {
+    const { client, getOptions } = makeClientWithSpy(STANDARD_RESPONSE);
+    const adapter = new LlmAdapter(client);
+    await adapter.complete(MESSAGES, STANDARD_OPTIONS);
+    const signal = getOptions()[0]?.signal;
+    expect(signal?.aborted).toBe(false);
+  });
+});
+
+describe("LlmAdapter — AbortController: abort() called on timeout (#44)", () => {
+  it("aborts the in-flight SDK request when the timeout fires before the SDK responds", async () => {
+    vi.useFakeTimers();
+    let capturedSignal: AbortSignal | undefined;
+
+    // SDK call that never resolves — simulates a hung request
+    const hangingClient: AnthropicClientLike = {
+      messages: {
+        create: vi.fn((_params: CapturedCall, opts?: CapturedOptions) => {
+          capturedSignal = opts?.signal ?? undefined;
+          return new Promise<never>(() => {
+            /* never resolves */
+          });
+        }),
+      },
+    };
+
+    const SHORT_TIMEOUT_MS = 100;
+    const adapter = new LlmAdapter(hangingClient, { timeoutMs: SHORT_TIMEOUT_MS });
+    const completePromise = adapter.complete(MESSAGES, STANDARD_OPTIONS);
+
+    // Advance past the timeout
+    vi.advanceTimersByTime(SHORT_TIMEOUT_MS + 1);
+
+    await expect(completePromise).rejects.toThrow("LLM call timed out");
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
+    expect(capturedSignal?.aborted).toBe(true);
+
+    vi.useRealTimers();
+  });
+});
+
+describe("LlmAdapter — clearTimeout: no timer leak on success path (#44)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("clears the timeout timer when the SDK call resolves before the timeout", async () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    const { client } = makeClientWithSpy(STANDARD_RESPONSE);
+    const adapter = new LlmAdapter(client);
+
+    await adapter.complete(MESSAGES, STANDARD_OPTIONS);
+
+    expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it("clears the timeout timer when the SDK call rejects before the timeout", async () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    const failingClient = makeFailingClient("SDK network error");
+    const adapter = new LlmAdapter(failingClient);
+
+    await expect(adapter.complete(MESSAGES, STANDARD_OPTIONS)).rejects.toThrow(
+      "SDK network error",
+    );
+
+    expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+    clearTimeoutSpy.mockRestore();
   });
 });
