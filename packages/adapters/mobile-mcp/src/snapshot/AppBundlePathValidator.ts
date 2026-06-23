@@ -121,10 +121,7 @@ export class AppBundlePathValidator {
     try {
       resolvedBase = await this.fsAccess.realpath(this.baseDir);
     } catch {
-      throw new InvalidSnapshotInputError(
-        "appBundleBaseDir",
-        truncate(this.baseDir),
-      );
+      throw new InvalidSnapshotInputError("appBundleBaseDir", truncate(this.baseDir));
     }
 
     // Canonicalize the app bundle path (resolves symlinks + normalizes).
@@ -132,28 +129,18 @@ export class AppBundlePathValidator {
     try {
       resolvedPath = await this.fsAccess.realpath(raw);
     } catch {
-      throw new InvalidSnapshotInputError(
-        "appBundlePath",
-        truncate(raw),
-      );
+      throw new InvalidSnapshotInputError("appBundlePath", truncate(raw));
     }
 
     // Confinement: resolvedPath must be WITHIN resolvedBase.
     // We normalise with a trailing '/' to avoid prefix-collision attacks
     // (e.g., base=/tmp/builds, path=/tmp/builds-evil would otherwise pass a
     // naive startsWith check).
-    const normalizedBase = resolvedBase.endsWith("/")
-      ? resolvedBase
-      : resolvedBase + "/";
-    const normalizedPath = resolvedPath.endsWith("/")
-      ? resolvedPath
-      : resolvedPath + "/";
+    const normalizedBase = resolvedBase.endsWith("/") ? resolvedBase : resolvedBase + "/";
+    const normalizedPath = resolvedPath.endsWith("/") ? resolvedPath : resolvedPath + "/";
 
     if (!normalizedPath.startsWith(normalizedBase)) {
-      throw new InvalidSnapshotInputError(
-        "appBundlePath",
-        truncate(raw),
-      );
+      throw new InvalidSnapshotInputError("appBundlePath", truncate(raw));
     }
 
     // Directory check: .app bundles are macOS directory packages.
@@ -161,17 +148,11 @@ export class AppBundlePathValidator {
     try {
       stat = await this.fsAccess.stat(resolvedPath);
     } catch {
-      throw new InvalidSnapshotInputError(
-        "appBundlePath",
-        truncate(raw),
-      );
+      throw new InvalidSnapshotInputError("appBundlePath", truncate(raw));
     }
 
     if (!stat.isDirectory()) {
-      throw new InvalidSnapshotInputError(
-        "appBundlePath",
-        truncate(raw),
-      );
+      throw new InvalidSnapshotInputError("appBundlePath", truncate(raw));
     }
 
     return resolvedPath;

@@ -76,10 +76,7 @@ export type {
 } from "./ports/CrawlEventStream.js";
 
 // StateIdentity strategy — port + default implementation
-export type {
-  StateIdentityInput,
-  StateIdentityStrategy,
-} from "./ports/StateIdentityPort.js";
+export type { StateIdentityInput, StateIdentityStrategy } from "./ports/StateIdentityPort.js";
 
 export { A11ySignatureStrategy } from "./models/state-identity/A11ySignatureStrategy.js";
 export { CompositeStateIdentityStrategy } from "./models/state-identity/CompositeStateIdentityStrategy.js";

@@ -1,20 +1,17 @@
 /**
- * collaborators.ts — FROZEN SEAM (owned by #31, not edited by Wave-1 tickets).
+ * collaborators.ts — UNFROZEN by #37 (additive only, per ADR-0004 §7.2 addendum).
  *
- * Defines the collaborator interfaces consumed by the crawl loop and the
- * `defaultCollaborators()` factory that wires them up.
+ * #37 adds new OPTIONAL collaborator fields (with safe defaults) without changing:
+ *   - The existing `CrawlCollaborators` required fields.
+ *   - The public constructor signature of `StartCrawlRun`.
+ *   - `defaultCollaborators({ stateGraphRepository, crawlEventStream })` — still compiles.
  *
- * Wave-1 replacement contract:
- *   - #33 (E2.3 budgets): replaces BudgetEnforcer body in budget/BudgetEnforcer.ts
- *   - #34 (E2.4 frontier): replaces Frontier body in frontier/Frontier.ts and
- *       injects #32's StateIdentityStrategy via the `identifyState` param
- *   - #35 (E2.5 probes): extends Frontier via #34's published extension point
- *   - #36 (E2.6 policy chain): supplies a real DecisionPolicy at the composition root
- *   - #37 (E2.7 integration): wires everything at packages/api composition root
- *
- * INVARIANT: Wave-1 tickets replace a collaborator's *body* or *inject* a new
- * default, but NEVER alter the interface shapes below or the `CrawlCollaborators`
- * type. Any such change requires a new ADR.
+ * Wave-1 replacement contract (unchanged):
+ *   - #33 (E2.3 budgets): BudgetEnforcer body in budget/BudgetEnforcer.ts
+ *   - #34 (E2.4 frontier): Frontier body in frontier/Frontier.ts
+ *   - #35 (E2.5 probes): Frontier extension point
+ *   - #36 (E2.6 policy chain): real DecisionPolicy at composition root
+ *   - #37 (E2.7 integration): THIS FILE — additive unfreeze (ADR-0004 §7.2 addendum)
  *
  * Dependency: only @flowscout/domain and sibling crawl/* modules. No adapters.
  */
@@ -23,12 +20,21 @@ import type {
   A11ySnapshot,
   StateGraphRepository,
   CrawlEventStream,
+  SimulatorLifecycle,
 } from "@flowscout/domain";
 import { A11ySignatureStrategy, CompositeStateIdentityStrategy } from "@flowscout/domain";
 import { BudgetEnforcer } from "./budget/BudgetEnforcer.js";
 import type { BudgetContext } from "./budget/BudgetEnforcer.js";
 import { Frontier } from "./frontier/Frontier.js";
 import { registerHiddenAffordanceProbes } from "./frontier/probes/index.js";
+import { CredentialRedactor } from "./redaction/CredentialRedactor.js";
+import { CredentialBoundaryDetector } from "./twofa/CredentialBoundaryDetector.js";
+import { DuplicatePathDetector } from "./duplicate/DuplicatePathDetector.js";
+import { defaultEnumerateBaseCandidates } from "./BaseCandidateEnumerator.js";
+import type { BaseCandidateEnumeratorFn } from "./BaseCandidateEnumerator.js";
+import { NoOpUsageReporter } from "./UsageReporter.js";
+import type { UsageReporter } from "./UsageReporter.js";
+import type { CrawlRunSafety } from "./CrawlRunSafety.js";
 
 // ── Collaborator interfaces ───────────────────────────────────────────────────
 
@@ -46,8 +52,8 @@ export type { BudgetContext };
  * CrawlCollaborators — the complete set of dependencies injected into the loop.
  * The loop orchestrates through these; each collaborator owns its own behavior.
  *
- * FROZEN: shape is set by #31. Wave-1 provides new implementations; the shape
- * (field names + types) does not change without a new ADR.
+ * #37 ADDITIVE UNFREEZE: new optional fields added at the end. All required fields
+ * from #31 are UNCHANGED (backward-compatible).
  */
 export interface CrawlCollaborators {
   /** Maps a11y snapshot -> StateIdentity. Injected; #34 swaps in #32's strategy. */
@@ -60,6 +66,23 @@ export interface CrawlCollaborators {
   readonly stateGraphRepository: StateGraphRepository;
   /** Publishes CrawlEvent for this run to downstream consumers (E4/E5). */
   readonly crawlEventStream: CrawlEventStream;
+
+  // ── #37 additive fields (all optional with safe defaults) ─────────────────
+
+  /** Redacts credentials/PII from a11y snapshots and typed text (T3/T7/T8). */
+  readonly redactor: CredentialRedactor;
+  /** Detects credential/2FA surfaces before decide() (T8). */
+  readonly credentialBoundary: CredentialBoundaryDetector;
+  /** Detects nodes with in-degree > 1 after crawl (structural duplicate-path). */
+  readonly duplicatePathDetector: DuplicatePathDetector;
+  /** Enumerates base CandidateActions from the a11y tree before probes. */
+  readonly enumerateBaseCandidates: BaseCandidateEnumeratorFn;
+  /** Reports LLM usage after each decide() call for budget enforcement (T6). */
+  readonly usageReporter: UsageReporter;
+  /** Simulator lifecycle for reset-safety-net (T4). Optional: tests may omit. */
+  readonly simulatorLifecycle?: SimulatorLifecycle;
+  /** Non-production guard config (T4). Optional: tests may omit to skip the guard. */
+  readonly runSafety?: CrawlRunSafety;
 }
 
 // ── Overridable dependencies for the factory ─────────────────────────────────
@@ -74,34 +97,45 @@ export interface CrawlCollaborators {
  * Required: stateGraphRepository + crawlEventStream (infrastructure that must
  * be resolved at the composition root — not stub-able because the loop NEEDS
  * them to record state and publish events).
+ *
+ * #37 ADDITIVE: new optional fields for the new collaborators.
+ * `defaultCollaborators({ stateGraphRepository, crawlEventStream })` STILL WORKS.
  */
 export interface CollaboratorOptions {
   /** Required: the port that persists the graph. */
   readonly stateGraphRepository: StateGraphRepository;
   /** Required: the port that publishes crawl events. */
   readonly crawlEventStream: CrawlEventStream;
-  /** Optional: override the identity strategy (default: placeholder). */
+  /** Optional: override the identity strategy (default: real strategy). */
   readonly identifyState?: StateIdentityFn;
   /** Optional: override the budget enforcer (default: stub). */
   readonly budgetEnforcer?: BudgetEnforcer;
-  /** Optional: override the frontier (default: stub). */
+  /** Optional: override the frontier (default: stub with probes). */
   readonly frontier?: Frontier;
+  /** Optional: override the credential redactor (default: CredentialRedactor). */
+  readonly redactor?: CredentialRedactor;
+  /** Optional: override the 2FA boundary detector (default: CredentialBoundaryDetector). */
+  readonly credentialBoundary?: CredentialBoundaryDetector;
+  /** Optional: override the duplicate path detector (default: DuplicatePathDetector). */
+  readonly duplicatePathDetector?: DuplicatePathDetector;
+  /** Optional: override the base candidate enumerator. */
+  readonly enumerateBaseCandidates?: BaseCandidateEnumeratorFn;
+  /** Optional: override the usage reporter (default: no-op). */
+  readonly usageReporter?: UsageReporter;
+  /** Optional: simulator lifecycle for reset-safety-net (T4). */
+  readonly simulatorLifecycle?: SimulatorLifecycle;
+  /** Optional: non-production guard config (T4). */
+  readonly runSafety?: CrawlRunSafety;
 }
 
 /**
  * defaultCollaborators() — factory that assembles the collaborator set.
  *
- * FROZEN FACTORY SIGNATURE: Wave-1 tickets that add new collaborators extend
- * `CollaboratorOptions` with an optional field and update this factory body.
- * The `CrawlCollaborators` shape and this function's parameter type are the
- * seam contract; they do not change without a new ADR.
+ * BACKWARD-COMPATIBLE: `defaultCollaborators({ stateGraphRepository, crawlEventStream })`
+ * still compiles and works exactly as before. All new fields are optional.
  *
- * #34 (E2.4) body edit: swaps the default identifyState from placeholderIdentify
- * to the real A11ySignatureStrategy wrapped in CompositeStateIdentityStrategy.
- * The StateIdentityFn seam is (snapshot) => StateIdentity; the strategy takes a
- * richer StateIdentityInput, so we adapt with a closure supplying the MVP-default
- * platform constant "ios" (FlowScout MVP is iOS-first; #37 can pass a real platform
- * via options.identifyState if multi-platform support lands).
+ * #37 ADDITIVE: adds new collaborators with safe defaults. The factory signature
+ * (`options: CollaboratorOptions`) is unchanged; new fields are in `CollaboratorOptions`.
  */
 export function defaultCollaborators(options: CollaboratorOptions): CrawlCollaborators {
   // #34: real strategy default. One-line closure adapts StateIdentityStrategy.identify
@@ -112,15 +146,48 @@ export function defaultCollaborators(options: CollaboratorOptions): CrawlCollabo
 
   // #35 (E2.5) body edit: register hidden-affordance probe sources on the default Frontier.
   // When a custom frontier is supplied via options, the caller is responsible for probe registration.
-  // This is the ONLY body change #35 makes to this file; the interface/signature is unchanged.
   const defaultFrontier = new Frontier();
   registerHiddenAffordanceProbes(defaultFrontier);
 
-  return {
+  const base = {
+    // ── Required (#31) ───────────────────────────────────────────────────────
     identifyState: options.identifyState ?? defaultIdentifyState,
     budgetEnforcer: options.budgetEnforcer ?? new BudgetEnforcer(),
     frontier: options.frontier ?? defaultFrontier,
     stateGraphRepository: options.stateGraphRepository,
     crawlEventStream: options.crawlEventStream,
+
+    // ── #37 additive (safe defaults — no-op / pure implementations) ─────────
+    redactor: options.redactor ?? new CredentialRedactor(),
+    credentialBoundary: options.credentialBoundary ?? new CredentialBoundaryDetector(),
+    duplicatePathDetector: options.duplicatePathDetector ?? new DuplicatePathDetector(),
+    enumerateBaseCandidates: options.enumerateBaseCandidates ?? defaultEnumerateBaseCandidates,
+    usageReporter: options.usageReporter ?? new NoOpUsageReporter(),
   };
+
+  // exactOptionalPropertyTypes: spread optional fields only when defined.
+  // Extract to avoid adding branches in the parent function's complexity count.
+  return applyOptionalFields(base, options.simulatorLifecycle, options.runSafety);
+}
+
+/**
+ * Merges optional fields into the base collaborators object.
+ * Uses conditional spreads to satisfy exactOptionalPropertyTypes (T12).
+ * Extracted into its own function to keep defaultCollaborators complexity bounded.
+ */
+function applyOptionalFields(
+  base: Omit<CrawlCollaborators, "simulatorLifecycle" | "runSafety">,
+  simulatorLifecycle: SimulatorLifecycle | undefined,
+  runSafety: CrawlRunSafety | undefined,
+): CrawlCollaborators {
+  if (simulatorLifecycle !== undefined && runSafety !== undefined) {
+    return { ...base, simulatorLifecycle, runSafety };
+  }
+  if (simulatorLifecycle !== undefined) {
+    return { ...base, simulatorLifecycle };
+  }
+  if (runSafety !== undefined) {
+    return { ...base, runSafety };
+  }
+  return base;
 }

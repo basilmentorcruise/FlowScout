@@ -16,7 +16,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { BudgetEnforcer } from "../BudgetEnforcer.js";
 import type { BudgetContext } from "../BudgetEnforcer.js";
-import type { CrawlBudget, CrawlEventStream, BudgetWarningEvent, CrawlEvent } from "@flowscout/domain";
+import type {
+  CrawlBudget,
+  CrawlEventStream,
+  BudgetWarningEvent,
+  CrawlEvent,
+} from "@flowscout/domain";
 import { defaultCrawlBudget } from "@flowscout/domain";
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
@@ -32,18 +37,16 @@ class SpyCrawlEventStream implements CrawlEventStream {
   }
 
   subscribe(_runId: string, _handler: (event: CrawlEvent) => void): () => void {
-    return () => { /* no-op */ };
+    return () => {
+      /* no-op */
+    };
   }
 
   warnings(): BudgetWarningEvent[] {
-    return this.events.filter(
-      (e): e is BudgetWarningEvent => e.kind === "budget:warning",
-    );
+    return this.events.filter((e): e is BudgetWarningEvent => e.kind === "budget:warning");
   }
 
-  warningsOfType(
-    budgetType: BudgetWarningEvent["budgetType"],
-  ): BudgetWarningEvent[] {
+  warningsOfType(budgetType: BudgetWarningEvent["budgetType"]): BudgetWarningEvent[] {
     return this.warnings().filter((e) => e.budgetType === budgetType);
   }
 }

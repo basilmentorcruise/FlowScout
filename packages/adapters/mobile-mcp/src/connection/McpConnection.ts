@@ -70,19 +70,10 @@ function createDefaultTransport(config: McpServerConfig): Transport {
  * Wraps a promise with a timeout.
  * Rejects with McpTimeoutError if the promise does not settle within timeoutMs.
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  label: string,
-): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(
-        new McpTimeoutError(
-          `${label} timed out after ${String(timeoutMs)}ms`,
-          timeoutMs,
-        ),
-      );
+      reject(new McpTimeoutError(`${label} timed out after ${String(timeoutMs)}ms`, timeoutMs));
     }, timeoutMs);
 
     promise.then(
@@ -171,10 +162,7 @@ export class McpConnection {
         throw err;
       }
       const cmdName = serverCommand[0] ?? "(unknown)";
-      throw new McpConnectionError(
-        `MCP session handshake failed for server '${cmdName}'.`,
-        err,
-      );
+      throw new McpConnectionError(`MCP session handshake failed for server '${cmdName}'.`, err);
     }
 
     this.client = client;
@@ -227,11 +215,7 @@ export class McpConnection {
     }
 
     const { callTimeoutMs } = this.config;
-    const result = await withTimeout(
-      this.client.listTools(),
-      callTimeoutMs,
-      "listTools()",
-    );
+    const result = await withTimeout(this.client.listTools(), callTimeoutMs, "listTools()");
 
     const tools: McpToolInfo[] = result.tools.map((t) => ({
       name: t.name,

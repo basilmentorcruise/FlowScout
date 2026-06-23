@@ -113,12 +113,11 @@ export class OverflowMenuProbeSource implements ProbeSource {
       for (const el of overflowElements) {
         // Only emit a candidate if we have a stable, non-empty accessibility identifier.
         // Label-based identifiers are intentionally excluded from the payload (injection risk).
-        const elementId = typeof el.accessibilityIdentifier === "string"
-          ? el.accessibilityIdentifier.trim()
-          : "";
+        const elementId =
+          typeof el.accessibilityIdentifier === "string" ? el.accessibilityIdentifier.trim() : "";
 
         if (elementId.length === 0) continue; // no stable id → skip (security T2)
-        if (seenIds.has(elementId)) continue;  // dedup
+        if (seenIds.has(elementId)) continue; // dedup
         seenIds.add(elementId);
 
         candidates.push(makeOverflowTapCandidate(elementId));

@@ -19,7 +19,11 @@ export { ScrollRevealProbeSource } from "./ScrollRevealProbeSource.js";
 export { SwipeRevealProbeSource } from "./SwipeRevealProbeSource.js";
 export { OverflowMenuProbeSource } from "./OverflowMenuProbeSource.js";
 export { LongPressProbeSource } from "./LongPressProbeSource.js";
-export type { LongProbeTelemetry, TelemetryCallback, LongPressProbeOptions } from "./LongPressProbeSource.js";
+export type {
+  LongProbeTelemetry,
+  TelemetryCallback,
+  LongPressProbeOptions,
+} from "./LongPressProbeSource.js";
 
 import type { Frontier } from "../Frontier.js";
 import { ScrollRevealProbeSource } from "./ScrollRevealProbeSource.js";

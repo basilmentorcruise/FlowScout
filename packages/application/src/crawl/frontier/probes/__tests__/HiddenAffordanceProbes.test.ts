@@ -75,9 +75,7 @@ const SWIPEABLE_ROW_SNAPSHOT = makeSnapshot({
           type: "Cell",
           accessibilityIdentifier: "message-cell-0",
           traits: ["swipeable"],
-          children: [
-            { type: "StaticText", label: "Email subject line" },
-          ],
+          children: [{ type: "StaticText", label: "Email subject line" }],
         },
       ],
     },
@@ -363,9 +361,7 @@ describe("LongPressProbeSource — no-op + telemetry (ADR-0004 §6 R-1)", () => 
   it("never throws for any snapshot (T11 / ProbeSource contract)", async () => {
     const source = new LongPressProbeSource();
 
-    await expect(source.generateCandidates(FAKE_STATE_ID, EMPTY_SNAPSHOT)).resolves.toHaveLength(
-      0,
-    );
+    await expect(source.generateCandidates(FAKE_STATE_ID, EMPTY_SNAPSHOT)).resolves.toHaveLength(0);
     await expect(
       source.generateCandidates(FAKE_STATE_ID, MALFORMED_SNAPSHOT),
     ).resolves.toHaveLength(0);
@@ -476,15 +472,19 @@ describe("ProbeSource contract: never throws for any input", () => {
     ["overflow", OVERFLOW_SNAPSHOT],
     ["long-press", LONG_PRESS_SNAPSHOT],
     ["null-ish content", makeSnapshot(null as unknown as object)],
-    ["deeply nested", makeSnapshot({ type: "A", children: [{ type: "B", children: [{ type: "C", children: [] }] }] })],
+    [
+      "deeply nested",
+      makeSnapshot({
+        type: "A",
+        children: [{ type: "B", children: [{ type: "C", children: [] }] }],
+      }),
+    ],
   ];
 
   for (const probe of PROBES) {
     for (const [snapLabel, snapshot] of SNAPSHOTS) {
       it(`${probe.id} does not throw on ${snapLabel}`, async () => {
-        await expect(
-          probe.generateCandidates(FAKE_STATE_ID, snapshot),
-        ).resolves.toBeDefined();
+        await expect(probe.generateCandidates(FAKE_STATE_ID, snapshot)).resolves.toBeDefined();
       });
     }
   }
@@ -554,7 +554,9 @@ describe("registerHiddenAffordanceProbes — registration via Frontier seam", ()
 
     // The epic success metric: >=1 control reachable via probes that is not on primary nav
     const scrollCandidates = candidates.filter(
-      (c) => c.actionType === "swipe" && (c.rationale.includes("scroll") || c.rationale.includes("reveal")),
+      (c) =>
+        c.actionType === "swipe" &&
+        (c.rationale.includes("scroll") || c.rationale.includes("reveal")),
     );
     expect(scrollCandidates.length).toBeGreaterThanOrEqual(1);
   });
@@ -816,9 +818,7 @@ describe("LongPressProbeSource — affordance detection edge cases", () => {
       ],
     });
     await source.generateCandidates(FAKE_STATE_ID, snapshot);
-    expect(telemetrySpy).toHaveBeenCalledWith(
-      expect.objectContaining({ outcome: "unsupported" }),
-    );
+    expect(telemetrySpy).toHaveBeenCalledWith(expect.objectContaining({ outcome: "unsupported" }));
   });
 
   it("reports correct elementCount in telemetry", async () => {
@@ -832,9 +832,7 @@ describe("LongPressProbeSource — affordance detection edge cases", () => {
       ],
     });
     await source.generateCandidates(FAKE_STATE_ID, snapshot);
-    expect(telemetrySpy).toHaveBeenCalledWith(
-      expect.objectContaining({ elementCount: 2 }),
-    );
+    expect(telemetrySpy).toHaveBeenCalledWith(expect.objectContaining({ elementCount: 2 }));
   });
 });
 

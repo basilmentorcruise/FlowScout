@@ -77,11 +77,11 @@ const TEST_NORM_CONFIG: NormalizationConfig = {
 // Minimal valid 1×1 PNG (same as FakeMobileDriver's synthetic fixture)
 const SYNTHETIC_PNG_BASE64 = Buffer.from(
   new Uint8Array([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
-    0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90,
-    0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8,
-    0xcf, 0xc0, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
-    0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+    0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+    0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+    0x44, 0xae, 0x42, 0x60, 0x82,
   ]),
 ).toString("base64");
 
@@ -97,10 +97,12 @@ function makeMockConnection(overrides: {
     isConnected: true,
     connect: vi.fn().mockResolvedValue(undefined),
     dispose: vi.fn().mockResolvedValue(undefined),
-    callTool: vi.fn().mockImplementation(
-      overrides.callToolImpl ??
-        ((_name: string) => Promise.resolve({ content: [{ type: "text", text: "ok" }] })),
-    ),
+    callTool: vi
+      .fn()
+      .mockImplementation(
+        overrides.callToolImpl ??
+          ((_name: string) => Promise.resolve({ content: [{ type: "text", text: "ok" }] })),
+      ),
     listTools: vi.fn().mockImplementation(
       overrides.listToolsImpl ??
         (() =>
@@ -142,9 +144,9 @@ describe("§1 normalizeA11ySnapshot", () => {
   });
 
   it("throws MalformedPayloadError when content array is missing", () => {
-    expect(() =>
-      normalizeA11ySnapshot({ notContent: [] }, TEST_NORM_CONFIG),
-    ).toThrow(MalformedPayloadError);
+    expect(() => normalizeA11ySnapshot({ notContent: [] }, TEST_NORM_CONFIG)).toThrow(
+      MalformedPayloadError,
+    );
   });
 
   it("throws MalformedPayloadError when content has no text item", () => {
@@ -254,15 +256,15 @@ describe("§1 validateCoordinateTarget", () => {
   });
 
   it("throws ActionError for x beyond screenWidthPx (T3 off-screen)", () => {
-    expect(() =>
-      validateCoordinateTarget(SCREEN_W + 1, TAP_Y, TEST_NORM_CONFIG),
-    ).toThrow(ActionError);
+    expect(() => validateCoordinateTarget(SCREEN_W + 1, TAP_Y, TEST_NORM_CONFIG)).toThrow(
+      ActionError,
+    );
   });
 
   it("throws ActionError for y beyond screenHeightPx (T3 off-screen)", () => {
-    expect(() =>
-      validateCoordinateTarget(TAP_X, SCREEN_H + 1, TEST_NORM_CONFIG),
-    ).toThrow(ActionError);
+    expect(() => validateCoordinateTarget(TAP_X, SCREEN_H + 1, TEST_NORM_CONFIG)).toThrow(
+      ActionError,
+    );
   });
 
   it("ActionError extends McpAdapterError", () => {
@@ -365,8 +367,7 @@ describe("§2 DeviceDriver.snapshotAccessibilityTree", () => {
 
   it("calls connect() before calling the MCP tool", async () => {
     const conn = makeMockConnection({
-      callToolImpl: () =>
-        Promise.resolve({ content: [{ type: "text", text: "tree" }] }),
+      callToolImpl: () => Promise.resolve({ content: [{ type: "text", text: "tree" }] }),
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
     await driver.snapshotAccessibilityTree(VALID_UDID);
@@ -499,8 +500,7 @@ describe("§2 DeviceDriver.tap (element)", () => {
 
   it("throws ActionError when MCP returns McpToolError for element tap", async () => {
     const conn = makeMockConnection({
-      callToolImpl: () =>
-        Promise.reject(new McpToolError("mobile_tap", "element not found")),
+      callToolImpl: () => Promise.reject(new McpToolError("mobile_tap", "element not found")),
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
     await expect(
@@ -537,11 +537,7 @@ describe("§2 DeviceDriver.typeText (T5 no-log proof)", () => {
     await driver.typeText(VALID_UDID, secretText);
 
     // Assert no log call captured the secret text
-    const allLogCalls = [
-      ...logSpy.mock.calls,
-      ...warnSpy.mock.calls,
-      ...errorSpy.mock.calls,
-    ];
+    const allLogCalls = [...logSpy.mock.calls, ...warnSpy.mock.calls, ...errorSpy.mock.calls];
     const loggedStrings = allLogCalls.flatMap((args) => args.map(String));
     expect(loggedStrings.some((s) => s.includes(secretText))).toBe(false);
 
@@ -562,9 +558,7 @@ describe("§2 DeviceDriver.typeText (T5 no-log proof)", () => {
       callToolImpl: () => Promise.reject(new McpToolError("mobile_type", "device lost")),
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
-    await expect(driver.typeText(UNKNOWN_UDID, "text")).rejects.toBeInstanceOf(
-      UnknownDeviceError,
-    );
+    await expect(driver.typeText(UNKNOWN_UDID, "text")).rejects.toBeInstanceOf(UnknownDeviceError);
   });
 });
 
@@ -658,8 +652,7 @@ describe("§2 DeviceDriver.swipe — tool-absent fallback branch (ADR-0002 OQ2)"
       { name: "mobile_swipe", description: "" },
     ]);
     const conn = makeMockConnection({
-      callToolImpl: () =>
-        Promise.resolve({ content: [{ type: "text", text: "ok" }] }),
+      callToolImpl: () => Promise.resolve({ content: [{ type: "text", text: "ok" }] }),
       listToolsImpl: listToolsMock,
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
@@ -674,10 +667,7 @@ describe("§2 DeviceDriver.swipe — tool-absent fallback branch (ADR-0002 OQ2)"
   it("fallback: throws UnknownDeviceError on McpToolError from mobile_tap", async () => {
     const conn = makeMockConnection({
       callToolImpl: () => Promise.reject(new McpToolError("mobile_tap", "failed")),
-      listToolsImpl: () =>
-        Promise.resolve([
-          { name: "mobile_tap", description: "" },
-        ]),
+      listToolsImpl: () => Promise.resolve([{ name: "mobile_tap", description: "" }]),
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
     await expect(driver.swipe(UNKNOWN_UDID, "right")).rejects.toBeInstanceOf(UnknownDeviceError);
@@ -698,9 +688,9 @@ describe("§3 T3 payload normalization security cases", () => {
   });
 
   it("malformed dump_ui payload (content is not array) → MalformedPayloadError (T3)", () => {
-    expect(() =>
-      normalizeA11ySnapshot({ content: "not-array" }, TEST_NORM_CONFIG),
-    ).toThrow(MalformedPayloadError);
+    expect(() => normalizeA11ySnapshot({ content: "not-array" }, TEST_NORM_CONFIG)).toThrow(
+      MalformedPayloadError,
+    );
   });
 
   it("empty a11y snapshot text → MalformedPayloadError (T3, no silent swallow)", () => {
@@ -787,8 +777,9 @@ function makeDrivingContractConnection(): McpConnection {
       { name: "mobile_type", description: "" },
       { name: "mobile_swipe", description: "" },
     ]),
-    callTool: vi.fn().mockImplementation(
-      (toolName: string, args: Record<string, unknown>): Promise<unknown> => {
+    callTool: vi
+      .fn()
+      .mockImplementation((toolName: string, args: Record<string, unknown>): Promise<unknown> => {
         // Unknown UDID: any tool call should throw McpToolError
         if (args["udid"] === CONTRACT_UNKNOWN_UDID) {
           return Promise.reject(new McpToolError(toolName, "device not found"));
@@ -798,7 +789,12 @@ function makeDrivingContractConnection(): McpConnection {
         switch (toolName) {
           case "mobile_dump_ui":
             return Promise.resolve({
-              content: [{ type: "text", text: "<AXApplication><AXWindow>canned-a11y</AXWindow></AXApplication>" }],
+              content: [
+                {
+                  type: "text",
+                  text: "<AXApplication><AXWindow>canned-a11y</AXWindow></AXApplication>",
+                },
+              ],
             });
           case "mobile_screenshot":
             return Promise.resolve({
@@ -811,8 +807,7 @@ function makeDrivingContractConnection(): McpConnection {
           default:
             return Promise.resolve({ content: [{ type: "text", text: "ok" }] });
         }
-      },
-    ),
+      }),
   } as unknown as McpConnection;
 }
 
@@ -831,7 +826,8 @@ const DRIVING_ERROR_CLASSES: DrivingErrorClasses = {
 // The mock McpConnection makes CONTRACT_VALID_UDID observable and rejects
 // CONTRACT_UNKNOWN_UDID with McpToolError → DeviceDriver converts to UnknownDeviceError.
 runDrivingContract({
-  createDriving: () => new DeviceDriver(makeDrivingContractConnection(), STUB_CONFIG, TEST_NORM_CONFIG),
+  createDriving: () =>
+    new DeviceDriver(makeDrivingContractConnection(), STUB_CONFIG, TEST_NORM_CONFIG),
   fixtures: DRIVING_FIXTURES,
   errorClasses: DRIVING_ERROR_CLASSES,
 });
@@ -843,8 +839,7 @@ runDrivingContract({
 describe("§5 Anti-corruption: returned values are domain types (no MCP shape leaks)", () => {
   it("snapshotAccessibilityTree returns a plain string (not an MCP content object)", async () => {
     const conn = makeMockConnection({
-      callToolImpl: () =>
-        Promise.resolve({ content: [{ type: "text", text: "domain-string" }] }),
+      callToolImpl: () => Promise.resolve({ content: [{ type: "text", text: "domain-string" }] }),
     });
     const driver = new DeviceDriver(conn, STUB_CONFIG, TEST_NORM_CONFIG);
     const result = await driver.snapshotAccessibilityTree(VALID_UDID);

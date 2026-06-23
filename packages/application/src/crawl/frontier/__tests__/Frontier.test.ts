@@ -134,11 +134,11 @@ describe("Frontier — AC2: backtrack when all actions tried", () => {
     frontier2.markActionTried(STATE_A, a1);
 
     // B has untried [a2]
-    const backtrackTarget = frontier2.selectBacktrackTarget(
-      STATE_A,
-      [STATE_A, STATE_B, STATE_C],
-      { [STATE_A]: [a1], [STATE_B]: [a2], [STATE_C]: [] },
-    );
+    const backtrackTarget = frontier2.selectBacktrackTarget(STATE_A, [STATE_A, STATE_B, STATE_C], {
+      [STATE_A]: [a1],
+      [STATE_B]: [a2],
+      [STATE_C]: [],
+    });
 
     // Should pick B (has untried a2) over A (all tried) or C (never visited)
     expect(backtrackTarget).toBe(STATE_B);
