@@ -40,19 +40,34 @@ export const DEFAULT_MODEL_ID = "claude-opus-4-8";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 /**
+ * Request options accepted as the second argument to the Anthropic SDK
+ * `messages.create(params, options)` call.  We surface only the subset that
+ * this adapter uses; the real SDK's `RequestOptions` type is wider.
+ *
+ * @see @anthropic-ai/sdk RequestOptions (internal/request-options.d.ts)
+ */
+export interface AnthropicRequestOptions {
+  /** AbortSignal forwarded to the underlying HTTP layer (T11/#44). */
+  readonly signal?: AbortSignal;
+}
+
+/**
  * Anthropic SDK client interface — injected for testability (DI).
  * Tests inject a FakeAnthropicClient; production uses the real Anthropic client.
  * This allows unit tests to cover all code paths WITHOUT making real API calls.
  */
 export interface AnthropicClientLike {
   messages: {
-    create(params: {
-      model: string;
-      max_tokens: number;
-      temperature?: number;
-      system?: string;
-      messages: Array<{ role: "user" | "assistant"; content: string }>;
-    }): Promise<{
+    create(
+      params: {
+        model: string;
+        max_tokens: number;
+        temperature?: number;
+        system?: string;
+        messages: Array<{ role: "user" | "assistant"; content: string }>;
+      },
+      options?: AnthropicRequestOptions,
+    ): Promise<{
       content: Array<{ type: string; text?: string }>;
       usage: {
         input_tokens: number;
@@ -71,6 +86,8 @@ export interface AnthropicClientLike {
  *   2. Message bodies are NEVER logged (only token counts and model id).
  *   3. Each call is time-bounded by `timeoutMs` (T11 safe fallback on timeout).
  *   4. No `eval`/`new Function` anywhere in this file (T2 / SAST).
+ *   5. On timeout the in-flight SDK request is aborted via AbortController (#44).
+ *   6. The timeout timer is cleared on ALL settle paths — no timer leaks (#44).
  */
 export class LlmAdapter implements LlmPort {
   private readonly _client: AnthropicClientLike;
@@ -95,7 +112,11 @@ export class LlmAdapter implements LlmPort {
    * Calls the LLM with the given messages and returns the completion.
    * Time-bounded by `timeoutMs` — throws on timeout (caller falls back safely, T11).
    *
-   * SECURITY:
+   * SECURITY (#44 hardening):
+   *   - An AbortController is created per call; its signal is forwarded to the SDK
+   *     so the in-flight HTTP request is cancelled when the timeout fires.
+   *   - The timeout timer is cleared on ALL settle paths (success, SDK error, timeout)
+   *     so no timer leaks remain after the call settles.
    *   - API key is NEVER touched here (it lives in the Anthropic client instance).
    *   - No message bodies are logged (only metadata in thrown errors).
    *   - No `eval`/`new Function` on response content.
@@ -115,21 +136,41 @@ export class LlmAdapter implements LlmPort {
       ...(system !== undefined ? { system } : {}),
     };
 
-    // Time-bound the LLM call (T11 — a hung call falls back safely and counts toward budget)
-    const result = await Promise.race([
-      this._client.messages.create(requestParams),
-      rejectAfterMs(this._timeoutMs, "LLM call timed out"),
-    ]);
+    // Per-call AbortController — forwarded to the SDK so the in-flight HTTP
+    // request is cancelled when the timeout fires (T11/#44 fix 1).
+    const controller = new AbortController();
 
-    // Extract text content — strict extraction, no eval (T2)
-    const content = extractTextContent(result.content);
+    // Time-bound setup: store the handle so we can clearTimeout on all paths.
+    // Resolves the "timer leaks on success" bug (#44 fix 2).
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        controller.abort(); // cancel the in-flight SDK request (#44 fix 1)
+        reject(new Error("LLM call timed out"));
+      }, this._timeoutMs);
+    });
 
-    return {
-      content,
-      promptTokens: result.usage.input_tokens,
-      completionTokens: result.usage.output_tokens,
-      modelId: result.model,
-    };
+    try {
+      // Time-bound the LLM call (T11 — a hung call falls back safely and counts toward budget).
+      // The signal is passed as RequestOptions so the SDK can abort the HTTP layer.
+      const result = await Promise.race([
+        this._client.messages.create(requestParams, { signal: controller.signal }),
+        timeoutPromise,
+      ]);
+
+      // Extract text content — strict extraction, no eval (T2)
+      const content = extractTextContent(result.content);
+
+      return {
+        content,
+        promptTokens: result.usage.input_tokens,
+        completionTokens: result.usage.output_tokens,
+        modelId: result.model,
+      };
+    } finally {
+      // Clear the timer on ALL settle paths (success, SDK error, timeout) — no leaks (#44 fix 2).
+      clearTimeout(timeoutHandle);
+    }
   }
 }
 
@@ -173,18 +214,6 @@ function extractTextContent(content: Array<{ type: string; text?: string }>): st
     }
   }
   return "";
-}
-
-/**
- * Returns a promise that rejects after the given milliseconds.
- * Used to bound LLM calls (T11).
- */
-function rejectAfterMs(ms: number, message: string): Promise<never> {
-  return new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(message));
-    }, ms);
-  });
 }
 
 /**
