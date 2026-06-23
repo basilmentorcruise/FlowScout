@@ -28,6 +28,15 @@ const BYTES_PER_KB = 1024;
 /** Bytes per megabyte (used to express MB-scale bounds without inline magic numbers). */
 const BYTES_PER_MB = BYTES_PER_KB * BYTES_PER_KB;
 
+/**
+ * Base64 encodes every 3 raw bytes as 4 ASCII characters.
+ * Used to compute the upper-bound decoded byte count from a base64 string length
+ * before allocating a Buffer (T3 / CWE-400 pre-decode size gate).
+ */
+const BASE64_CHARS_PER_BYTE_GROUP = 4;
+/** Raw bytes per base64 character group. */
+const BASE64_BYTES_PER_GROUP = 3;
+
 /** Divisor for computing screen centre from screen dimension. */
 const HALF_DIVISOR = 2;
 
@@ -233,11 +242,17 @@ export function normalizeA11ySnapshot(
 /**
  * Normalize a raw MCP `mobile_screenshot` result into `ScreenshotBytes` (Uint8Array PNG).
  *
- * Security (T3):
+ * Security (T3 / CWE-400):
  *  1. Schema-validate the MCP response shape.
  *  2. Reject missing/empty image data.
- *  3. Enforce the configured size bound.
- *  4. Decode base64 from MCP → raw bytes.
+ *  3. Pre-decode size gate: estimate decoded byte count from base64 string length and
+ *     reject oversized payloads BEFORE allocating a Buffer (prevents partial-OOM).
+ *     Formula: `Math.floor(base64Length * BASE64_BYTES_PER_GROUP / BASE64_CHARS_PER_BYTE_GROUP)`
+ *     is a conservative upper bound (padding chars only reduce the true decoded size, so
+ *     the floor estimate may over-count by at most 2 bytes compared to the actual size).
+ *  4. Decode base64 → Buffer → Uint8Array (safe: pre-gate passed).
+ *  5. Post-decode exact size check (defense in depth — handles any edge case where the
+ *     pre-decode estimate under-counted).
  *  T4: never log the screenshot bytes.
  */
 export function normalizeScreenshot(
@@ -262,10 +277,25 @@ export function normalizeScreenshot(
     throw new MalformedPayloadError("screenshot", "MCP response contained no image data");
   }
 
-  // Step 3: Decode base64 → Buffer → Uint8Array
+  // Step 3: Pre-decode size gate (T3 / CWE-400 — reject BEFORE Buffer allocation).
+  // base64 encodes 3 bytes per 4 chars; Math.floor gives a slightly-conservative estimate
+  // (over-counts by at most 2 bytes due to padding). If the estimate already exceeds the
+  // limit, the actual decoded size certainly does too — reject immediately.
+  const base64Length = imageContent.data.length;
+  const estimatedDecodedBytes = Math.floor(
+    (base64Length * BASE64_BYTES_PER_GROUP) / BASE64_CHARS_PER_BYTE_GROUP,
+  );
+  if (estimatedDecodedBytes > config.maxScreenshotBytes) {
+    throw new MalformedPayloadError(
+      "screenshot",
+      `Screenshot base64 payload (estimated ${String(estimatedDecodedBytes)} decoded bytes) exceeds configured limit of ${String(config.maxScreenshotBytes)} bytes`,
+    );
+  }
+
+  // Step 4: Decode base64 → Buffer → Uint8Array (safe: pre-gate passed)
   const buffer = Buffer.from(imageContent.data, "base64");
 
-  // Step 4: Size bound (T3 — prevent OOM)
+  // Step 5: Post-decode exact size check (defense in depth — T3)
   if (buffer.length > config.maxScreenshotBytes) {
     throw new MalformedPayloadError(
       "screenshot",
