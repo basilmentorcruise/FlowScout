@@ -72,11 +72,7 @@ export class BudgetEnforcer {
   /** The reason this enforcer stopped the run (null until stopped). */
   private terminationReason: TerminationReason | null = null;
 
-  constructor(
-    budget?: CrawlBudget,
-    eventStream?: CrawlEventStream | null,
-    runId?: string,
-  ) {
+  constructor(budget?: CrawlBudget, eventStream?: CrawlEventStream | null, runId?: string) {
     this.budget = budget ?? defaultCrawlBudget();
     this.eventStream = eventStream ?? null;
     this.runId = runId ?? null;

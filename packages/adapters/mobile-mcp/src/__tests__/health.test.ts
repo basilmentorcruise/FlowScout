@@ -47,7 +47,12 @@ import { describe, it, expect, vi } from "vitest";
 import { HealthReadiness, DEFAULT_HEALTH_CONFIG } from "../health/HealthReadiness.js";
 import type { HealthReadinessConfig } from "../health/readiness-result.js";
 import { HealthCheckTerminalError } from "../health/readiness-result.js";
-import { McpNotConnectedError, McpTimeoutError, McpConnectionError, McpToolError } from "../connection/errors.js";
+import {
+  McpNotConnectedError,
+  McpTimeoutError,
+  McpConnectionError,
+  McpToolError,
+} from "../connection/errors.js";
 import type { McpServerConfig } from "../connection/connection-config.js";
 import type { McpConnection } from "../connection/McpConnection.js";
 
@@ -64,14 +69,14 @@ const FAKE_SERVER_CONFIG: McpServerConfig = {
 
 /** Minimal health config for tests — short timeouts so tests are fast. */
 const FAST_CONFIG: HealthReadinessConfig = {
-  readinessTimeoutMs: 200,  // 200ms total budget
-  pollIntervalMs: 50,       // retry every 50ms
-  probeTimeoutMs: 100,      // 100ms per probe
+  readinessTimeoutMs: 200, // 200ms total budget
+  pollIntervalMs: 50, // retry every 50ms
+  probeTimeoutMs: 100, // 100ms per probe
 };
 
 /** Immediate config — zero poll interval so timeout fires on first check. */
 const INSTANT_TIMEOUT_CONFIG: HealthReadinessConfig = {
-  readinessTimeoutMs: 0,    // expires immediately
+  readinessTimeoutMs: 0, // expires immediately
   pollIntervalMs: 50,
   probeTimeoutMs: 50,
 };
@@ -94,12 +99,7 @@ function makeFakeConnection(opts: {
   callToolResults?: Record<string, unknown>;
   callToolErrors?: Record<string, Error>;
 }): McpConnection {
-  const {
-    listToolsResult,
-    listToolsError,
-    callToolResults = {},
-    callToolErrors = {},
-  } = opts;
+  const { listToolsResult, listToolsError, callToolResults = {}, callToolErrors = {} } = opts;
 
   return {
     isConnected: true,
@@ -147,7 +147,7 @@ function makeFakeConnectionWdaDown(
 ): McpConnection {
   return makeFakeConnection({
     listToolsResult,
-    callToolErrors: { "mobile_get_screen_size": WDA_NOT_READY_ERROR },
+    callToolErrors: { mobile_get_screen_size: WDA_NOT_READY_ERROR },
   });
 }
 
@@ -187,7 +187,13 @@ const instantSleep = vi.fn().mockResolvedValue(undefined);
 describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", () => {
   it("returns kind='ready' with mcpReachable=true, wdaUp=true, appLaunched=null (no bundleId)", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -200,7 +206,13 @@ describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", (
 
   it("calls listTools() exactly once when WDA is immediately ready", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     await health.checkReadiness();
 
@@ -209,7 +221,13 @@ describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", (
 
   it("calls mobile_get_screen_size as the WDA probe tool", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     await health.checkReadiness();
 
@@ -218,7 +236,13 @@ describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", (
 
   it("returns correct result shape satisfying flat ReadinessResult structural type", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -231,7 +255,13 @@ describe("HealthReadiness — AC1: ready result when both MCP and WDA are up", (
 
   it("checkOnce also returns kind='ready' when MCP and WDA are up", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -252,7 +282,13 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     // WDA-absence is now detected via callTool failing (cache-independent per-poll probe),
     // NOT via the tool list from listTools() (which is cached by McpConnection).
     const conn = makeFakeConnectionWdaDown();
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -265,7 +301,13 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
 
   it("checkOnce: WDA not ready → not-ready carries a human-readable reason", async () => {
     const conn = makeFakeConnectionWdaDown();
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -281,10 +323,16 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolErrors: {
-        "mobile_get_screen_size": new McpToolError("mobile_get_screen_size", "WDA not initialized"),
+        mobile_get_screen_size: new McpToolError("mobile_get_screen_size", "WDA not initialized"),
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -299,10 +347,16 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolErrors: {
-        "mobile_get_screen_size": new Error("connection reset"),
+        mobile_get_screen_size: new Error("connection reset"),
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -316,8 +370,20 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     const notReadyConn = makeFakeConnectionWdaDown();
     const terminalConn = makeFakeConnection({ listToolsError: new McpNotConnectedError() });
 
-    const health1 = new HealthReadiness(notReadyConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
-    const health2 = new HealthReadiness(terminalConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health1 = new HealthReadiness(
+      notReadyConn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
+    const health2 = new HealthReadiness(
+      terminalConn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const notReadyResult = await health1.checkOnce();
     const terminalResult = await health2.checkOnce();
@@ -335,13 +401,9 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     // WDA-down is signalled by callTool failing (cache-independent per-poll probe).
     const conn = makeFakeConnectionWdaDown();
     const now = makeFakeNow([0, 0, 0, 300]); // start=0, probe=0, sleep=0, post-sleep=300 > 200ms
-    const health = new HealthReadiness(
-      conn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      now,
-      async () => { /* instant sleep */ },
-    );
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, now, async () => {
+      /* instant sleep */
+    });
 
     const result = await health.checkReadiness();
 
@@ -357,7 +419,7 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolErrors: {
-        "mobile_get_screen_size": new McpToolError("mobile_get_screen_size", "WDA not initialized"),
+        mobile_get_screen_size: new McpToolError("mobile_get_screen_size", "WDA not initialized"),
       },
     });
 
@@ -372,7 +434,9 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
       FAKE_SERVER_CONFIG,
       FAST_CONFIG,
       controlledNow,
-      async () => { /* instant */ },
+      async () => {
+        /* instant */
+      },
     );
     const result = await health.checkReadiness();
 
@@ -381,9 +445,7 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
 
     // WDA probe was called (not short-circuited at tool-list check):
     const callToolMock = conn.callTool as ReturnType<typeof vi.fn>;
-    const wdaCalls = callToolMock.mock.calls.filter(
-      (args) => args[0] === "mobile_get_screen_size"
-    );
+    const wdaCalls = callToolMock.mock.calls.filter((args) => args[0] === "mobile_get_screen_size");
     expect(wdaCalls.length).toBeGreaterThan(0);
   });
 
@@ -407,30 +469,24 @@ describe("HealthReadiness — AC2: WDA not ready → retryable not-ready (via ch
 
     // Patch callTool to fail on the first WDA probe and succeed on the second.
     let wdaCallCount = 0;
-    (conn.callTool as ReturnType<typeof vi.fn>).mockImplementation(
-      async (toolName: string) => {
-        if (toolName === "mobile_get_screen_size") {
-          wdaCallCount++;
-          if (wdaCallCount === 1) {
-            throw new McpToolError("mobile_get_screen_size", "WDA not yet initialized");
-          }
-          // Second call onwards → WDA is up.
-          return { width: 390, height: 844 };
+    (conn.callTool as ReturnType<typeof vi.fn>).mockImplementation(async (toolName: string) => {
+      if (toolName === "mobile_get_screen_size") {
+        wdaCallCount++;
+        if (wdaCallCount === 1) {
+          throw new McpToolError("mobile_get_screen_size", "WDA not yet initialized");
         }
-        return {};
-      },
-    );
+        // Second call onwards → WDA is up.
+        return { width: 390, height: 844 };
+      }
+      return {};
+    });
 
     // Time sequence: start=0, poll-1 at 0 (not-ready), sleep, poll-2 at 50 (ready).
     // Budget is 200ms so poll-2 (at 50ms) is within budget.
     const now = makeFakeNow([0, 0, 50, 50]);
-    const health = new HealthReadiness(
-      conn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      now,
-      async () => { /* instant sleep — advance time via makeFakeNow */ },
-    );
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, now, async () => {
+      /* instant sleep — advance time via makeFakeNow */
+    });
 
     const result = await health.checkReadiness();
 
@@ -456,11 +512,17 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolResults: {
-        "mobile_get_screen_size": { width: 390, height: 844 },
-        "mobile_list_apps": makeAppListResult(TARGET_BUNDLE),
+        mobile_get_screen_size: { width: 390, height: 844 },
+        mobile_list_apps: makeAppListResult(TARGET_BUNDLE),
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness(TARGET_BUNDLE);
 
@@ -474,11 +536,17 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolResults: {
-        "mobile_get_screen_size": { width: 390, height: 844 },
-        "mobile_list_apps": [{ bundleId: "com.other.app", name: "Other" }],
+        mobile_get_screen_size: { width: 390, height: 844 },
+        mobile_list_apps: [{ bundleId: "com.other.app", name: "Other" }],
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness(TARGET_BUNDLE);
 
@@ -490,9 +558,15 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
 
   it("appLaunched=null when no bundleId is provided", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
-    const result = await health.checkReadiness();  // no bundleId
+    const result = await health.checkReadiness(); // no bundleId
 
     expect(result.kind).toBe("ready");
     expect(result.appLaunched).toBeNull();
@@ -500,9 +574,15 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
 
   it("appLaunched=null when empty string bundleId is provided", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
-    const result = await health.checkReadiness("");  // empty bundleId treated as absent
+    const result = await health.checkReadiness(""); // empty bundleId treated as absent
 
     expect(result.kind).toBe("ready");
     expect(result.appLaunched).toBeNull();
@@ -512,11 +592,17 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolResults: {
-        "mobile_get_screen_size": { width: 390, height: 844 },
-        "mobile_list_apps": "not-an-array", // unexpected shape → null (graceful)
+        mobile_get_screen_size: { width: 390, height: 844 },
+        mobile_list_apps: "not-an-array", // unexpected shape → null (graceful)
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness(TARGET_BUNDLE);
 
@@ -529,11 +615,17 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolResults: {
-        "mobile_get_screen_size": {},
-        "mobile_list_apps": makeAppListResult(TARGET_BUNDLE),
+        mobile_get_screen_size: {},
+        mobile_list_apps: makeAppListResult(TARGET_BUNDLE),
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     await health.checkReadiness(TARGET_BUNDLE);
 
@@ -542,14 +634,18 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
 
   it("does NOT call mobile_list_apps when no bundleId is provided", async () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     await health.checkReadiness();
 
     const callToolMock = conn.callTool as ReturnType<typeof vi.fn>;
-    const listAppsCalls = callToolMock.mock.calls.filter(
-      (args) => args[0] === "mobile_list_apps"
-    );
+    const listAppsCalls = callToolMock.mock.calls.filter((args) => args[0] === "mobile_list_apps");
     expect(listAppsCalls).toHaveLength(0);
   });
 
@@ -557,11 +653,17 @@ describe("HealthReadiness — AC3: app-launched signal by bundleId", () => {
     const conn = makeFakeConnection({
       listToolsResult: WDA_TOOLS,
       callToolResults: {
-        "mobile_get_screen_size": {},
-        "mobile_list_apps": makeAppListResult(TARGET_BUNDLE),
+        mobile_get_screen_size: {},
+        mobile_list_apps: makeAppListResult(TARGET_BUNDLE),
       },
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce(TARGET_BUNDLE);
 
@@ -579,7 +681,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpNotConnectedError(),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -594,7 +702,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpNotConnectedError(),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -606,7 +720,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpConnectionError("connection refused"),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -619,7 +739,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpTimeoutError("listTools timed out", 5000),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -632,7 +758,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new Error("ENOENT: server binary not found"),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -648,10 +780,22 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     // WDA-down is detected via callTool failing (cache-independent).
     const notReadyConn = makeFakeConnectionWdaDown();
 
-    const health1 = new HealthReadiness(terminalConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health1 = new HealthReadiness(
+      terminalConn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
     const terminalResult = await health1.checkOnce(); // checkOnce: immediate terminal
 
-    const health2 = new HealthReadiness(notReadyConn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health2 = new HealthReadiness(
+      notReadyConn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
     const notReadyResult = await health2.checkOnce(); // checkOnce: immediate not-ready
 
     expect(terminalResult.kind).toBe("terminal");
@@ -663,7 +807,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpConnectionError("transport closed"),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     // Should resolve (not throw/reject) with terminal result.
     await expect(health.checkReadiness()).resolves.toMatchObject({
@@ -678,7 +828,13 @@ describe("HealthReadiness — AC4: MCP unreachable → terminal failure", () => 
     const conn = makeFakeConnection({
       listToolsError: new McpNotConnectedError(),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkOnce();
 
@@ -736,7 +892,13 @@ describe("HealthReadiness — AC4 security: no secret leakage in error causes (T
     const conn = makeFakeConnection({
       listToolsError: new McpConnectionError("something went wrong"),
     });
-    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, Date.now, instantSleep);
+    const health = new HealthReadiness(
+      conn,
+      FAKE_SERVER_CONFIG,
+      FAST_CONFIG,
+      Date.now,
+      instantSleep,
+    );
 
     const result = await health.checkReadiness();
 
@@ -757,13 +919,9 @@ describe("HealthReadiness — AC5: timeout resolves (no indefinite hang)", () =>
     // WDA-down is signalled by callTool failing (cache-independent per-poll probe).
     const conn = makeFakeConnectionWdaDown();
     const now = makeFakeNow([0, 250, 250]); // 250 > FAST_CONFIG.readinessTimeoutMs (200)
-    const health = new HealthReadiness(
-      conn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      now,
-      async () => { /* instant */ },
-    );
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, now, async () => {
+      /* instant */
+    });
 
     const result = await health.checkReadiness();
 
@@ -776,13 +934,9 @@ describe("HealthReadiness — AC5: timeout resolves (no indefinite hang)", () =>
     const conn = makeFakeConnectionWdaDown();
     // now returns 0, then 250 (> 200ms budget)
     const now = makeFakeNow([0, 250]);
-    const health = new HealthReadiness(
-      conn,
-      FAKE_SERVER_CONFIG,
-      FAST_CONFIG,
-      now,
-      async () => { /* instant */ },
-    );
+    const health = new HealthReadiness(conn, FAKE_SERVER_CONFIG, FAST_CONFIG, now, async () => {
+      /* instant */
+    });
 
     const result = await health.checkReadiness();
 
@@ -800,7 +954,9 @@ describe("HealthReadiness — AC5: timeout resolves (no indefinite hang)", () =>
       FAKE_SERVER_CONFIG,
       INSTANT_TIMEOUT_CONFIG,
       now,
-      async () => { /* instant */ },
+      async () => {
+        /* instant */
+      },
     );
 
     const result = await health.checkReadiness();
@@ -862,9 +1018,13 @@ describe("DEFAULT_HEALTH_CONFIG — no magic numbers", () => {
     expect(DEFAULT_HEALTH_CONFIG.pollIntervalMs).toBeGreaterThan(0);
     expect(DEFAULT_HEALTH_CONFIG.probeTimeoutMs).toBeGreaterThan(0);
     // pollIntervalMs should be less than readinessTimeoutMs (to allow retry)
-    expect(DEFAULT_HEALTH_CONFIG.pollIntervalMs).toBeLessThan(DEFAULT_HEALTH_CONFIG.readinessTimeoutMs);
+    expect(DEFAULT_HEALTH_CONFIG.pollIntervalMs).toBeLessThan(
+      DEFAULT_HEALTH_CONFIG.readinessTimeoutMs,
+    );
     // probeTimeoutMs should be less than readinessTimeoutMs
-    expect(DEFAULT_HEALTH_CONFIG.probeTimeoutMs).toBeLessThan(DEFAULT_HEALTH_CONFIG.readinessTimeoutMs);
+    expect(DEFAULT_HEALTH_CONFIG.probeTimeoutMs).toBeLessThan(
+      DEFAULT_HEALTH_CONFIG.readinessTimeoutMs,
+    );
   });
 });
 
@@ -907,7 +1067,7 @@ describe("HealthReadiness — DI seam (Wave-1 contract)", () => {
   it("accepts optional healthConfig override", () => {
     const conn = makeFakeConnection({ listToolsResult: WDA_TOOLS });
     expect(
-      () => new HealthReadiness(conn, FAKE_SERVER_CONFIG, { readinessTimeoutMs: 60_000 })
+      () => new HealthReadiness(conn, FAKE_SERVER_CONFIG, { readinessTimeoutMs: 60_000 }),
     ).not.toThrow();
   });
 

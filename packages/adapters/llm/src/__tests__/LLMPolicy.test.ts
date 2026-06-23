@@ -82,7 +82,10 @@ class FakeLlmPort implements LlmPort {
     this._failMessage = message;
   }
 
-  complete(messages: readonly LlmMessage[], _opts: LlmCompletionOptions): Promise<LlmCompletionResult> {
+  complete(
+    messages: readonly LlmMessage[],
+    _opts: LlmCompletionOptions,
+  ): Promise<LlmCompletionResult> {
     this._callCount++;
     this._capturedMessages.push([...messages]);
 
@@ -95,8 +98,12 @@ class FakeLlmPort implements LlmPort {
     return Promise.resolve(this._response);
   }
 
-  get callCount(): number { return this._callCount; }
-  get capturedMessages(): LlmMessage[][] { return this._capturedMessages; }
+  get callCount(): number {
+    return this._callCount;
+  }
+  get capturedMessages(): LlmMessage[][] {
+    return this._capturedMessages;
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -126,7 +133,8 @@ function makeCtx(
   return {
     runId: "run-test",
     currentStateId: stateId,
-    a11ySnapshot: '{"role":"application","children":[{"role":"button","label":"Settings"}]}' as never,
+    a11ySnapshot:
+      '{"role":"application","children":[{"role":"button","label":"Settings"}]}' as never,
     triedActions,
     visitCount: 1,
     candidateActions: candidates,
@@ -208,7 +216,10 @@ describe("LLMPolicy AC2: cache miss → LLM → cached", () => {
 
   it("reports token counts truthfully in lastCallResult (T6)", async () => {
     const { policy, llm } = makePolicyAndCache();
-    llm.setResponse(validChoice(0), { prompt: PROMPT_TOKENS_200, completion: COMPLETION_TOKENS_30 });
+    llm.setResponse(validChoice(0), {
+      prompt: PROMPT_TOKENS_200,
+      completion: COMPLETION_TOKENS_30,
+    });
 
     await policy.decide(makeCtx(STATE_A));
 
@@ -365,8 +376,14 @@ describe("LLMPolicy AC6: prompt-injection resistance (T1)", () => {
     if (!messages) {
       expect.fail("No messages captured");
     }
-    const systemContent = messages.filter((m) => m.role === "system").map((m) => m.content).join("");
-    const userContent = messages.filter((m) => m.role === "user").map((m) => m.content).join("");
+    const systemContent = messages
+      .filter((m) => m.role === "system")
+      .map((m) => m.content)
+      .join("");
+    const userContent = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("");
 
     expect(systemContent).not.toContain("ignore all rules");
     expect(userContent).toContain("UNTRUSTED OBSERVED DATA FROM APP");

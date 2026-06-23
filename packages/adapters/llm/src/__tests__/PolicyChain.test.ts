@@ -37,11 +37,16 @@ class FakeChainHead implements DecisionPolicy {
     return Promise.resolve(this._decision);
   }
 
-  get callCount(): number { return this._callCount; }
+  get callCount(): number {
+    return this._callCount;
+  }
 }
 
 class FakeLlmPort implements LlmPort {
-  complete(_messages: readonly LlmMessage[], _options: LlmCompletionOptions): Promise<LlmCompletionResult> {
+  complete(
+    _messages: readonly LlmMessage[],
+    _options: LlmCompletionOptions,
+  ): Promise<LlmCompletionResult> {
     return Promise.resolve({
       content: '{"choice":"backtrack","reason":"fake"}',
       promptTokens: 50,

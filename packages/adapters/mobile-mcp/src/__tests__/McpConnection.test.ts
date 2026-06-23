@@ -14,11 +14,7 @@
  * real-server behaviour is the #18 macOS E2E responsibility.
  */
 import { describe, it, expect, vi } from "vitest";
-import {
-  McpConnectionError,
-  McpNotConnectedError,
-  McpTimeoutError,
-} from "../connection/errors.js";
+import { McpConnectionError, McpNotConnectedError, McpTimeoutError } from "../connection/errors.js";
 import { McpConnection } from "../connection/McpConnection.js";
 import type { McpServerConfig } from "../connection/connection-config.js";
 import { defaultServerEnv } from "../connection/connection-config.js";
@@ -37,9 +33,7 @@ const BASE_CONFIG: McpServerConfig = {
 };
 
 /** Create a minimal fake Transport that never actually connects. */
-function makeFakeTransport(
-  startFn: () => Promise<void> = () => Promise.resolve(),
-): Transport {
+function makeFakeTransport(startFn: () => Promise<void> = () => Promise.resolve()): Transport {
   // Use unknown cast to satisfy exactOptionalPropertyTypes on the optional callback fields.
   const transport = {
     start: vi.fn().mockImplementation(startFn),
@@ -203,7 +197,10 @@ describe("McpConnection — connect timeout", () => {
     const { McpConnection } = await import("../connection/McpConnection.js");
     // Create a transport whose start() never resolves — simulates a hanging server.
     const hangingTransport = makeFakeTransport(
-      () => new Promise<void>(() => { /* never resolves */ }),
+      () =>
+        new Promise<void>(() => {
+          /* never resolves */
+        }),
     );
     const factory = vi.fn().mockReturnValue(hangingTransport);
     const conn = new McpConnection(
@@ -312,7 +309,9 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
     const { LifecycleStub } = await import("../lifecycle/index.js");
     const { LifecycleInputError } = await import("../lifecycle/index.js");
     const stub = new LifecycleStub(fakeConnection, BASE_CONFIG, fakeExec);
-    await expect(stub.installApp("udid", "/path/to.app")).rejects.toBeInstanceOf(LifecycleInputError);
+    await expect(stub.installApp("udid", "/path/to.app")).rejects.toBeInstanceOf(
+      LifecycleInputError,
+    );
   });
 
   it("LifecycleStub.launchApp rejects invalid udid with LifecycleInputError", async () => {
@@ -364,9 +363,9 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
     const { DrivingStub } = await import("../driving/index.js");
     const { InvalidInputError } = await import("../driving/normalization.js");
     const stub = new DrivingStub(fakeConnection, BASE_CONFIG);
-    await expect(
-      stub.tap("udid", { kind: "element", elementId: "e1" }),
-    ).rejects.toBeInstanceOf(InvalidInputError);
+    await expect(stub.tap("udid", { kind: "element", elementId: "e1" })).rejects.toBeInstanceOf(
+      InvalidInputError,
+    );
   });
 
   it("DrivingStub (DeviceDriver after #15) swipe rejects invalid UDID with InvalidInputError", async () => {
@@ -413,14 +412,18 @@ describe("Stub capability modules — Wave-1 placeholders", () => {
 describe("simctl helper — runSimctl with injectable Exec", () => {
   it("runSimctl calls exec with xcrun + simctl prefix", async () => {
     const { runSimctl } = await import("../simctl.js");
-    const fakeExec = vi.fn().mockResolvedValue({ stdout: "ok", stderr: "" }) as unknown as import("../simctl.js").Exec;
+    const fakeExec = vi
+      .fn()
+      .mockResolvedValue({ stdout: "ok", stderr: "" }) as unknown as import("../simctl.js").Exec;
     await runSimctl(["list", "--json"], fakeExec);
     expect(fakeExec).toHaveBeenCalledWith("xcrun", ["simctl", "list", "--json"]);
   });
 
   it("runSimctl propagates exec errors", async () => {
     const { runSimctl } = await import("../simctl.js");
-    const fakeExec = vi.fn().mockRejectedValue(new Error("xcrun not found")) as unknown as import("../simctl.js").Exec;
+    const fakeExec = vi
+      .fn()
+      .mockRejectedValue(new Error("xcrun not found")) as unknown as import("../simctl.js").Exec;
     await expect(runSimctl(["list"], fakeExec)).rejects.toThrow("xcrun not found");
   });
 
@@ -428,14 +431,22 @@ describe("simctl helper — runSimctl with injectable Exec", () => {
     const { runSimctlWithTimeout } = await import("../simctl.js");
     // Type cast needed: vi.fn is untyped here; the fake matches the Exec signature.
     const fakeExec = vi.fn().mockImplementation(
-      () => new Promise<{ stdout: string; stderr: string }>(() => { /* never resolves */ }),
+      () =>
+        new Promise<{ stdout: string; stderr: string }>(() => {
+          /* never resolves */
+        }),
     ) as unknown as import("../simctl.js").Exec;
     await expect(runSimctlWithTimeout(["list"], fakeExec, 50)).rejects.toThrow("timed out");
   }, 3000);
 
   it("runSimctlWithTimeout resolves when exec finishes in time", async () => {
     const { runSimctlWithTimeout } = await import("../simctl.js");
-    const fakeExec = vi.fn().mockResolvedValue({ stdout: "result", stderr: "" }) as unknown as import("../simctl.js").Exec;
+    const fakeExec = vi
+      .fn()
+      .mockResolvedValue({
+        stdout: "result",
+        stderr: "",
+      }) as unknown as import("../simctl.js").Exec;
     const result = await runSimctlWithTimeout(["list"], fakeExec, 1000);
     expect(result.stdout).toBe("result");
   });
@@ -443,7 +454,9 @@ describe("simctl helper — runSimctl with injectable Exec", () => {
   it("runSimctlWithTimeout wraps non-Error rejections in Error", async () => {
     const { runSimctlWithTimeout } = await import("../simctl.js");
     // Reject with a string (not an Error instance).
-    const fakeExec = vi.fn().mockRejectedValue("string-rejection") as unknown as import("../simctl.js").Exec;
+    const fakeExec = vi
+      .fn()
+      .mockRejectedValue("string-rejection") as unknown as import("../simctl.js").Exec;
     const result = runSimctlWithTimeout(["list"], fakeExec, 1000);
     await expect(result).rejects.toBeInstanceOf(Error);
     await expect(result).rejects.toThrow("string-rejection");

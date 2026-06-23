@@ -203,9 +203,7 @@ export class Frontier {
     const pool = visited.length > 0 ? visited : eligible;
 
     // Pick the least-visited state (most unexplored, least likely to be a dead end).
-    return pool.reduce((best, s) =>
-      this.getVisitCount(s) < this.getVisitCount(best) ? s : best,
-    );
+    return pool.reduce((best, s) => (this.getVisitCount(s) < this.getVisitCount(best) ? s : best));
   }
 
   // ── Probe extension point (Open/Closed for #35) ──────────────────────────────

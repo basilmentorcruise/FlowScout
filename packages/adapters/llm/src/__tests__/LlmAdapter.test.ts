@@ -184,7 +184,9 @@ describe("LlmAdapter — failure handling (T11)", () => {
   it("propagates rejection from underlying client (simulating timeout/network error)", async () => {
     const failingClient = makeFailingClient("LLM call timed out");
     const adapter = new LlmAdapter(failingClient);
-    await expect(adapter.complete(MESSAGES, STANDARD_OPTIONS)).rejects.toThrow("LLM call timed out");
+    await expect(adapter.complete(MESSAGES, STANDARD_OPTIONS)).rejects.toThrow(
+      "LLM call timed out",
+    );
   });
 });
 

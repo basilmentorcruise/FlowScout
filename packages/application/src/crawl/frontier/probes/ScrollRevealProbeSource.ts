@@ -56,7 +56,10 @@ function isScrollableContainer(node: A11yNode): boolean {
  * Build a swipe candidate action with a hard-coded, allowlisted direction.
  * Payload is a minimal JSON object consumed by `StartCrawlRun.executeSwipe`.
  */
-function makeScrollCandidate(direction: ScrollDirection, elementId: string | undefined): CandidateAction {
+function makeScrollCandidate(
+  direction: ScrollDirection,
+  elementId: string | undefined,
+): CandidateAction {
   const payload: Record<string, unknown> = { direction };
   // Include elementId as a hint when available — the driver can use it for targeted scrolls.
   // We only include it if it is a non-empty string (validation guard).
@@ -101,9 +104,10 @@ export class ScrollRevealProbeSource implements ProbeSource {
 
       for (const container of scrollableContainers) {
         // elementId is the stable identifier; fall back to undefined (produces generic swipe).
-        const elementId = typeof container.accessibilityIdentifier === "string"
-          ? container.accessibilityIdentifier
-          : undefined;
+        const elementId =
+          typeof container.accessibilityIdentifier === "string"
+            ? container.accessibilityIdentifier
+            : undefined;
 
         const dedupKey = elementId ?? "__generic__";
         if (seenIds.has(dedupKey)) continue;

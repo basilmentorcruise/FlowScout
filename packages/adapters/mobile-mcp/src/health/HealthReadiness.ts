@@ -82,8 +82,8 @@ const TOOL_LIST_APPS = "mobile_list_apps";
 
 export const DEFAULT_HEALTH_CONFIG: HealthReadinessConfig = {
   readinessTimeoutMs: 30_000, // 30 s total poll budget
-  pollIntervalMs: 1_000,      // retry every 1 s
-  probeTimeoutMs: 5_000,      // 5 s per individual probe
+  pollIntervalMs: 1_000, // retry every 1 s
+  probeTimeoutMs: 5_000, // 5 s per individual probe
 };
 
 // ---------------------------------------------------------------------------
@@ -227,10 +227,7 @@ export class HealthReadiness implements HealthCapability {
    */
   private async probeMcp(): Promise<void> {
     try {
-      await this.withProbeTimeout(
-        this.connection.listTools(),
-        "MCP tool listing",
-      );
+      await this.withProbeTimeout(this.connection.listTools(), "MCP tool listing");
     } catch (err) {
       if (err instanceof McpNotConnectedError) {
         throw new HealthCheckTerminalError(
@@ -340,9 +337,7 @@ export class HealthReadiness implements HealthCapability {
 
     // Step 3 — App launched check (optional).
     const appLaunched =
-      bundleId !== undefined && bundleId.length > 0
-        ? await this.probeAppLaunched(bundleId)
-        : null;
+      bundleId !== undefined && bundleId.length > 0 ? await this.probeAppLaunched(bundleId) : null;
 
     return {
       kind: "ready",
@@ -395,9 +390,7 @@ export class HealthReadiness implements HealthCapability {
     const { probeTimeoutMs } = this.healthConfig;
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(
-          new Error(`${label} probe timed out after ${String(probeTimeoutMs)}ms`),
-        );
+        reject(new Error(`${label} probe timed out after ${String(probeTimeoutMs)}ms`));
       }, probeTimeoutMs);
 
       promise.then(

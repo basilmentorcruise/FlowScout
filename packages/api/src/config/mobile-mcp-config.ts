@@ -108,7 +108,10 @@ function parseServerCommand(raw: string | undefined): readonly string[] {
   if (!raw || raw.trim() === "") {
     return DEFAULT_SERVER_COMMAND;
   }
-  const parts = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
   if (parts.length === 0) {
     return DEFAULT_SERVER_COMMAND;
   }

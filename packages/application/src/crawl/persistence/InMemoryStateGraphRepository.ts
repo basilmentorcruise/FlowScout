@@ -87,9 +87,7 @@ export class InMemoryStateGraphRepository implements StateGraphRepository {
    * Cross-run state lookup — deferred to E7 (durable Postgres impl).
    * Returns an empty map to satisfy the port contract without DB access.
    */
-  findStatesByApp(
-    _appId: string,
-  ): Promise<ReadonlyMap<StateIdentity, readonly string[]>> {
+  findStatesByApp(_appId: string): Promise<ReadonlyMap<StateIdentity, readonly string[]>> {
     return Promise.resolve(new Map<StateIdentity, readonly string[]>());
   }
 }

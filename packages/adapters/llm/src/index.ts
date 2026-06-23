@@ -17,11 +17,7 @@
  * Security: @anthropic-ai/sdk is imported ONLY in LlmAdapter.ts.
  * The SDK import is isolated to this package (T10/NFR1 — depcruiser enforces).
  */
-export {
-  LlmAdapter,
-  createAnthropicClient,
-  DEFAULT_MODEL_ID,
-} from "./LlmAdapter.js";
+export { LlmAdapter, createAnthropicClient, DEFAULT_MODEL_ID } from "./LlmAdapter.js";
 export type { LlmAdapterConfig, AnthropicClientLike } from "./LlmAdapter.js";
 
 export { LLMPolicy } from "./LLMPolicy.js";

@@ -616,21 +616,21 @@ function describeUnknownUdidLifecycle(
     });
 
     it("installApp with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getLifecycle().installApp(unknownUdid, installablePath),
-      ).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getLifecycle().installApp(unknownUdid, installablePath)).rejects.toBeInstanceOf(
+        unknownDevice,
+      );
     });
 
     it("launchApp with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getLifecycle().launchApp(unknownUdid, validBundleId),
-      ).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getLifecycle().launchApp(unknownUdid, validBundleId)).rejects.toBeInstanceOf(
+        unknownDevice,
+      );
     });
 
     it("shutdownSimulator with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getLifecycle().shutdownSimulator(unknownUdid),
-      ).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getLifecycle().shutdownSimulator(unknownUdid)).rejects.toBeInstanceOf(
+        unknownDevice,
+      );
     });
   });
 }
@@ -645,9 +645,9 @@ function describeUnknownUdidDriving(
 
   describe("§6(driving) Unknown UDID — driving methods reject with typed UnknownDevice error", () => {
     it("snapshotAccessibilityTree with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(
-        getDriving().snapshotAccessibilityTree(unknownUdid),
-      ).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getDriving().snapshotAccessibilityTree(unknownUdid)).rejects.toBeInstanceOf(
+        unknownDevice,
+      );
     });
 
     it("screenshot with unknown UDID throws UnknownDeviceError", async () => {
@@ -661,7 +661,9 @@ function describeUnknownUdidDriving(
     });
 
     it("typeText with unknown UDID throws UnknownDeviceError", async () => {
-      await expect(getDriving().typeText(unknownUdid, "text")).rejects.toBeInstanceOf(unknownDevice);
+      await expect(getDriving().typeText(unknownUdid, "text")).rejects.toBeInstanceOf(
+        unknownDevice,
+      );
     });
 
     it("swipe with unknown UDID throws UnknownDeviceError", async () => {
@@ -678,26 +680,20 @@ function describeUnknownUdidSnapshot(
   const { unknownUdid, knownSnapshotName } = fixtures;
   const { unknownDevice } = errorClasses;
 
-  describe(
-    "§6(snapshot) Unknown UDID — snapshot methods reject with typed UnknownDevice error",
-    () => {
-      // ADR-0003 §2: device validation precedes snapshot registry lookup for BOTH operations.
-      it("takeSnapshot with unknown UDID throws UnknownDeviceError", async () => {
-        await expect(
-          getSnapshot().takeSnapshot(unknownUdid, knownSnapshotName),
-        ).rejects.toBeInstanceOf(unknownDevice);
-      });
+  describe("§6(snapshot) Unknown UDID — snapshot methods reject with typed UnknownDevice error", () => {
+    // ADR-0003 §2: device validation precedes snapshot registry lookup for BOTH operations.
+    it("takeSnapshot with unknown UDID throws UnknownDeviceError", async () => {
+      await expect(
+        getSnapshot().takeSnapshot(unknownUdid, knownSnapshotName),
+      ).rejects.toBeInstanceOf(unknownDevice);
+    });
 
-      it(
-        "resetToSnapshot with unknown UDID throws UnknownDeviceError (device-first — ADR-0003 §2)",
-        async () => {
-          await expect(
-            getSnapshot().resetToSnapshot(unknownUdid, knownSnapshotName),
-          ).rejects.toBeInstanceOf(unknownDevice);
-        },
-      );
-    },
-  );
+    it("resetToSnapshot with unknown UDID throws UnknownDeviceError (device-first — ADR-0003 §2)", async () => {
+      await expect(
+        getSnapshot().resetToSnapshot(unknownUdid, knownSnapshotName),
+      ).rejects.toBeInstanceOf(unknownDevice);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -712,16 +708,13 @@ function describeInjectionUdidsLifecycle(
   const badUdids = fixtures.injectionUdids ?? DEFAULT_INJECTION_UDIDS;
   const { invalidInput } = errorClasses;
 
-  describe(
-    "§7(lifecycle) T1 — injection-shaped UDID values are rejected with InvalidInput error",
-    () => {
-      for (const badUdid of badUdids) {
-        it(`bootSimulator rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-          await expect(getLifecycle().bootSimulator(badUdid)).rejects.toBeInstanceOf(invalidInput);
-        });
-      }
-    },
-  );
+  describe("§7(lifecycle) T1 — injection-shaped UDID values are rejected with InvalidInput error", () => {
+    for (const badUdid of badUdids) {
+      it(`bootSimulator rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+        await expect(getLifecycle().bootSimulator(badUdid)).rejects.toBeInstanceOf(invalidInput);
+      });
+    }
+  });
 }
 
 function describeInjectionUdidsDriving(
@@ -732,26 +725,23 @@ function describeInjectionUdidsDriving(
   const badUdids = fixtures.injectionUdids ?? DEFAULT_INJECTION_UDIDS;
   const { invalidInput } = errorClasses;
 
-  describe(
-    "§7(driving) T1 — injection-shaped UDID values are rejected with InvalidInput error",
-    () => {
-      for (const badUdid of badUdids) {
-        it(`snapshotAccessibilityTree rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-          await expect(
-            getDriving().snapshotAccessibilityTree(badUdid),
-          ).rejects.toBeInstanceOf(invalidInput);
-        });
-        it(`screenshot rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-          await expect(getDriving().screenshot(badUdid)).rejects.toBeInstanceOf(invalidInput);
-        });
-        it(`tap rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
-          await expect(
-            getDriving().tap(badUdid, { kind: "coordinate", x: 0, y: 0 }),
-          ).rejects.toBeInstanceOf(invalidInput);
-        });
-      }
-    },
-  );
+  describe("§7(driving) T1 — injection-shaped UDID values are rejected with InvalidInput error", () => {
+    for (const badUdid of badUdids) {
+      it(`snapshotAccessibilityTree rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+        await expect(getDriving().snapshotAccessibilityTree(badUdid)).rejects.toBeInstanceOf(
+          invalidInput,
+        );
+      });
+      it(`screenshot rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+        await expect(getDriving().screenshot(badUdid)).rejects.toBeInstanceOf(invalidInput);
+      });
+      it(`tap rejects UDID: ${JSON.stringify(badUdid)}`, async () => {
+        await expect(
+          getDriving().tap(badUdid, { kind: "coordinate", x: 0, y: 0 }),
+        ).rejects.toBeInstanceOf(invalidInput);
+      });
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -795,14 +785,14 @@ function describeInjectionSnapshotNames(
   describe("§9 T1 — injection-shaped snapshotName values are rejected with InvalidInput error", () => {
     for (const badName of badNames) {
       it(`takeSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
-        await expect(
-          getSnapshot().takeSnapshot(validUdid, badName),
-        ).rejects.toBeInstanceOf(invalidInput);
+        await expect(getSnapshot().takeSnapshot(validUdid, badName)).rejects.toBeInstanceOf(
+          invalidInput,
+        );
       });
       it(`resetToSnapshot rejects snapshotName: ${JSON.stringify(badName)}`, async () => {
-        await expect(
-          getSnapshot().resetToSnapshot(validUdid, badName),
-        ).rejects.toBeInstanceOf(invalidInput);
+        await expect(getSnapshot().resetToSnapshot(validUdid, badName)).rejects.toBeInstanceOf(
+          invalidInput,
+        );
       });
     }
   });
@@ -821,18 +811,15 @@ function describeInjectionAppPaths(
   const badPaths = fixtures.injectionAppPaths ?? DEFAULT_INJECTION_APP_PATHS;
   const { invalidInput } = errorClasses;
 
-  describe(
-    "§10 T1/T2 — injection-shaped appBundlePath values are rejected with InvalidInput error",
-    () => {
-      for (const badPath of badPaths) {
-        it(`installApp rejects appBundlePath: ${JSON.stringify(badPath)}`, async () => {
-          const d = getLifecycle();
-          await d.bootSimulator(validUdid);
-          await expect(d.installApp(validUdid, badPath)).rejects.toBeInstanceOf(invalidInput);
-        });
-      }
-    },
-  );
+  describe("§10 T1/T2 — injection-shaped appBundlePath values are rejected with InvalidInput error", () => {
+    for (const badPath of badPaths) {
+      it(`installApp rejects appBundlePath: ${JSON.stringify(badPath)}`, async () => {
+        const d = getLifecycle();
+        await d.bootSimulator(validUdid);
+        await expect(d.installApp(validUdid, badPath)).rejects.toBeInstanceOf(invalidInput);
+      });
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1048,15 +1035,24 @@ function buildLifecycleFactory(createDriver: DriverFactory): LifecycleFactory {
  * Real snapshot adapters (#16) use a fake Exec that treats validUdid as existing, so
  * their factory does not need this setup.
  */
-function buildSnapshotFactory(createDriver: DriverFactory, fixtures: ContractFixtures): SnapshotFactory {
+function buildSnapshotFactory(
+  createDriver: DriverFactory,
+  fixtures: ContractFixtures,
+): SnapshotFactory {
   return () => {
     const d = createDriver();
     const setupDone = d
       .bootSimulator(fixtures.validUdid)
       .then(() => d.installApp(fixtures.validUdid, fixtures.installablePath));
     return {
-      takeSnapshot: async (udid, name) => { await setupDone; return d.takeSnapshot(udid, name); },
-      resetToSnapshot: async (udid, name) => { await setupDone; return d.resetToSnapshot(udid, name); },
+      takeSnapshot: async (udid, name) => {
+        await setupDone;
+        return d.takeSnapshot(udid, name);
+      },
+      resetToSnapshot: async (udid, name) => {
+        await setupDone;
+        return d.resetToSnapshot(udid, name);
+      },
     };
   };
 }
@@ -1066,7 +1062,10 @@ function buildSnapshotFactory(createDriver: DriverFactory, fixtures: ContractFix
  * Sets up boot+install+launch inside the factory closure so the Fake's state machine is
  * satisfied without calling lifecycle methods inside the section runner (ADR-0003 §1.2 R-A).
  */
-function buildDrivingFactory(createDriver: DriverFactory, fixtures: ContractFixtures): DrivingFactory {
+function buildDrivingFactory(
+  createDriver: DriverFactory,
+  fixtures: ContractFixtures,
+): DrivingFactory {
   return () => {
     const d = createDriver();
     const setupDone = d
@@ -1074,11 +1073,26 @@ function buildDrivingFactory(createDriver: DriverFactory, fixtures: ContractFixt
       .then(() => d.installApp(fixtures.validUdid, fixtures.installablePath))
       .then(() => d.launchApp(fixtures.validUdid, fixtures.validBundleId));
     return {
-      snapshotAccessibilityTree: async (udid) => { await setupDone; return d.snapshotAccessibilityTree(udid); },
-      screenshot: async (udid) => { await setupDone; return d.screenshot(udid); },
-      tap: async (udid, target) => { await setupDone; return d.tap(udid, target); },
-      typeText: async (udid, text) => { await setupDone; return d.typeText(udid, text); },
-      swipe: async (udid, dir, dist) => { await setupDone; return d.swipe(udid, dir, dist); },
+      snapshotAccessibilityTree: async (udid) => {
+        await setupDone;
+        return d.snapshotAccessibilityTree(udid);
+      },
+      screenshot: async (udid) => {
+        await setupDone;
+        return d.screenshot(udid);
+      },
+      tap: async (udid, target) => {
+        await setupDone;
+        return d.tap(udid, target);
+      },
+      typeText: async (udid, text) => {
+        await setupDone;
+        return d.typeText(udid, text);
+      },
+      swipe: async (udid, dir, dist) => {
+        await setupDone;
+        return d.swipe(udid, dir, dist);
+      },
     };
   };
 }

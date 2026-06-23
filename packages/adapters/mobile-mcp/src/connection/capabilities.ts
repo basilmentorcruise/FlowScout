@@ -11,7 +11,13 @@
  * `defaultCapabilities()` wires real classes when they land; for now it wires stubs.
  */
 
-import type { DeviceInfo, A11ySnapshot, ScreenshotBytes, TapTarget, SwipeDirection } from "@flowscout/domain";
+import type {
+  DeviceInfo,
+  A11ySnapshot,
+  ScreenshotBytes,
+  TapTarget,
+  SwipeDirection,
+} from "@flowscout/domain";
 import type { McpServerConfig } from "./connection-config.js";
 import { McpConnection } from "./McpConnection.js";
 import { createDefaultExec, type Exec } from "../simctl.js";
