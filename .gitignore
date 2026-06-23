@@ -40,3 +40,9 @@ pnpm-lock.yaml.bak
 # --- E2E artifacts (T4 — screenshots/snapshots from real-simulator runs) ---
 # Written by e2e/round-trip.e2e.ts; chmod 700; never committed (T4 threat model).
 .flowscout-e2e-artifacts/
+
+# --- E2E sample-app fixture build output (built from source; never committed) ---
+# E1.8 (#29): the .xcodeproj + Sources are committed; the derived .app is not (T9).
+e2e/fixtures/sample-app/build/
+e2e/fixtures/sample-app/DerivedData/
+e2e/fixtures/**/*.app

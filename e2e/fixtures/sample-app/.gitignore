@@ -1,0 +1,16 @@
+# Build output for the sample-app fixture — never committed (T9, E1.8 plan §2).
+# The .xcodeproj + Sources + Info.plist ARE committed; the derived .app is NOT.
+# Root .gitignore carries the authoritative entries; this file is a local guard.
+
+# xcodebuild derived data
+DerivedData/
+
+# Build output dir
+build/
+
+# Built .app bundles
+*.app
+
+# Xcode user state (per-developer, not shared)
+*.xcodeproj/xcuserdata/
+*.xcuserstate

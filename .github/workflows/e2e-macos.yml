@@ -8,6 +8,11 @@ name: E2E macOS real-simulator (Layer B)
 #   T7: mobile-mcp uses stdio transport (loopback; no routable port exposed by default).
 #   T8: round-trip asserts no orphaned sims/processes after ≥3 runs.
 #   T9: FLOWSCOUT_FIXTURE_APP must be secret/PII-free.
+#
+# Fixture behaviour (E1.8 #29 — plan §5):
+#   Owner fixture (inputs.fixture_app / secrets.FLOWSCOUT_FIXTURE_APP) → build step skipped.
+#   No owner fixture + macOS + Xcode → sample-app built, round-trip runs against it.
+#   No owner fixture + Xcode missing → build script exits 0 (skip), round-trip skip path → exit 0.
 on:
   workflow_dispatch:
     inputs:
@@ -77,13 +82,27 @@ jobs:
       - name: Build
         run: pnpm turbo run build
 
-      # ── 3. Run Layer B round-trip E2E ────────────────────────────────────────
-      # Skips with exit 0 + clear message if FLOWSCOUT_FIXTURE_APP is unset (§3.2).
+      # ── 3. Build sample fixture (.app) — only when no owner fixture supplied ──
+      # E1.8 (#29) plan §5: owner-supplied path wins; this step is a no-op in that case.
+      # build-fixture.sh exits 0 with a skip message if Xcode is unavailable (AC7).
+      # The script writes FLOWSCOUT_FIXTURE_APP, FLOWSCOUT_FIXTURE_BUNDLE_ID, and
+      # FLOWSCOUT_APP_BUNDLE_DIR to $GITHUB_ENV so the round-trip step picks them up.
+      - name: Build sample fixture (.app)
+        if: ${{ inputs.fixture_app == '' && secrets.FLOWSCOUT_FIXTURE_APP == '' }}
+        env:
+          FLOWSCOUT_APP_BUNDLE_DIR: "${{ runner.temp }}/flowscout-apps"
+        run: pnpm run e2e:build-fixture
+
+      # ── 4. Run Layer B round-trip E2E ────────────────────────────────────────
+      # Skips with exit 0 + clear message if FLOWSCOUT_FIXTURE_APP is unset (plan §3.2).
+      # When step 3 built the sample, its exports are already in the environment via
+      # $GITHUB_ENV — no need to redeclare them here. Owner-supplied values below take
+      # precedence when set (AC6); the built-sample values flow through when they are empty.
       - name: Round-trip E2E (Layer B)
         run: pnpm run e2e:round-trip
         env:
-          # Fixture .app — from workflow input or repo secret.
-          # Leave unset to exercise the skip path.
+          # Owner-supplied fixture (AC6): takes precedence over built sample.
+          # When empty, the built-sample exports from step 3 (via $GITHUB_ENV) apply.
           FLOWSCOUT_FIXTURE_APP: ${{ inputs.fixture_app || secrets.FLOWSCOUT_FIXTURE_APP }}
           FLOWSCOUT_FIXTURE_BUNDLE_ID: ${{ inputs.fixture_bundle_id || secrets.FLOWSCOUT_FIXTURE_BUNDLE_ID }}
           FLOWSCOUT_APP_BUNDLE_DIR: ${{ secrets.FLOWSCOUT_APP_BUNDLE_DIR }}
@@ -92,7 +111,7 @@ jobs:
           FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS: "15000"
           FLOWSCOUT_MCP_CALL_TIMEOUT_MS: "60000"
 
-      # ── 4. Upload artifacts (T4 — never committed to git) ─────────────────
+      # ── 5. Upload artifacts (T4 — never committed to git) ─────────────────
       - name: Upload round-trip artifacts
         if: always()
         uses: actions/upload-artifact@v4
