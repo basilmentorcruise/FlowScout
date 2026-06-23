@@ -67,7 +67,7 @@ export interface StartCrawlRunInput {
   /**
    * Maximum crawl steps for this run.
    * No magic number: supplied by the caller from CrawlBudget config.
-   * #33 extends this with the full CrawlBudget.
+   * #33 added the full CrawlBudget (LLM-call cap, token cap, revisit cap).
    */
   readonly maxSteps: number;
 }

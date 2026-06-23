@@ -889,9 +889,9 @@ describe("StartCrawlRun — executeAction branch coverage", () => {
   });
 });
 
-// ── PlaceholderIdentity edge cases ────────────────────────────────────────────
+// ── StateIdentity edge cases ──────────────────────────────────────────────────
 
-describe("PlaceholderIdentity", () => {
+describe("StateIdentity edge cases", () => {
   it("empty snapshot gets a degraded identity", async () => {
     const driver = new FakeMobileDriver();
     driver.snapshotOverride = "" as A11ySnapshot;
@@ -955,9 +955,9 @@ describe("StartCrawlRun — security: no a11y body in ActionTakenEvent", () => {
   });
 });
 
-// ── Placeholder identity strategy: same snapshot -> same StateIdentity ────────
+// ── Identity strategy: same snapshot -> same StateIdentity ────────────────────
 
-describe("StartCrawlRun — PlaceholderIdentity deduplication", () => {
+describe("StartCrawlRun — StateIdentity deduplication", () => {
   it("same a11y snapshot always produces the same node id (no graph explosion)", async () => {
     const driver = new FakeMobileDriver();
     // Driver always returns the same snapshot -> same identity -> only 1 node
