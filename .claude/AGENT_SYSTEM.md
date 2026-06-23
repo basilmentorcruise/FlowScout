@@ -150,11 +150,19 @@ move the loop to other eligible work. No human approval gates otherwise; this is
 
 ## GitHub backbone
 
-- **Project board columns:** `Backlog → Specced → In Progress → In Review → QA → Done` (+ `Blocked`).
+**The Project board is the source of truth and MUST be populated — an empty board is a process failure.**
+Every issue created (by analyst, product, or anyone) is **immediately added to the board**, and its Status is
+**advanced as it moves through the gates**. Never create an issue without adding it to the board.
+
+- **Project:** `FlowScout SDLC` = **#4** (`gh project ... --owner basilmentorcruise`), id `PVT_kwHOB4GO_s4BbKFF`.
+  - Add an issue: `gh project item-add 4 --owner basilmentorcruise --url <issue-url>`
+  - Set Status: `gh project item-edit --id <item-id> --project-id PVT_kwHOB4GO_s4BbKFF --field-id PVTSSF_lAHOB4GO_s4BbKFFzhV8n8Q --single-select-option-id <opt>`
+  - Status options: `Todo`=`f75ad846` · `In Progress`=`47fc9ee4` · `Done`=`98236657`.
+- **Status mapping:** new/ready → `Todo`; a ticket with an open PR or in a gate → `In Progress`; merged/closed → `Done`.
+  Fine-grained stage is also carried by the `gate:*` labels.
 - **Issue types (labels):** `type:epic`, `type:feature`, `type:task`, `type:bug`.
 - **Gate labels:** `gate:code-review`, `gate:arch`, `gate:security`, `gate:qa` (current stage).
-- **Tier labels:** `mvp`, `v1`, `v2` (set by analyst).
-- **State labels:** `blocked`, `needs-attention`.
+- **Tier labels:** `mvp`, `v1`, `v2` (set by analyst). **State labels:** `blocked`, `needs-attention`.
 - **Branch/PR:** branch `fs-<issue>-<slug>` off `main` (protected); PR `Closes #<issue>`; one ticket → one branch → one PR.
 
 ---

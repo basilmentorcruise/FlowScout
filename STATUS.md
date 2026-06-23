@@ -1,0 +1,36 @@
+# FlowScout — Epic Status
+
+Living snapshot of per-epic progress. Base: merged PRs and open GitHub issues.
+Track live work on the [GitHub Project board #4](https://github.com/orgs/basilmentorcruise/projects/4).
+
+Last updated: 2026-06-23 (git HEAD: `1beaa19`)
+
+---
+
+## Epic table
+
+| Epic | Title                                            | Tier | Status          | Notes                                                                                                                                                                                                                                                                                                                                                                | Issues                                               |
+| ---- | ------------------------------------------------ | ---- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| E1   | Mobile MCP + simulator foundation (adapter)      | MVP  | **done**        | All seven tickets merged (#12–#18). Full `MobileDriverPort` + `SimulatorLifecycle` over `mobile-next/mobile-mcp`: MCP transport, simulator lifecycle, device driving, snapshot/reset, health checks, per-capability contract tests. Three hardening items remain open (dispose teardown, screenshot size-gate, simctl timeout kill) plus the real-simulator fixture. | Closed: #1 (epic), #12–#18; Open: #26, #27, #28, #29 |
+| E2   | Autonomous crawl & state-graph engine            | MVP  | **in-progress** | Tickets #31–#36 merged. Walking-skeleton loop, `A11ySignatureStrategy`, budget + plateau enforcement, frontier/visited tracking, hidden-affordance probes, `CachedKnowledgePolicy` → `LLMPolicy` chain + Anthropic adapter. E2.7 (duplicate-path detection + composition-root wiring + E2E integration) is open.                                                     | Closed: #31–#36; Open: #2 (epic), #37, #44           |
+| E3   | Semantic understanding & workflow mapping        | MVP  | **not started** | Depends on E2. Covers screen grouping, purpose inference, duplicate-path semantics, and embedding-based state-identity refinement.                                                                                                                                                                                                                                   | Open: #3                                             |
+| E4   | Grouped HTML workflow documentation report       | MVP  | **not started** | Depends on E3. The `ReportRendererPort` adapter stub exists; implementation not started.                                                                                                                                                                                                                                                                             | Open: #4                                             |
+| E5   | Web dashboard (run, watch live, browse reports)  | MVP  | **not started** | React + Vite scaffold exists; no real UI. SSE live-crawl stream port defined but not wired end-to-end.                                                                                                                                                                                                                                                               | Open: #5                                             |
+| E6   | Encrypted credential vault + 2FA pause-and-ask   | MVP  | **not started** | `CredentialVaultPort` defined in domain. `CredentialBoundaryDetector` (2FA surface detection) landed in E2. Vault AES-256-GCM implementation and 2FA resume flow not built.                                                                                                                                                                                          | Open: #6                                             |
+| E7   | Run persistence (crawl graph + report store)     | MVP  | **not started** | `StateGraphRepository`, `RunRepository`, `ReportRepository` ports defined. In-memory impls in `application` for dev/CI. Durable PostgreSQL + Prisma implementation not built; persistent `DecisionCachePort` impl not built.                                                                                                                                         | Open: #7                                             |
+| E8   | Test-plan generation from the workflow map       | V1   | **not started** | Depends on E3/E4 accurate map. No implementation.                                                                                                                                                                                                                                                                                                                    | Open: #8                                             |
+| E9   | Human-like automation test authoring + execution | V2   | **not started** | Depends on V1. No implementation.                                                                                                                                                                                                                                                                                                                                    | Open: #9                                             |
+| E10  | Release gates + CI integration                   | V2   | **not started** | Depends on E9. No implementation.                                                                                                                                                                                                                                                                                                                                    | Open: #10                                            |
+
+---
+
+## Open hardening items (E1/E2, not blocking the epic closed state)
+
+| Issue | Area   | Description                                                                                 |
+| ----- | ------ | ------------------------------------------------------------------------------------------- |
+| #26   | E1     | Kill `simctl` child process on timeout (no orphaned exec children)                          |
+| #27   | E1     | Size-gate screenshot base64 before decode                                                   |
+| #28   | E1     | Expose `MobileMcpDriver.dispose()` for MCP transport teardown                               |
+| #29   | E1 E2E | Minimal buildable sample iOS `.app` fixture (required for macOS real-simulator E2E lane)    |
+| #37   | E2     | E2.7 duplicate-path detection + composition-root wiring + E2E integration (the E2 capstone) |
+| #44   | E2     | Abort timed-out LLM request + clear timeout timer                                           |
