@@ -78,8 +78,9 @@ export class CredentialBoundaryDetector {
   /**
    * Detects if the given (redacted) snapshot is a credential/2FA surface.
    *
-   * Returns null if the screen is NOT a credential surface.
-   * Returns a CredentialBoundaryResult if it IS (with promptType classification).
+   * Returns a NoBoundaryResult (isCredentialSurface: false) when the screen is NOT a
+   * credential surface. Returns a CredentialBoundaryResult (isCredentialSurface: true)
+   * with a promptType classification when it IS.
    *
    * Detection priority:
    *   1. Any secure-entry role (secureTextField, passwordField) → "password"

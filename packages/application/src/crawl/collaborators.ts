@@ -40,7 +40,7 @@ import type { CrawlRunSafety } from "./CrawlRunSafety.js";
 
 /**
  * StateIdentityFn — a function that maps an a11y snapshot to a stable StateIdentity.
- * #31 ships `placeholderIdentify`; #34 injects #32's `A11ySignatureStrategy.identify`.
+ * #34 wires `A11ySignatureStrategy.identify` (composite signature; replaces the #31 placeholder).
  * The loop calls this function — it never knows which strategy is active.
  */
 export type StateIdentityFn = (snapshot: A11ySnapshot) => StateIdentity;
