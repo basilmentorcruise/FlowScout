@@ -75,6 +75,12 @@ export interface CapabilityBundle {
   readonly driving: DrivingCapability;
   readonly snapshot: SnapshotCapability;
   readonly health: HealthCapability;
+  /**
+   * Tear down the shared MCP transport for the entire bundle.
+   * Delegates to McpConnection.dispose() — idempotent, no orphan processes (T8).
+   * Added by #28: MobileMcpDriver.dispose() delegates here.
+   */
+  dispose(): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,5 +120,6 @@ export function defaultCapabilities(
     driving: new DrivingStub(connection, config),
     snapshot: new SnapshotStub(connection, config, exec),
     health: new HealthStub(connection, config),
+    dispose: () => connection.dispose(),
   };
 }

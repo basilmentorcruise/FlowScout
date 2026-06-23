@@ -102,4 +102,19 @@ export class MobileMcpDriver implements MobileDriverPort, SimulatorLifecycle {
   shutdownSimulator(udid: string): Promise<void> {
     return this.deps.lifecycle.shutdownSimulator(udid);
   }
+
+  // -------------------------------------------------------------------------
+  // Disposable — MCP transport teardown (#28)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Tear down the shared MCP transport and close the underlying stdio connection.
+   * Delegates to the capability bundle's dispose(), which calls McpConnection.dispose().
+   * Safe to call before connect(); idempotent (T8).
+   * Call this when the crawl engine is done — the E2E harness no longer needs to own
+   * the MCP child PID directly.
+   */
+  dispose(): Promise<void> {
+    return this.deps.dispose();
+  }
 }
