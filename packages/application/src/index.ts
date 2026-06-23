@@ -13,3 +13,8 @@ export type { StartCrawlRunInput } from "./crawl/StartCrawlRun.js";
 export { defaultCollaborators } from "./crawl/collaborators.js";
 export type { CrawlCollaborators, CollaboratorOptions, StateIdentityFn } from "./crawl/collaborators.js";
 export { InMemoryStateGraphRepository } from "./crawl/persistence/InMemoryStateGraphRepository.js";
+
+// E2.6 — Decision cache (in-memory implementation) + cached-knowledge policy (chain link)
+export { InMemoryDecisionCache } from "./crawl/policy/InMemoryDecisionCache.js";
+export { CachedKnowledgePolicy } from "./crawl/policy/CachedKnowledgePolicy.js";
+export type { DecisionContextWithCandidates } from "./crawl/policy/CachedKnowledgePolicy.js";
