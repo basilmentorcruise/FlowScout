@@ -20,6 +20,7 @@
     "jscpd": "jscpd packages --config .jscpd.json",
     "audit:sca": "pnpm audit --audit-level=high --prod",
     "audit:sca:all": "pnpm audit --audit-level=high",
+    "e2e:build-fixture": "bash e2e/fixtures/sample-app/build-fixture.sh",
     "e2e:round-trip": "pnpm --filter @flowscout/e2e run e2e:round-trip",
     "prepare": "husky"
   },

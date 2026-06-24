@@ -8,6 +8,11 @@ name: E2E macOS real-simulator (Layer B)
 #   T7: mobile-mcp uses stdio transport (loopback; no routable port exposed by default).
 #   T8: round-trip asserts no orphaned sims/processes after ≥3 runs.
 #   T9: FLOWSCOUT_FIXTURE_APP must be secret/PII-free.
+#
+# Fixture behaviour (E1.8 #29 — plan §5):
+#   Owner fixture (inputs.fixture_app / secrets.FLOWSCOUT_FIXTURE_APP) → build step skipped.
+#   No owner fixture + macOS + Xcode → sample-app built, round-trip runs against it.
+#   No owner fixture + Xcode missing → build script exits 0 (skip), round-trip skip path → exit 0.
 on:
   workflow_dispatch:
     inputs:
@@ -77,22 +82,55 @@ jobs:
       - name: Build
         run: pnpm turbo run build
 
-      # ── 3. Run Layer B round-trip E2E ────────────────────────────────────────
-      # Skips with exit 0 + clear message if FLOWSCOUT_FIXTURE_APP is unset (§3.2).
+      # ── 3. Select owner fixture ─────────────────────────────────────────────
+      # Reads inputs.fixture_app / secrets.FLOWSCOUT_FIXTURE_APP entirely inside run:
+      # so that secrets are never referenced in a step-level if: condition (not allowed).
+      # When an owner app path is non-empty, all three fixture vars are exported to
+      # $GITHUB_ENV and the step output selected=true is set so the build step is skipped.
+      - name: Select owner fixture
+        id: ownerfx
+        env:
+          INPUT_FIXTURE_APP: ${{ inputs.fixture_app }}
+          SECRET_FIXTURE_APP: ${{ secrets.FLOWSCOUT_FIXTURE_APP }}
+          INPUT_FIXTURE_BUNDLE_ID: ${{ inputs.fixture_bundle_id }}
+          SECRET_FIXTURE_BUNDLE_ID: ${{ secrets.FLOWSCOUT_FIXTURE_BUNDLE_ID }}
+          SECRET_APP_BUNDLE_DIR: ${{ secrets.FLOWSCOUT_APP_BUNDLE_DIR }}
+        run: |
+          FIXTURE_APP="${INPUT_FIXTURE_APP:-$SECRET_FIXTURE_APP}"
+          if [ -n "$FIXTURE_APP" ]; then
+            FIXTURE_BUNDLE_ID="${INPUT_FIXTURE_BUNDLE_ID:-$SECRET_FIXTURE_BUNDLE_ID}"
+            echo "FLOWSCOUT_FIXTURE_APP=$FIXTURE_APP" >> "$GITHUB_ENV"
+            echo "FLOWSCOUT_FIXTURE_BUNDLE_ID=$FIXTURE_BUNDLE_ID" >> "$GITHUB_ENV"
+            echo "FLOWSCOUT_APP_BUNDLE_DIR=$SECRET_APP_BUNDLE_DIR" >> "$GITHUB_ENV"
+            echo "selected=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 4. Build sample fixture (.app) — only when no owner fixture supplied ──
+      # E1.8 (#29) plan §5: owner-supplied path wins; this step is skipped in that case.
+      # build-fixture.sh exits 0 with a skip message if Xcode is unavailable (AC7).
+      # The script writes FLOWSCOUT_FIXTURE_APP, FLOWSCOUT_FIXTURE_BUNDLE_ID, and
+      # FLOWSCOUT_APP_BUNDLE_DIR to $GITHUB_ENV so the round-trip step picks them up.
+      - name: Build sample fixture (.app)
+        if: ${{ steps.ownerfx.outputs.selected != 'true' }}
+        env:
+          FLOWSCOUT_APP_BUNDLE_DIR: "${{ runner.temp }}/flowscout-apps"
+        run: pnpm run e2e:build-fixture
+
+      # ── 5. Run Layer B round-trip E2E ────────────────────────────────────────
+      # Skips with exit 0 + clear message if FLOWSCOUT_FIXTURE_APP is unset (plan §3.2).
+      # FLOWSCOUT_FIXTURE_APP, FLOWSCOUT_FIXTURE_BUNDLE_ID, and FLOWSCOUT_APP_BUNDLE_DIR
+      # are inherited from $GITHUB_ENV (set by step 3 for owner fixture, or step 4 for
+      # built sample). They are NOT redeclared here because step-level env: overrides
+      # $GITHUB_ENV values and would shadow the built-sample path with an empty string.
       - name: Round-trip E2E (Layer B)
         run: pnpm run e2e:round-trip
         env:
-          # Fixture .app — from workflow input or repo secret.
-          # Leave unset to exercise the skip path.
-          FLOWSCOUT_FIXTURE_APP: ${{ inputs.fixture_app || secrets.FLOWSCOUT_FIXTURE_APP }}
-          FLOWSCOUT_FIXTURE_BUNDLE_ID: ${{ inputs.fixture_bundle_id || secrets.FLOWSCOUT_FIXTURE_BUNDLE_ID }}
-          FLOWSCOUT_APP_BUNDLE_DIR: ${{ secrets.FLOWSCOUT_APP_BUNDLE_DIR }}
           # MCP server config (uses defaults from loadMobileMcpConfig if absent)
           FLOWSCOUT_MCP_SERVER_COMMAND: "npx,mobile-mcp"
           FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS: "15000"
           FLOWSCOUT_MCP_CALL_TIMEOUT_MS: "60000"
 
-      # ── 4. Upload artifacts (T4 — never committed to git) ─────────────────
+      # ── 6. Upload artifacts (T4 — never committed to git) ─────────────────
       - name: Upload round-trip artifacts
         if: always()
         uses: actions/upload-artifact@v4
