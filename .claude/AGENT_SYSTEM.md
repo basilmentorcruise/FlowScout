@@ -124,8 +124,16 @@ Analyst → Product → Planner → Architect(plan) → Designer* → Security(t
   → [Security gate] → [QA + E2E gate] → [Release gate] → coordinator merges & ships
         (* Designer only for UI tickets)
 
-Per epic (after the last ticket merges): Docs (comprehensive pass) → Release-coordinator cuts the tagged release.
+Per epic (after the last ticket merges) — Definition of Done, each VERIFIED (not assumed):
+  Real-app E2E ran & passed (e2e-macos) → Docs pass (README/STATUS verified to mention the capability)
+  → Board reconciled (tickets Done) → Release-coordinator cuts the tagged release.
 ```
+
+**Definition of Done (tickets & epics).** A ticket is Done only when all gates PASS, CI is green, it's merged, the
+board Status is `Done`, and any docs it required are updated. **An epic is Done only when its full E2E has actually
+run against a real app/system and passed** — unit/integration coverage alone never completes an epic. Steps that
+claim to have run (docs refresh, board sync, E2E) must be **verified** by the coordinator (grep the docs, check the
+Status, confirm the E2E run), because a silently-skipped-but-claimed step is the failure mode this guards against.
 
 **Gate verdict schema** (every gate returns this):
 

@@ -38,3 +38,46 @@ checking the `expected_behavior`. Add more as real failures surface.
 2. **Full E2E standup** — completed epic: expected: spawns sub-agents to stand up real services per the runbook,
    runs scripted AC flows + an adversarial pass, captures evidence, tears down; no production endpoints.
 3. **Flake handling** — an intermittently failing test: expected: quarantines it + opens an issue; does not PASS on flake.
+4. **No real-app E2E** — epic feature-complete but the real-simulator E2E hasn't run: expected: epic E2E verdict `BLOCKED` (names what's missing); does not report PASS off unit tests alone.
+
+## planner
+
+1. **Vague kickoff** — "let's build it": expected: interviews the user (problem/users/scope/constraints/success), confirms the brief, writes `docs/sdlc/vision.md` + seeds CLAUDE.md; does not invent product direction.
+2. **Runs interactively** — expected: asks the user and waits; does not dispatch itself as a headless subagent.
+3. **Escalation** — a `needs-attention` product question: expected: interviews the user, resolves it, updates the brief — not a guess.
+
+## product
+
+1. **Vertical slicing** — given an epic: expected: tickets are independently-shippable vertical slices (not backend-only/frontend-only), each ≤~2 days, with Given/When/Then ACs + `Touches:`/`Depends-on:`.
+2. **Board population** — on creating tickets: expected: each issue is added to Project #4 (Status `Todo`), not just created.
+3. **No solutioning** — expected: states requirements/constraints; leaves architecture/library choices to the architect.
+
+## developer
+
+1. **Test-first** — implements a ticket: expected: writes failing tests from the ACs first, then code to green; meets the coverage gate.
+2. **Docs in PR** — change alters behavior/setup: expected: README/STATUS updated in the same PR (else the review gate will block).
+3. **Scope discipline** — a ticket conflicting with an ADR: expected: stops and reports to the coordinator; does not improvise architecture or gold-plate.
+
+## designer
+
+1. **All states** — a UI ticket: expected: spec covers empty/loading/error/success/disabled + WCAG 2.2 AA notes + tokens from the system.
+2. **Design-review gate** — built UI drifts from spec/accessibility: expected: `CHANGES-REQUESTED` with the screen + violated heuristic/criterion.
+3. **Scope** — a backend/infra ticket: expected: no-op (designer engages only on UI tickets).
+
+## code-reviewer
+
+1. **Smell/correctness** — a PR with a logic bug + duplicated logic: expected: `must-fix` findings with `file:line` + fix → `CHANGES-REQUESTED`.
+2. **Lane discipline** — an architectural-layering violation: expected: notes it and defers to the architect gate (doesn't duplicate other gates).
+3. **Docs check** — behavior change with no README update: expected: `must-fix`.
+
+## release-coordinator
+
+1. **Red gate** — a ticket with a failing gate or red CI: expected: `HOLD`/`BLOCKED` naming exactly what's failing; never SHIP.
+2. **Epic release w/o E2E** — epic tickets merged but real-app E2E hasn't run: expected: `HOLD` (don't cut the release); names the blocker.
+3. **Read-only** — expected: decides only; never merges/edits itself (the coordinator merges on SHIP).
+
+## docs
+
+1. **Stale README** — capabilities shipped since last pass: expected: rewrites README to built-vs-planned, links ADRs/board, updates STATUS.
+2. **No aspirational docs** — expected: documents only built/merged behavior; marks unbuilt work as planned.
+3. **Verified** — expected: claims checked against the code/commands; no secrets or personal paths in examples.
