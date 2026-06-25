@@ -47,4 +47,4 @@ Post-impl Architecture review gate → Security gate → QA + E2E gate → Relea
 ## Pointers
 
 - Agent system governance: `.claude/AGENT_SYSTEM.md`
-- Build plan / decisions: `../agent_analysis/FLOWSCOUT_PLAN.md`
+- Roadmap / status / decisions: `docs/sdlc/roadmap.md`, `STATUS.md`, `docs/sdlc/HANDOFF.md`
