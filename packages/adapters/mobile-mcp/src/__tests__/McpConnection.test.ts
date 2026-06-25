@@ -441,12 +441,10 @@ describe("simctl helper — runSimctl with injectable Exec", () => {
 
   it("runSimctlWithTimeout resolves when exec finishes in time", async () => {
     const { runSimctlWithTimeout } = await import("../simctl.js");
-    const fakeExec = vi
-      .fn()
-      .mockResolvedValue({
-        stdout: "result",
-        stderr: "",
-      }) as unknown as import("../simctl.js").Exec;
+    const fakeExec = vi.fn().mockResolvedValue({
+      stdout: "result",
+      stderr: "",
+    }) as unknown as import("../simctl.js").Exec;
     const result = await runSimctlWithTimeout(["list"], fakeExec, 1000);
     expect(result.stdout).toBe("result");
   });

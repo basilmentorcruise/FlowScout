@@ -56,6 +56,7 @@ pnpm run e2e:round-trip
 ```
 
 The script:
+
 1. Checks for `xcrun` / `xcodebuild` — exits 0 with a clear skip message if absent (AC7).
 2. Runs `xcodebuild` with `CODE_SIGNING_ALLOWED=NO` for the iOS Simulator destination.
 3. Copies the built `.app` into `FLOWSCOUT_APP_BUNDLE_DIR` (T2 confinement, AC3).
