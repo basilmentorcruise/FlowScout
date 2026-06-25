@@ -285,9 +285,7 @@ describe("LlmAdapter — clearTimeout: no timer leak on success path (#44)", () 
     const failingClient = makeFailingClient("SDK network error");
     const adapter = new LlmAdapter(failingClient);
 
-    await expect(adapter.complete(MESSAGES, STANDARD_OPTIONS)).rejects.toThrow(
-      "SDK network error",
-    );
+    await expect(adapter.complete(MESSAGES, STANDARD_OPTIONS)).rejects.toThrow("SDK network error");
 
     expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
     clearTimeoutSpy.mockRestore();
