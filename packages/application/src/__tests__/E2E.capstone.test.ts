@@ -425,10 +425,16 @@ describe("E2.7 AC: redaction boundary (T3/T7) — all four sinks", () => {
         // Navigate to 2FA: produce an action toward it on the first calls
         const candidates = extCtx.candidateActions ?? [];
         const detailCandidate = candidates.find(
-          (c) => c.actionPayload.includes("btn-detail-from-home") || c.actionPayload.includes("btn-security"),
+          (c) =>
+            c.actionPayload.includes("btn-detail-from-home") ||
+            c.actionPayload.includes("btn-security"),
         );
         if (detailCandidate !== undefined) {
-          const actDecision: PolicyDecision = { kind: "act", action: detailCandidate, usedLlm: false };
+          const actDecision: PolicyDecision = {
+            kind: "act",
+            action: detailCandidate,
+            usedLlm: false,
+          };
           await cache.set(ctx.currentStateId, actDecision);
           return actDecision;
         }
@@ -562,7 +568,10 @@ describe("E2.7 AC: injection resistance (T1/T2) — non-tautological regression 
         if (!allowlist.has(injectionAttempt.actionPayload)) {
           offAllowlistAttempts++;
           // Safe fallback — injection rejected
-          return { kind: "backtrack", reason: "output-validation: action not in candidate allowlist" };
+          return {
+            kind: "backtrack",
+            reason: "output-validation: action not in candidate allowlist",
+          };
         }
 
         // If somehow the injection-label became a candidate (should never happen for staticText),
@@ -666,9 +675,7 @@ describe("E2.7 AC: injection resistance (T1/T2) — non-tautological regression 
 
     // On the injection screen, the staticText injection-label must NOT be a candidate
     // (only buttons are candidates; staticText is never enumerated as tappable)
-    const allCandidatePayloads = receivedCandidates
-      .flat()
-      .map((c) => c.actionPayload);
+    const allCandidatePayloads = receivedCandidates.flat().map((c) => c.actionPayload);
 
     const injectionLabelCandidate = allCandidatePayloads.some((payload) =>
       payload.includes("injection-label"),

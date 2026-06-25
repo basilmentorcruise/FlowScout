@@ -64,6 +64,10 @@ jobs:
       - name: SCA — all deps report (informational)
         run: pnpm audit --audit-level=high || true
 
+      # ── 1b. Format check (Prettier) — enforce on main, not just local hooks ──
+      - name: Format check
+        run: pnpm format:check
+
       # ── 2. Lint (includes SAST via eslint-plugin-security — T1/T2/T5) ────
       - name: Lint (+ SAST)
         run: pnpm turbo run lint
