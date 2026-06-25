@@ -58,8 +58,14 @@ Repeat until no eligible work:
    for a `SHIP/HOLD` decision. On `SHIP`: ensure the branch is up to date with `main` (rebase; if the developer
    must resolve, re-dispatch), squash-merge the PR, close the issue, move to Done. After each merge, rebase the
    other in-flight branches so concurrent work stays mergeable.
-6. **Epic completion:** when an epic's last ticket merges, dispatch `docs` for a comprehensive documentation pass
-   (README + user-facing docs reflect the new capabilities), then `release-coordinator` to cut the tagged release.
+6. **Epic completion — Definition of Done (verify each; do NOT mark the epic Done until all pass):**
+   1. **Real-app E2E ran and passed** — trigger the real-simulator E2E (`e2e-macos`) against a real app/fixture and
+      confirm green. Unit/integration coverage alone does NOT complete an epic. If it can't run, the epic stays open
+      with a `needs-attention` issue naming the blocker.
+   2. **Docs refreshed** — dispatch `docs`, then **verify** the README + `STATUS.md` actually mention the epic's new
+      capability (grep for it). If they don't, the docs step did not happen — re-run it. Don't take "done" on faith.
+   3. **Board reconciled** — every epic ticket is `Done` on Project #4; the epic issue is closed.
+   4. Only then dispatch `release-coordinator` to cut the tagged release.
 7. **Backfill** the batch from the eligible set and continue.
 
 ## Rules
@@ -70,6 +76,9 @@ Repeat until no eligible work:
   / Done); if any issue is missing from the board, add it. Keep labels + blocked/needs-attention reflecting reality.
   An empty or stale board is a process failure.
 - Keep the README + `STATUS.md` current as work merges (dispatch `docs`); never let docs go stale.
+- **Verify, don't assume.** After dispatching `docs`/board updates, confirm they actually happened (grep the README/
+  STATUS for the new capability; check the item's board Status) before reporting them done. A skipped-but-claimed
+  step is the failure mode to prevent.
 - Persist cross-session state to memory: in-flight tickets, attempt counts, key decisions, what each cycle did.
 - Stop when there is no eligible work, or everything remaining is blocked/needs-attention.
 
@@ -80,6 +89,8 @@ Repeat until no eligible work:
 Eligible: [#..]
 In flight: [#.. → <stage>]
 Merged this cycle: [#..]
+Board synced: [yes — N items, all Status correct] · Docs current: [yes — README/STATUS updated for #.. | n/a]
+Epic completion (if any): [epic #.. — E2E ran=PASS · docs verified · release vX.Y.Z | none]
 Blocked / needs-attention: [#.. — reason]
 Gate events: [#.. <gate> <verdict> — <reason>]
 Next: <what the next cycle picks up>  |  DONE — no eligible work
