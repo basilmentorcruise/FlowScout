@@ -36,3 +36,22 @@ export type { BaseCandidateEnumeratorFn } from "./crawl/BaseCandidateEnumerator.
 export type { UsageReporter, LlmCallUsage } from "./crawl/UsageReporter.js";
 export { NoOpUsageReporter } from "./crawl/UsageReporter.js";
 export type { CrawlRunSafety } from "./crawl/CrawlRunSafety.js";
+
+// E3.1 — Rule-based workflow extraction from the finalized state graph (#54)
+export {
+  WorkflowExtractor,
+  defaultWorkflowExtractor,
+  workflowId,
+  ruleBasedEntryPolicy,
+  launchNodeId,
+  ruleBasedOutcomePolicy,
+  defaultExtractionConfig,
+  GraphAdjacency,
+  buildSteps,
+} from "./semantic/extraction/index.js";
+export type {
+  ExtractionResult,
+  EntryPolicy,
+  OutcomePolicy,
+  ExtractionConfig,
+} from "./semantic/extraction/index.js";
