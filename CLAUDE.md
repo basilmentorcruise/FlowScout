@@ -44,7 +44,20 @@ Post-impl Architecture review gate → Security gate → QA + E2E gate → Relea
 - Test coverage is a gate, not an afterthought; security (OWASP, no leaks) is designed in.
 - **Never** commit secrets, real identifiers, or personal absolute paths (see `.gitignore`).
 
+## Backbone
+
+Resolved by the agents at runtime — never hardcoded in their prompts.
+
+- Repo: `basilmentorcruise/FlowScout`
+- Auth: `basilmentorcruise` (ssh)
+- Board: **#4**  id `PVT_kwHOB4GO_s4BbKFF`
+- Status field id `PVTSSF_lAHOB4GO_s4BbKFFzhV8n8Q` → Todo=`f75ad846` · In Progress=`47fc9ee4` · Done=`98236657`
+- Concurrency cap: 3 developers
+- Branch prefix: `fs`  (branches are `fs-<issue>-<slug>`)
+- Branch protection: unavailable on free private repo → PRs enforced by convention
+
 ## Pointers
 
-- Agent system governance: `.claude/AGENT_SYSTEM.md`
+- Agent system governance: `docs/sdlc/GOVERNANCE.md` (canonical; promoted from the legacy `.claude/AGENT_SYSTEM.md`)
+- SDLC / gates / conventions: `docs/sdlc/SDLC.md`, `docs/sdlc/gates.md`, `docs/sdlc/conventions.md`
 - Roadmap / status / decisions: `docs/sdlc/roadmap.md`, `STATUS.md`, `docs/sdlc/HANDOFF.md`

@@ -1,9 +1,9 @@
 ---
-description: Update user-facing docs (README, guides, docs site) to match the code (docs)
+description: Brings user-facing docs (README/STATUS/setup/usage/API) in sync with the code. Use when a change affects docs, or for an epic's comprehensive documentation pass.
 ---
 
-Invoke the `docs` agent via the Agent tool to bring documentation in sync with the shipped code. For a single
-change → update exactly the affected docs. For a completed epic → a comprehensive pass (README capabilities/setup,
-usage guides) verified against the actual built behavior. Document only merged behavior, never planned features.
+Use the `docs` subagent (its definition lives in `~/.claude/agents/docs.md`). Read `CLAUDE.md` and
+`docs/sdlc/GOVERNANCE.md` for project context first. Follow the agent's Required Output Format.
 
-Ticket/epic or doc scope (if empty, infer from the recent git diff / the just-completed epic): $ARGUMENTS
+Task / focus: $ARGUMENTS
+If no argument is given, act on the most relevant current work for this role.

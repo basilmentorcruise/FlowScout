@@ -1,9 +1,9 @@
 ---
-description: QA gate (per ticket) or full epic E2E human-simulation (qa)
+description: Runs the per-ticket QA gate or the real-app epic end-to-end. Use to validate a ticket before merge, or to run an epic's full E2E human-simulation.
 ---
 
-Invoke the `qa` agent via the Agent tool. For a ticket → run the QA gate (ACs, coverage ≥80% line+branch, suite,
-smoke). For a completed epic → run the full E2E: spawn sub-agents to stand up the real system per the runbook and
-drive it (scripted AC flows + adversarial human pass).
+Use the `qa` subagent (its definition lives in `~/.claude/agents/qa.md`). Read `CLAUDE.md` and
+`docs/sdlc/GOVERNANCE.md` for project context first. Follow the agent's Required Output Format.
 
-Ticket or epic (if empty, infer from the active work): $ARGUMENTS
+Task / focus: $ARGUMENTS
+If no argument is given, act on the most relevant current work for this role.

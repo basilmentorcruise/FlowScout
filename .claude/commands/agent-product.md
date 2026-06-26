@@ -1,8 +1,9 @@
 ---
-description: Write a PRD and break an epic into tickets (product)
+description: Turns a prioritized epic into a PRD and vertical-slice tickets with Given/When/Then acceptance criteria. Use when an epic is ready to spec and break down.
 ---
 
-Invoke the `product` agent via the Agent tool to write the PRD for an epic and break it into vertical-slice
-tickets (≤2 days) with Given/When/Then acceptance criteria and `Touches:`/`Depends-on:` metadata.
+Use the `product` subagent (its definition lives in `~/.claude/agents/product.md`). Read `CLAUDE.md` and
+`docs/sdlc/GOVERNANCE.md` for project context first. Follow the agent's Required Output Format.
 
-Epic (issue # or name; if empty, infer the next prioritized epic from the roadmap): $ARGUMENTS
+Task / focus: $ARGUMENTS
+If no argument is given, act on the most relevant current work for this role.
