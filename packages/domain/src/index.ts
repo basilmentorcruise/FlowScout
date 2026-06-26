@@ -17,6 +17,9 @@ export { makeStateIdentity } from "./models/state-graph.js";
 export type { WorkflowStep, ConfidenceScore, Workflow, WorkflowMap } from "./models/workflow.js";
 export { makeConfidenceScore } from "./models/workflow.js";
 
+// Intent overlay model (E3.2 / #55 — additive semantic overlay, ADR-0006 §2)
+export type { IntentSource, ControlIntent, ScreenIntent, IntentModel } from "./models/intent.js";
+
 export type { RunStatus, ReportMetadata, Report } from "./models/report.js";
 
 export type { CrawlBudget, Run } from "./models/run.js";
@@ -83,3 +86,6 @@ export { CompositeStateIdentityStrategy } from "./models/state-identity/Composit
 
 // DecisionCachePort — additive domain port for the LLM decision cache (#36)
 export type { DecisionCachePort } from "./ports/DecisionCachePort.js";
+
+// IntentCachePort — additive domain port for the intent cache (#55, ADR-0006 §3.4)
+export type { IntentCachePort } from "./ports/IntentCachePort.js";
