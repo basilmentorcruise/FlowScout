@@ -55,3 +55,12 @@ export type {
   OutcomePolicy,
   ExtractionConfig,
 } from "./semantic/extraction/index.js";
+
+// E3.2 — Per-screen & per-control intent inference (a11y-first, budgeted LLM) (#55)
+export { InferIntent, defaultInferIntentConfig } from "./semantic/intent/InferIntent.js";
+export type { InferIntentConfig } from "./semantic/intent/InferIntent.js";
+export { A11yIntentDeriver } from "./semantic/intent/A11yIntentDeriver.js";
+export { LlmIntentRefiner } from "./semantic/intent/LlmIntentRefiner.js";
+export { IntentBudgetGuard } from "./semantic/intent/IntentBudgetGuard.js";
+export { InMemoryIntentCache } from "./semantic/intent/InMemoryIntentCache.js";
+export { intentCacheKey, INTENT_KEY_PREFIX } from "./semantic/intent/IntentCacheKey.js";
