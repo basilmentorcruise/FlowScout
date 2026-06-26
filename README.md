@@ -8,7 +8,7 @@ Users are internal **developers and testers** on teams short on test coverage, p
 
 ## Status
 
-MVP in progress. The simulator adapter (E1) and the autonomous crawl engine foundation (E2, tickets #31–#36) are built and merged. E2.7 (duplicate-path detection + composition-root wiring) is open. Epics E3–E10 are not yet started.
+MVP in progress. The simulator adapter (E1) and the autonomous crawl engine foundation (E2, tickets #31–#37) are built and merged. E3 (semantic understanding & workflow mapping) has started: E3.1 (#54) adds the pure, deterministic rule-based `WorkflowExtractor` that turns a finalized state graph into ordered entry→outcome `Workflow[]`. Epics E4–E10 are not yet started.
 
 See [`STATUS.md`](STATUS.md) for the per-epic table, and the [GitHub Project board #4](https://github.com/orgs/basilmentorcruise/projects/4) for live ticket tracking.
 
