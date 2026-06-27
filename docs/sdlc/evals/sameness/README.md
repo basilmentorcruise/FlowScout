@@ -109,7 +109,14 @@ This is the primary **safety** invariant: refinement is strictly additive and re
 | Label veto         | confident labels conflict on a candidate merge | merge cancelled (distinct)   |
 | Refinement OFF     | feature flag disabled                          | singleton per bucket (== E2) |
 
-**Budget / cache / redaction invariants** (asserted in the sibling adapter + composition suites):
+**Budget / cache / redaction invariants.** The `EmbeddingAdapter` resilience invariants below are
+asserted in the adapter suite (`packages/adapters/llm/src/__tests__/EmbeddingAdapter.test.ts`). The
+**one-embedding-per-bucket cache invariant** is NOT exercised by #57 — it travels with the post-hoc
+embedding-pass ORCHESTRATOR (`RefineIdentities`), delivered in **#58 (E3.5)**, and is asserted there:
+`packages/application/src/semantic/sameness/__tests__/RefineIdentities.test.ts`
+(`"embeds exactly once per distinct bucket, keyed by the bucket identity"` for AC4, plus the cache-reuse
+/ budget-bound / redaction-before-egress assertions). See
+`docs/sdlc/evals/duplicate-paths/README.md`.
 
 - **Budget / abort:** every embedding call is time-bounded by `timeoutMs` and forwards a per-call
   `AbortController`; the timeout timer is cleared on ALL settle paths (the #44 leak discipline,
@@ -117,6 +124,7 @@ This is the primary **safety** invariant: refinement is strictly additive and re
   malformed ⇒ a DEGRADED empty-vector result that triggers a11y-only fallback (NFR6).
 - **Cache:** the embedding cache key is the bucket's a11y `StateIdentity` (`EmbeddingInput.cacheKey`)
   — exactly ONE embedding per distinct bucket (ADR-0005 §4.4); re-encounters reuse the vector.
+  Asserted by the #58 orchestrator suite above (the `EmbeddingCachePort` + `FakeEmbeddingPort.callCount`).
 - **Redaction:** the embedding is computed over the NORMALIZED, ALREADY-REDACTED a11y skeleton
   text (the E2 `A11ySignatureStrategy` projection) — never the raw snapshot, never a screenshot.
   No raw credential / OTP / PII ever reaches the provider, the vector, the cache, or any log
