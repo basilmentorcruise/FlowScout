@@ -141,3 +141,59 @@ export class EmbeddingAdapter implements EmbeddingPort {
     return { vector: [], modelId: this._modelId, promptTokens: 0 };
   }
 }
+
+/** Voyage embeddings endpoint (the default provider per ADR-0005 §4.3). */
+const VOYAGE_EMBEDDINGS_URL = "https://api.voyageai.com/v1/embeddings";
+
+/**
+ * Factory: create a real embedding client (`EmbeddingClientLike`) from env, beside
+ * `createAnthropicClient`. Called ONLY at the composition root (#59).
+ *
+ * A thin `fetch`-based provider boundary (no new SDK dependency — the embedding provider exposes a
+ * simple JSON endpoint). The key (`EMBEDDING_API_KEY`, falling back to `VOYAGE_API_KEY`) is read
+ * here and held in the returned closure only — NEVER logged, stored elsewhere, or attached to a
+ * result/error (T5, mirroring `createAnthropicClient`).
+ *
+ * Unlike `createAnthropicClient`, this NEVER throws on a missing key: with no key the client
+ * DEGRADES (the request rejects → `EmbeddingAdapter` returns an empty-vector result → a11y-only
+ * fallback, NFR6). This keeps the composition root constructible in environments without an
+ * embedding key (the MVP's embedding pass is optional), while the real call path stays available
+ * when a key is configured.
+ */
+export function createEmbeddingClient(apiKey?: string): EmbeddingClientLike {
+  const key = apiKey ?? process.env["EMBEDDING_API_KEY"] ?? process.env["VOYAGE_API_KEY"];
+  return {
+    embeddings: {
+      async create(
+        params: { model: string; input: string },
+        options?: EmbeddingRequestOptions,
+      ): Promise<{
+        data: ReadonlyArray<{ embedding: readonly number[] }>;
+        model: string;
+        usage?: { input_tokens?: number };
+      }> {
+        if (!key) {
+          // No key configured ⇒ degrade (the adapter maps a rejection to an empty-vector result).
+          throw new Error("No embedding API key configured");
+        }
+        const response = await fetch(VOYAGE_EMBEDDINGS_URL, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({ model: params.model, input: params.input }),
+          signal: options?.signal ?? null,
+        });
+        if (!response.ok) {
+          throw new Error("Embedding provider returned a non-OK response");
+        }
+        return (await response.json()) as {
+          data: ReadonlyArray<{ embedding: readonly number[] }>;
+          model: string;
+          usage?: { input_tokens?: number };
+        };
+      },
+    },
+  };
+}
