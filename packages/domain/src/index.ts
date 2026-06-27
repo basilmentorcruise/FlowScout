@@ -81,7 +81,10 @@ export type {
 // StateIdentity strategy — port + default implementation
 export type { StateIdentityInput, StateIdentityStrategy } from "./ports/StateIdentityPort.js";
 
-export { A11ySignatureStrategy } from "./models/state-identity/A11ySignatureStrategy.js";
+export {
+  A11ySignatureStrategy,
+  projectA11ySkeleton,
+} from "./models/state-identity/A11ySignatureStrategy.js";
 export { CompositeStateIdentityStrategy } from "./models/state-identity/CompositeStateIdentityStrategy.js";
 export type { CanonicalIdentityMap } from "./models/state-identity/CompositeStateIdentityStrategy.js";
 
@@ -112,3 +115,9 @@ export type {
 
 // GroupingCachePort — additive domain port for the naming/grouping cache (#56, ADR-0007 §3.4)
 export type { GroupingCachePort, WorkflowLabeling } from "./ports/GroupingCachePort.js";
+
+// EmbeddingCachePort — additive domain port for the one-vector-per-bucket cache (#58, ADR-0005 §4.4)
+export type { EmbeddingCachePort } from "./ports/EmbeddingCachePort.js";
+
+// DuplicatePathGroup — additive model: the semantic-duplicate / hidden-path association (#58)
+export type { DuplicatePathGroup } from "./models/duplicate-path.js";
