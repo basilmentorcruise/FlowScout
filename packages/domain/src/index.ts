@@ -109,3 +109,6 @@ export type {
   RefinementResult,
   DeadBandNote,
 } from "./models/state-identity/SamenessRefiner.js";
+
+// GroupingCachePort — additive domain port for the naming/grouping cache (#56, ADR-0007 §3.4)
+export type { GroupingCachePort, WorkflowLabeling } from "./ports/GroupingCachePort.js";
