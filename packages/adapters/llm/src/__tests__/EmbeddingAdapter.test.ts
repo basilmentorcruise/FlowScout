@@ -15,7 +15,6 @@ import {
   EmbeddingAdapter,
   DEFAULT_EMBEDDING_MODEL_ID,
   type EmbeddingClientLike,
-  type EmbeddingRequestOptions,
 } from "../EmbeddingAdapter.js";
 
 const INPUT: EmbeddingInput = {
@@ -23,33 +22,52 @@ const INPUT: EmbeddingInput = {
   cacheKey: "bucket-1" as EmbeddingInput["cacheKey"],
 };
 
-/** A controllable fake provider embedding client (DI seam — no SDK, no API key). */
-function fakeClient(
-  impl: (
-    params: { model: string; input: string },
-    options?: EmbeddingRequestOptions,
-  ) => Promise<{
-    data: ReadonlyArray<{ embedding: readonly number[] }>;
-    model: string;
-    usage?: { input_tokens?: number };
-  }>,
-): { client: EmbeddingClientLike; create: ReturnType<typeof vi.fn> } {
-  const create = vi.fn(impl);
-  return { client: { embeddings: { create } }, create };
+// Captured call data stored externally to avoid unbound-method lint issues.
+type ProviderResponse = Awaited<
+  ReturnType<EmbeddingClientLike["embeddings"]["create"]>
+>;
+type CreateParams = Parameters<EmbeddingClientLike["embeddings"]["create"]>[0];
+type CreateOptions = Parameters<EmbeddingClientLike["embeddings"]["create"]>[1];
+
+/** A fake provider embedding client (DI seam — no SDK, no API key). */
+function makeClient(
+  impl: (params: CreateParams, options?: CreateOptions) => Promise<ProviderResponse>,
+): {
+  client: EmbeddingClientLike;
+  getCalls: () => CreateParams[];
+  getOptions: () => CreateOptions[];
+} {
+  const calls: CreateParams[] = [];
+  const options: CreateOptions[] = [];
+  const create = vi.fn((params: CreateParams, opts?: CreateOptions) => {
+    calls.push(params);
+    options.push(opts);
+    return impl(params, opts);
+  });
+  return {
+    client: { embeddings: { create } },
+    getCalls: () => calls,
+    getOptions: () => options,
+  };
 }
 
-describe("EmbeddingAdapter", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
+/** Convenience: a client that resolves the given response. */
+function resolving(response: ProviderResponse): ReturnType<typeof makeClient> {
+  return makeClient(() => Promise.resolve(response));
+}
 
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+describe("EmbeddingAdapter — happy path", () => {
   it("returns the provider vector, model, and token count on success", async () => {
-    const { client, create } = fakeClient(async () => ({
+    const { client, getCalls, getOptions } = resolving({
       data: [{ embedding: [0.1, 0.2, 0.3] }],
       model: "provider-model-x",
       usage: { input_tokens: 7 },
-    }));
+    });
     const adapter = new EmbeddingAdapter(client, { modelId: "pinned-model" });
 
     const result = await adapter.embed(INPUT);
@@ -58,30 +76,28 @@ describe("EmbeddingAdapter", () => {
     expect(result.modelId).toBe("provider-model-x");
     expect(result.promptTokens).toBe(7);
     // config-pinned model id is forwarded to the provider, not a hardcoded constant.
-    expect(create).toHaveBeenCalledWith(
-      { model: "pinned-model", input: INPUT.skeletonText },
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
-    );
+    expect(getCalls()[0]).toEqual({ model: "pinned-model", input: INPUT.skeletonText });
+    // a per-call AbortSignal is forwarded to the provider (#44 abort discipline).
+    expect(getOptions()[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("forwards the documented default model id when none is configured", async () => {
-    const { client, create } = fakeClient(async () => ({
+    const { client, getCalls } = resolving({
       data: [{ embedding: [1] }],
       model: DEFAULT_EMBEDDING_MODEL_ID,
-    }));
+    });
     const adapter = new EmbeddingAdapter(client);
 
     const result = await adapter.embed(INPUT);
 
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ model: DEFAULT_EMBEDDING_MODEL_ID }),
-      expect.anything(),
-    );
+    expect(getCalls()[0]?.model).toBe(DEFAULT_EMBEDDING_MODEL_ID);
     expect(result.promptTokens).toBe(0); // usage absent ⇒ 0
   });
+});
 
+describe("EmbeddingAdapter — degraded paths (never throws, NFR6)", () => {
   it("DEGRADES to an empty vector when the provider returns no data", async () => {
-    const { client } = fakeClient(async () => ({ data: [], model: "m" }));
+    const { client } = resolving({ data: [], model: "m" });
     const adapter = new EmbeddingAdapter(client);
 
     const result = await adapter.embed(INPUT);
@@ -92,10 +108,7 @@ describe("EmbeddingAdapter", () => {
   });
 
   it("DEGRADES when the provider returns an empty embedding vector", async () => {
-    const { client } = fakeClient(async () => ({
-      data: [{ embedding: [] }],
-      model: "m",
-    }));
+    const { client } = resolving({ data: [{ embedding: [] }], model: "m" });
     const adapter = new EmbeddingAdapter(client);
 
     const result = await adapter.embed(INPUT);
@@ -104,9 +117,7 @@ describe("EmbeddingAdapter", () => {
   });
 
   it("DEGRADES (never throws) when the provider call rejects", async () => {
-    const { client } = fakeClient(async () => {
-      throw new Error("network down");
-    });
+    const { client } = makeClient(() => Promise.reject(new Error("network down")));
     const adapter = new EmbeddingAdapter(client);
 
     const result = await adapter.embed(INPUT);
@@ -114,16 +125,17 @@ describe("EmbeddingAdapter", () => {
     expect(result.vector).toEqual([]);
     expect(result.modelId).toBe(DEFAULT_EMBEDDING_MODEL_ID);
   });
+});
 
+describe("EmbeddingAdapter — abort + timer discipline (#44)", () => {
   it("aborts the in-flight call and DEGRADES on timeout", async () => {
     vi.useFakeTimers();
     let capturedSignal: AbortSignal | undefined;
-    const { client } = fakeClient(
+    const { client } = makeClient(
       (_params, options) =>
-        new Promise((resolve) => {
-          capturedSignal = options?.signal;
+        new Promise<ProviderResponse>(() => {
           // Never resolves on its own — only the adapter's timeout can settle this.
-          void resolve;
+          capturedSignal = options?.signal;
         }),
     );
     const adapter = new EmbeddingAdapter(client, { timeoutMs: 1000 });
@@ -138,11 +150,11 @@ describe("EmbeddingAdapter", () => {
 
   it("clears the timeout timer on the success path (no leak)", async () => {
     const clearSpy = vi.spyOn(globalThis, "clearTimeout");
-    const { client } = fakeClient(async () => ({
+    const { client } = resolving({
       data: [{ embedding: [0.5] }],
       model: "m",
       usage: { input_tokens: 1 },
-    }));
+    });
     const adapter = new EmbeddingAdapter(client);
 
     await adapter.embed(INPUT);
