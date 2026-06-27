@@ -19,21 +19,29 @@
  * into one shared counter so intent/naming/embedding calls all draw on the SAME global ceiling.
  */
 import type { CrawlBudget } from "@flowscout/domain";
+import { RunBudgetMeter } from "../budget/RunBudgetMeter.js";
 
 export class EmbeddingBudgetGuard {
-  private _callsUsed = 0;
-  private _tokensUsed = 0;
+  /**
+   * The counter this guard delegates to (#59 §4). A `CrawlBudget` self-constructs a PRIVATE meter
+   * (the existing, back-compat path — every pre-#59 guard/refiner test is untouched). A shared
+   * `RunBudgetMeter` is used DIRECTLY (the #59 path — intent/naming/embedding draw on ONE ceiling).
+   */
+  private readonly meter: RunBudgetMeter;
 
-  constructor(private readonly budget: CrawlBudget) {}
+  constructor(budgetOrMeter: CrawlBudget | RunBudgetMeter) {
+    this.meter =
+      budgetOrMeter instanceof RunBudgetMeter ? budgetOrMeter : new RunBudgetMeter(budgetOrMeter);
+  }
 
   /** Number of embedding calls counted so far (successful + degraded). */
   get callsUsed(): number {
-    return this._callsUsed;
+    return this.meter.callsUsed;
   }
 
   /** Total prompt tokens counted so far. */
   get tokensUsed(): number {
-    return this._tokensUsed;
+    return this.meter.tokensUsed;
   }
 
   /**
@@ -41,7 +49,7 @@ export class EmbeddingBudgetGuard {
    * The orchestrator MUST consult this before `EmbeddingPort.embed(...)`.
    */
   canCall(): boolean {
-    return this._callsUsed < this.budget.maxLlmCalls && this._tokensUsed < this.budget.maxTokens;
+    return this.meter.canCall();
   }
 
   /**
@@ -51,7 +59,6 @@ export class EmbeddingBudgetGuard {
    * Negative token inputs are clamped to 0 (defensive — a provider must never reduce usage).
    */
   recordUsage(promptTokens: number): void {
-    this._callsUsed += 1;
-    this._tokensUsed += Math.max(0, promptTokens);
+    this.meter.recordUsage(promptTokens);
   }
 }
