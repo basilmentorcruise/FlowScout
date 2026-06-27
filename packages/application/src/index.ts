@@ -90,3 +90,20 @@ export type {
   AppPurposeResult,
   GroupingConfig,
 } from "./semantic/grouping/index.js";
+
+// E3.5 — Semantic duplicate / hidden-path detection: embedding-pass orchestrator + detector (#58)
+export {
+  RefineIdentities,
+  defaultRefineIdentitiesConfig,
+  SemanticDuplicateDetector,
+  defaultDuplicateDetectorConfig,
+  EmbeddingBudgetGuard,
+  InMemoryEmbeddingCache,
+} from "./semantic/sameness/index.js";
+export type {
+  RefineIdentitiesResult,
+  SkeletonProjector,
+  RefineIdentitiesConfig,
+  DuplicateDetectionResult,
+  DuplicateDetectorConfig,
+} from "./semantic/sameness/index.js";
