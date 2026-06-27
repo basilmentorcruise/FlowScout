@@ -176,6 +176,40 @@ function sha256Hex(input: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Public skeleton projection (additive extract — E3.5 / #58)
+// ---------------------------------------------------------------------------
+
+/**
+ * Project an a11y snapshot string to its NORMALIZED structural skeleton — the SAME projection
+ * `identify` hashes for the E2 state identity (volatile content suppressed, siblings collapsed,
+ * depth-bounded). Returns the empty string for any input that `identify` treats as DEGRADED
+ * (empty / oversized / unparseable / non-object / structurally empty).
+ *
+ * Additive extract (ADR-0005 §10): the existing private `buildSkeleton` is exposed for the E3.5
+ * embedding pass to embed the NORMALIZED skeleton (not the raw redacted snapshot — load-bearing for
+ * the recall-floor merge). `identify` delegates to this function, so the identity hash is
+ * BYTE-FOR-BYTE UNCHANGED (covered by the existing #34 identity tests). The caller (#58 orchestrator)
+ * passes the ALREADY-REDACTED snapshot — redaction stays the caller's responsibility (T1/T7).
+ */
+export function projectA11ySkeleton(snapshot: string): string {
+  // Empty / whitespace ⇒ degraded ⇒ no skeleton (the caller falls back to a11y-only).
+  if (!snapshot || snapshot.trim().length === 0) return "";
+  // Oversized ⇒ degraded (DoS guard, T11) ⇒ no skeleton.
+  if (snapshot.length > MAX_SNAPSHOT_BYTES) return "";
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(snapshot);
+  } catch {
+    return "";
+  }
+  // Must be a plain object (not array, null, primitive).
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+
+  return buildSkeleton(parsed as A11yNode, 0);
+}
+
+// ---------------------------------------------------------------------------
 // Strategy implementation
 // ---------------------------------------------------------------------------
 
@@ -195,23 +229,10 @@ export class A11ySignatureStrategy implements StateIdentityStrategy {
       return this._degraded(raw.slice(0, MAX_SNAPSHOT_BYTES));
     }
 
-    // --- Parse ---
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return this._degraded(raw);
-    }
-
-    // Must be a plain object (not array, null, primitive).
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return this._degraded(raw);
-    }
-
-    // --- Build skeleton + hash ---
-    const node = parsed as A11yNode;
-    const skeleton = buildSkeleton(node, 0);
-    // An empty skeleton (no structural content) → degraded.
+    // --- Project skeleton (shared with the E3.5 embedding pass) + hash ---
+    // Delegates to `projectA11ySkeleton`: parse → object-check → build skeleton. An empty result
+    // (parse failure / non-object / structurally empty) → degraded. Byte-for-byte unchanged.
+    const skeleton = projectA11ySkeleton(raw);
     if (!skeleton) {
       return this._degraded(raw);
     }
