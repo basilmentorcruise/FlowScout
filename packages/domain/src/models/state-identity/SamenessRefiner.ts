@@ -194,7 +194,7 @@ export class SamenessRefiner {
         }
 
         // Passed both gates ⇒ MERGE the two buckets into one equivalence class.
-        uf.union(left.signature as string, right.signature as string);
+        uf.union(left.signature, right.signature);
       }
     }
   }
