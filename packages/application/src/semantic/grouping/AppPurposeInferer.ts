@@ -13,7 +13,13 @@
  * through `CredentialRedactor.redactText(...)` before it becomes the purpose or a cache entry.
  * Strict `JSON.parse` only — no `eval`/`Function`. Depends only on domain ports (NFR1).
  */
-import type { LlmPort, LlmCompletionResult, ConfidenceScore, GroupingCachePort, Workflow } from "@flowscout/domain";
+import type {
+  LlmPort,
+  LlmCompletionResult,
+  ConfidenceScore,
+  GroupingCachePort,
+  Workflow,
+} from "@flowscout/domain";
 import { makeConfidenceScore } from "@flowscout/domain";
 import type { CredentialRedactor } from "../../crawl/redaction/CredentialRedactor.js";
 import type { IntentBudgetGuard } from "../intent/IntentBudgetGuard.js";
@@ -59,10 +65,7 @@ export class AppPurposeInferer {
    * @param workflows       the already-labeled workflows (their feature groups drive the rule).
    * @param redactedSignal  the redacted group/purpose signal for the map (already redacted).
    */
-  async infer(
-    workflows: readonly Workflow[],
-    redactedSignal: string,
-  ): Promise<AppPurposeResult> {
+  async infer(workflows: readonly Workflow[], redactedSignal: string): Promise<AppPurposeResult> {
     const rule = this.rulePurpose(workflows);
 
     // Tier-2 gate: enabled + purpose-inference on + budget available + a non-trivial signal.

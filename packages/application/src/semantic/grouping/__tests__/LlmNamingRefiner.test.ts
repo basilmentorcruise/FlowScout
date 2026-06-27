@@ -24,7 +24,12 @@ function refinerWith(
   script: readonly FakeLlmResponse[],
   guard = new IntentBudgetGuard(budget()),
   cache = new InMemoryGroupingCache(),
-): { refiner: LlmNamingRefiner; fake: FakeLlmPort; guard: IntentBudgetGuard; cache: InMemoryGroupingCache } {
+): {
+  refiner: LlmNamingRefiner;
+  fake: FakeLlmPort;
+  guard: IntentBudgetGuard;
+  cache: InMemoryGroupingCache;
+} {
   const fake = new FakeLlmPort(script);
   const refiner = new LlmNamingRefiner(fake, guard, cache, new CredentialRedactor());
   return { refiner, fake, guard, cache };
@@ -39,7 +44,14 @@ const SKELETON = "Workflow: w1";
 describe("LlmNamingRefiner", () => {
   it("parse success ⇒ llm-sourced labeling with non-null confidence, cached", async () => {
     const json = JSON.stringify({
-      workflows: [{ id: "wf-1", name: "Sign in", description: "Authenticate", featureGroup: "Authentication" }],
+      workflows: [
+        {
+          id: "wf-1",
+          name: "Sign in",
+          description: "Authenticate",
+          featureGroup: "Authentication",
+        },
+      ],
     });
     const { refiner, fake, cache } = refinerWith([ok(json)]);
     const key = groupingCacheKey(SKELETON);
@@ -70,14 +82,18 @@ describe("LlmNamingRefiner", () => {
   });
 
   it("LLM blanks the name ⇒ tier-1 kept (never empty)", async () => {
-    const json = JSON.stringify({ workflows: [{ id: "wf-1", name: "  ", description: "d", featureGroup: "g" }] });
+    const json = JSON.stringify({
+      workflows: [{ id: "wf-1", name: "  ", description: "d", featureGroup: "g" }],
+    });
     const { refiner } = refinerWith([ok(json)]);
     const out = await refiner.refine("wf-1", TIER1, groupingCacheKey(SKELETON), SKELETON);
     expect(out).toEqual(TIER1);
   });
 
   it("blank featureGroup/description fall back to tier-1 values", async () => {
-    const json = JSON.stringify({ workflows: [{ id: "wf-1", name: "Real name", description: "", featureGroup: "" }] });
+    const json = JSON.stringify({
+      workflows: [{ id: "wf-1", name: "Real name", description: "", featureGroup: "" }],
+    });
     const { refiner } = refinerWith([ok(json)]);
     const out = await refiner.refine("wf-1", TIER1, groupingCacheKey(SKELETON), SKELETON);
     expect(out.name).toBe("Real name");
@@ -121,7 +137,14 @@ describe("LlmNamingRefiner", () => {
 
   it("redacts a secret echoed in the LLM output before it becomes a label or cache entry", async () => {
     const json = JSON.stringify({
-      workflows: [{ id: "wf-1", name: "Code is 482913 ready", description: "pin 123456", featureGroup: "Authentication" }],
+      workflows: [
+        {
+          id: "wf-1",
+          name: "Code is 482913 ready",
+          description: "pin 123456",
+          featureGroup: "Authentication",
+        },
+      ],
     });
     const { refiner, cache } = refinerWith([ok(json)]);
     const key = groupingCacheKey(SKELETON);

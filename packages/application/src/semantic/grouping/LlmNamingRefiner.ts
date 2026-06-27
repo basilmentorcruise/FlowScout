@@ -23,7 +23,12 @@
  *
  * Depends only on domain ports + the tier-1 result. No adapter/SDK import (NFR1).
  */
-import type { LlmPort, LlmCompletionResult, GroupingCachePort, WorkflowLabeling } from "@flowscout/domain";
+import type {
+  LlmPort,
+  LlmCompletionResult,
+  GroupingCachePort,
+  WorkflowLabeling,
+} from "@flowscout/domain";
 import { makeConfidenceScore } from "@flowscout/domain";
 import type { CredentialRedactor } from "../../crawl/redaction/CredentialRedactor.js";
 import type { IntentBudgetGuard } from "../intent/IntentBudgetGuard.js";

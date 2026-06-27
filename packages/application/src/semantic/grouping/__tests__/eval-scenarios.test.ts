@@ -55,7 +55,11 @@ describe("grouping eval scenarios", () => {
   });
 
   it("EVAL-2: weak/low-signal workflow → degraded tier-1, then llm-sourced refinement when enabled", async () => {
-    const weakWf = workflow({ id: "wf-weak", name: "Path A → B", steps: [step(0, id("opaque"), "tap region")] });
+    const weakWf = workflow({
+      id: "wf-weak",
+      name: "Path A → B",
+      steps: [step(0, id("opaque"), "tap region")],
+    });
     const emptyIntent: IntentModel = intentModel([]);
 
     // (a) refinement disabled ⇒ degraded tier-1 stands (Ungrouped, null confidence, zero LLM).
@@ -71,11 +75,22 @@ describe("grouping eval scenarios", () => {
     const refined: FakeLlmResponse = {
       kind: "ok",
       content: JSON.stringify({
-        workflows: [{ id: "wf-weak", name: "Open hidden filters", description: "Reveals advanced search filters", featureGroup: "Search & Browse" }],
+        workflows: [
+          {
+            id: "wf-weak",
+            name: "Open hidden filters",
+            description: "Reveals advanced search filters",
+            featureGroup: "Search & Browse",
+          },
+        ],
       }),
     };
     const fakeB = new FakeLlmPort([refined], { kind: "ok", content: "{}" });
-    const ucB = nameAndGroup(fakeB, { refinementEnabled: true, refineOnlyWeak: true, inferPurposeWithLlm: false });
+    const ucB = nameAndGroup(fakeB, {
+      refinementEnabled: true,
+      refineOnlyWeak: true,
+      inferPurposeWithLlm: false,
+    });
     const outB = await ucB.execute([weakWf], emptyIntent);
     expect(fakeB.callCount).toBe(1);
     expect(outB.workflows[0]?.name).toBe("Open hidden filters");
@@ -85,20 +100,44 @@ describe("grouping eval scenarios", () => {
 
   it("EVAL-3: secret-bearing intent → redacted everywhere (name/group/purpose), invariant intact", async () => {
     const secretIntent: IntentModel = intentModel([
-      screen(id("s-otp"), "Enter the code 482913 we texted you", [control("e1", "Submit code 482913", "submit")]),
+      screen(id("s-otp"), "Enter the code 482913 we texted you", [
+        control("e1", "Submit code 482913", "submit"),
+      ]),
     ]);
-    const wf = workflow({ id: "wf-otp", name: "Verify path", steps: [step(0, id("s-otp"), "type code")] });
+    const wf = workflow({
+      id: "wf-otp",
+      name: "Verify path",
+      steps: [step(0, id("s-otp"), "type code")],
+    });
     // LLM even echoes the secret back — it must still be scrubbed from #56's output + prompt.
     const echo: FakeLlmResponse = {
       kind: "ok",
-      content: JSON.stringify({ workflows: [{ id: "wf-otp", name: "Verify 482913", description: "OTP entry", featureGroup: "Authentication" }] }),
+      content: JSON.stringify({
+        workflows: [
+          {
+            id: "wf-otp",
+            name: "Verify 482913",
+            description: "OTP entry",
+            featureGroup: "Authentication",
+          },
+        ],
+      }),
     };
-    const fake = new FakeLlmPort([echo, { kind: "ok", content: JSON.stringify({ appPurpose: "A secure app, code 482913" }) }]);
-    const uc = nameAndGroup(fake, { refinementEnabled: true, refineOnlyWeak: false, inferPurposeWithLlm: true });
+    const fake = new FakeLlmPort([
+      echo,
+      { kind: "ok", content: JSON.stringify({ appPurpose: "A secure app, code 482913" }) },
+    ]);
+    const uc = nameAndGroup(fake, {
+      refinementEnabled: true,
+      refineOnlyWeak: false,
+      inferPurposeWithLlm: true,
+    });
     const out = await uc.execute([wf], secretIntent);
 
     const w0 = out.workflows[0];
-    expect(`${String(w0?.name)}|${String(w0?.description)}|${String(w0?.featureGroup)}|${out.appPurpose}`).not.toContain("482913");
+    expect(
+      `${String(w0?.name)}|${String(w0?.description)}|${String(w0?.featureGroup)}|${out.appPurpose}`,
+    ).not.toContain("482913");
     expect(fake.allPromptText).not.toContain("482913");
     // Authoritative-set invariant: id + steps intact.
     expect(out.workflows.map((w) => w.id)).toEqual(["wf-otp"]);
