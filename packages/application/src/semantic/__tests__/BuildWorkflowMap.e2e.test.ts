@@ -69,9 +69,9 @@ describe("BuildWorkflowMap — capstone E2E (Layer 1)", () => {
     // ── app purpose inferred ──
     expect(map.appPurpose).toBeTruthy();
     expect((map.appPurpose ?? "").length).toBeGreaterThan(0);
-    expect(
-      map.appPurposeConfidence === null || typeof map.appPurposeConfidence === "number",
-    ).toBe(true);
+    expect(map.appPurposeConfidence === null || typeof map.appPurposeConfidence === "number").toBe(
+      true,
+    );
 
     // ── semantic duplicate / hidden path (the success metric) ──
     expect(map.duplicateGroups).toBeDefined();

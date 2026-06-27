@@ -43,7 +43,7 @@ class StubLlmPort implements LlmPort {
 }
 
 class StubEmbeddingPort implements EmbeddingPort {
-  embed(input: EmbeddingInput): Promise<EmbeddingResult> {
+  embed(_input: EmbeddingInput): Promise<EmbeddingResult> {
     // Same constant vector for every bucket ⇒ deterministic, never throws (a11y-only is also fine).
     return Promise.resolve({
       vector: new Array<number>(256).fill(1),
