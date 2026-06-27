@@ -143,7 +143,14 @@ export function workflow(idRaw: string, stateIds: readonly StateIdentity[]): Wor
 // ── Intent builders ──────────────────────────────────────────────────────────
 
 export function control(edgeId: string, intent: string): ControlIntent {
-  return { edgeId, actionType: "tap", intent, affordance: "navigation", source: "a11y", confidence: null };
+  return {
+    edgeId,
+    actionType: "tap",
+    intent,
+    affordance: "navigation",
+    source: "a11y",
+    confidence: null,
+  };
 }
 
 /** A screen intent. `source` defaults to "a11y"; pass "llm" for a confident label. */

@@ -83,12 +83,12 @@ These are asserted by the **orchestrator** suite
 (`packages/application/src/semantic/sameness/__tests__/RefineIdentities.test.ts`) — the FIRST real
 consumer of `FakeEmbeddingPort`:
 
-| Invariant                  | Assertion (test)                                                                              |
-| -------------------------- | --------------------------------------------------------------------------------------------- |
-| One embedding per bucket   | `FakeEmbeddingPort.callCount === N`; cache keys = the N distinct identities (AC4).             |
-| Cache reuse                | a pre-populated bucket is **not** re-embedded (AC5).                                           |
-| Budget bound               | with a ceiling K < N, `callCount ≤ K`; the rest are a11y-only; one result still produced (AC6).|
-| Every attempt counts       | a degraded embedding still consumes a budgeted call (T3).                                      |
-| Redaction before egress    | the projector / port only ever see REDACTED text; no seeded secret reaches the skeleton (AC7).|
-| Degradation / determinism  | empty graph + degraded embedding never crash; repeated runs are deep-equal (AC9/AC10).        |
-| No-SDK boundary            | no `@anthropic-ai/sdk` / `@ai-sdk` / `ai` import in `application`/`domain` (AC8 — depcruiser). |
+| Invariant                 | Assertion (test)                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| One embedding per bucket  | `FakeEmbeddingPort.callCount === N`; cache keys = the N distinct identities (AC4).              |
+| Cache reuse               | a pre-populated bucket is **not** re-embedded (AC5).                                            |
+| Budget bound              | with a ceiling K < N, `callCount ≤ K`; the rest are a11y-only; one result still produced (AC6). |
+| Every attempt counts      | a degraded embedding still consumes a budgeted call (T3).                                       |
+| Redaction before egress   | the projector / port only ever see REDACTED text; no seeded secret reaches the skeleton (AC7).  |
+| Degradation / determinism | empty graph + degraded embedding never crash; repeated runs are deep-equal (AC9/AC10).          |
+| No-SDK boundary           | no `@anthropic-ai/sdk` / `@ai-sdk` / `ai` import in `application`/`domain` (AC8 — depcruiser).  |
