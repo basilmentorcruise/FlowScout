@@ -83,9 +83,29 @@ export type { StateIdentityInput, StateIdentityStrategy } from "./ports/StateIde
 
 export { A11ySignatureStrategy } from "./models/state-identity/A11ySignatureStrategy.js";
 export { CompositeStateIdentityStrategy } from "./models/state-identity/CompositeStateIdentityStrategy.js";
+export type { CanonicalIdentityMap } from "./models/state-identity/CompositeStateIdentityStrategy.js";
 
 // DecisionCachePort — additive domain port for the LLM decision cache (#36)
 export type { DecisionCachePort } from "./ports/DecisionCachePort.js";
 
 // IntentCachePort — additive domain port for the intent cache (#55, ADR-0006 §3.4)
 export type { IntentCachePort } from "./ports/IntentCachePort.js";
+
+// EmbeddingPort — additive async domain port for screen embeddings (#57, ADR-0005 §4.2)
+export type { EmbeddingInput, EmbeddingResult, EmbeddingPort } from "./ports/EmbeddingPort.js";
+
+// E3.4 sameness refinement — config, cosine, refiner (#57, ADR-0005 §2/§3/§7)
+export type { SamenessConfig } from "./models/state-identity/SamenessConfig.js";
+export {
+  defaultSamenessConfig,
+  DEFAULT_MERGE_THRESHOLD,
+  DEFAULT_MERGE_MARGIN,
+  DEFAULT_MIN_EMBEDDING_DIM,
+} from "./models/state-identity/SamenessConfig.js";
+export { cosineSimilarity, isUsableEmbedding } from "./models/state-identity/cosine.js";
+export { SamenessRefiner } from "./models/state-identity/SamenessRefiner.js";
+export type {
+  BucketInput,
+  RefinementResult,
+  DeadBandNote,
+} from "./models/state-identity/SamenessRefiner.js";

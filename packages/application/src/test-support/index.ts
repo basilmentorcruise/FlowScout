@@ -7,3 +7,6 @@
  */
 export { FakeLlmPort } from "./FakeLlmPort.js";
 export type { FakeLlmResponse, FakeLlmCall } from "./FakeLlmPort.js";
+
+export { FakeEmbeddingPort } from "./FakeEmbeddingPort.js";
+export type { FakeEmbeddingOptions } from "./FakeEmbeddingPort.js";
