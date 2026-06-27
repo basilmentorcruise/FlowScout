@@ -4,6 +4,7 @@
  * a user goal (e.g., "sign in", "add item to cart").
  */
 import type { StateEdge, StateIdentity } from "./state-graph.js";
+import type { DuplicatePathGroup } from "./duplicate-path.js";
 
 /** A single step within a workflow. */
 export interface WorkflowStep {
@@ -68,4 +69,16 @@ export interface WorkflowMap {
    *   - undefined         ⇒ not inferred (pairs with appPurpose undefined).
    */
   readonly appPurposeConfidence?: ConfidenceScore | null;
+
+  /**
+   * NEW (#59, ADR-0005). The semantic cross-identity convergence relations (E3.5 / #58):
+   * sets of workflows that reach the SAME canonical outcome via DISTINCT raw state identities.
+   * E4 renders "these N paths reach the same place"; the per-route flag stays the existing
+   * `Workflow.isHiddenPath`. The cross-workflow relation lives on the map (never on the entity —
+   * avoids entity bloat / sibling coupling, per `duplicate-path.ts`'s design note).
+   *   - omitted/undefined  ⇒ pre-#59 map (back-compat).
+   *   - []                 ⇒ #59 ran detection and found no semantic duplicates.
+   *   - non-empty          ⇒ one group per qualifying cross-identity outcome.
+   */
+  readonly duplicateGroups?: readonly DuplicatePathGroup[];
 }
