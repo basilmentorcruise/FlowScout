@@ -109,6 +109,19 @@ export function axisVec(i: number): number[] {
   return v;
 }
 
+/**
+ * A "bridge" vector: a shared base on axis 0 plus a small `s`-offset on axis `i`. With `s = 0.3`,
+ * two bridge vectors on different offset-axes each have cosine ≈ 0.958 to the base (axis-0 only)
+ * but cosine ≈ 0.917 to EACH OTHER — so A and B merge only TRANSITIVELY through the base C
+ * (A–C and C–B clear 0.94; A–B does not). This is the transitive label-veto-bypass fixture.
+ */
+export function bridgeVec(i: number, s = 0.3): number[] {
+  const v = new Array<number>(DIM).fill(0);
+  v[0] = 1;
+  if (i > 0) v[i % DIM] = s;
+  return v;
+}
+
 // ── Workflow builders ────────────────────────────────────────────────────────
 
 export function step(stepIndex: number, stateId: StateIdentity): WorkflowStep {
