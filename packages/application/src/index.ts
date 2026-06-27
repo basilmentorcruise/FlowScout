@@ -64,3 +64,29 @@ export { LlmIntentRefiner } from "./semantic/intent/LlmIntentRefiner.js";
 export { IntentBudgetGuard } from "./semantic/intent/IntentBudgetGuard.js";
 export { InMemoryIntentCache } from "./semantic/intent/InMemoryIntentCache.js";
 export { intentCacheKey, INTENT_KEY_PREFIX } from "./semantic/intent/IntentCacheKey.js";
+
+// E3.3 — App-purpose + workflow naming & feature grouping (rule-first, budgeted LLM) (#56)
+export {
+  NameAndGroupWorkflows,
+  RuleNameStrategy,
+  LlmNamingRefiner,
+  AppPurposeInferer,
+  InMemoryGroupingCache,
+  groupingCacheKey,
+  purposeCacheKey,
+  GROUPING_KEY_PREFIX,
+  PURPOSE_KEY_PREFIX,
+  FEATURE_GROUP_RULES,
+  MAX_NAME_CHARS,
+  MAX_DESCRIPTION_CHARS,
+  defaultGroupingConfig,
+  UNGROUPED,
+  UNKNOWN_PURPOSE,
+} from "./semantic/grouping/index.js";
+export type {
+  NameAndGroupResult,
+  RedactedScreenSignal,
+  RuleLabelingResult,
+  AppPurposeResult,
+  GroupingConfig,
+} from "./semantic/grouping/index.js";
