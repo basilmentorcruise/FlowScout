@@ -177,19 +177,9 @@ export function buildAppContext(): AppContext {
   const startCrawlRun = new StartCrawlRun(mobileDriver, chain, collaborators);
 
   // #59 (E3.6): assemble BuildWorkflowMap from resolved ports + composition-root adapters.
-  // `embeddings` + `llm` are the ONLY concrete adapters named here; `BuildWorkflowMap` itself
-  // (and every pass it owns) imports no adapter (port purity / NFR1 — boundaries gate enforces).
-  const embeddingModelId = process.env["EMBEDDING_MODEL"];
-  const embeddings: EmbeddingPort = new EmbeddingAdapter(
-    createEmbeddingClient(),
-    embeddingModelId !== undefined ? { modelId: embeddingModelId } : {},
-  );
-  const buildWorkflowMap = wireBuildWorkflowMap({
-    stateGraphRepository,
-    llm, // the raw LlmAdapter (LlmPort) drives the budgeted semantic passes
-    embeddings,
-    crawlBudget: defaultCrawlBudget(),
-  });
+  // The EmbeddingAdapter + the raw LlmAdapter are the ONLY concrete adapters used; the use-case
+  // itself imports no adapter (port purity / NFR1 — boundaries gate enforces).
+  const buildWorkflowMap = wireWorkflowMapUseCase(stateGraphRepository, llm);
 
   const appContext = new AppContext(ports);
   // Expose startCrawlRun via the context (AppContext.startCrawlRun)
@@ -198,6 +188,28 @@ export function buildAppContext(): AppContext {
   (appContext as AppContextWithWorkflowMap).buildWorkflowMap = buildWorkflowMap;
 
   return appContext;
+}
+
+/**
+ * Construct the run's `EmbeddingPort` (Voyage adapter, model id config-pinned via `EMBEDDING_MODEL`)
+ * and assemble `BuildWorkflowMap` from it + the injected `LlmPort` + the resolved graph repository.
+ * Isolated from `buildAppContext` so the embedding-adapter construction stays a single seam.
+ */
+function wireWorkflowMapUseCase(
+  stateGraphRepository: StateGraphRepository,
+  llm: LlmPort,
+): BuildWorkflowMap {
+  const embeddingModelId = process.env["EMBEDDING_MODEL"];
+  const embeddings: EmbeddingPort = new EmbeddingAdapter(
+    createEmbeddingClient(),
+    embeddingModelId !== undefined ? { modelId: embeddingModelId } : {},
+  );
+  return wireBuildWorkflowMap({
+    stateGraphRepository,
+    llm,
+    embeddings,
+    crawlBudget: defaultCrawlBudget(),
+  });
 }
 
 /**
