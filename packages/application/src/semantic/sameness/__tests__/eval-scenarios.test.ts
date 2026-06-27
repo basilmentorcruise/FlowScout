@@ -36,7 +36,10 @@ import {
   intentModel,
 } from "./fixtures.js";
 
-function runRefine(g: StateGraph, fake: FakeEmbeddingPort): ReturnType<RefineIdentities["execute"]> {
+function runRefine(
+  g: StateGraph,
+  fake: FakeEmbeddingPort,
+): ReturnType<RefineIdentities["execute"]> {
   const orchestrator = new RefineIdentities(
     fake,
     new InMemoryEmbeddingCache(),
@@ -91,7 +94,11 @@ describe("EVAL-1 — genuine cross-identity hidden path IS flagged (AC1)", () =>
 
 describe("EVAL-2 — similar-but-distinct outcome pair is NOT flagged (AC2)", () => {
   it("keeps below-threshold outcomes distinct ⇒ no group, no hidden flag", async () => {
-    const g = graph([node("entry", "ENTRY"), node("out-confirmed", "OK"), node("out-cancelled", "NO")]);
+    const g = graph([
+      node("entry", "ENTRY"),
+      node("out-confirmed", "OK"),
+      node("out-cancelled", "NO"),
+    ]);
     const fake = new FakeEmbeddingPort({
       scripted: new Map<string, readonly number[]>([
         ["ENTRY", axisVec(10)],

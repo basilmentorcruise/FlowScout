@@ -27,6 +27,9 @@ import type { Workflow, IntentModel, StateIdentity, CanonicalIdentityMap } from 
 import type { DuplicatePathGroup } from "@flowscout/domain";
 import type { DuplicateDetectorConfig } from "./DuplicateDetectorConfig.js";
 
+/** A semantic-duplicate set needs ≥2 workflows reaching ≥2 DISTINCT raw outcome identities. */
+const MIN_GROUP_SIZE = 2;
+
 /** The detection result: mutated-copy workflows + the expressible duplicate-group associations. */
 export interface DuplicateDetectionResult {
   /** Workflow COPIES with `isHiddenPath` set on the less-prominent routes (immutability). */
@@ -88,8 +91,8 @@ export class SemanticDuplicateDetector {
     }
 
     // Return COPIES — flag the hidden routes, never mutate the inputs (immutability).
-    const out = workflows.map((w) =>
-      hiddenIds.has(w.id) ? ({ ...w, isHiddenPath: true } as Workflow) : w,
+    const out: Workflow[] = workflows.map((w) =>
+      hiddenIds.has(w.id) ? { ...w, isHiddenPath: true } : w,
     );
 
     return { workflows: out, duplicateGroups };
@@ -105,9 +108,9 @@ export class SemanticDuplicateDetector {
   ): DuplicatePathGroup | null {
     // 3. A semantic-duplicate set needs ≥2 workflows AND ≥1 CROSS-identity merge (raw outcome ids
     //    not all identical). Pure same-raw-id convergence is E2's structural case — left to E2.
-    if (rows.length < 2) return null;
+    if (rows.length < MIN_GROUP_SIZE) return null;
     const distinctRawOutcomes = new Set(rows.map((r) => r.rawOutcome as string));
-    if (distinctRawOutcomes.size < 2) return null;
+    if (distinctRawOutcomes.size < MIN_GROUP_SIZE) return null;
 
     // 4. Precision-confirmation gate: suppress if confident (llm) outcome purposes conflict (AC3).
     if (this.config.confirmWithIntent && this.outcomePurposesConflict(rows, purposeByState)) {
@@ -127,7 +130,12 @@ export class SemanticDuplicateDetector {
       .sort();
     const workflowIds = rows.map((r) => r.workflow.id).sort();
 
-    return { outcomeIdentity: canonicalOutcome, workflowIds, canonicalWorkflowId, hiddenWorkflowIds };
+    return {
+      outcomeIdentity: canonicalOutcome,
+      workflowIds,
+      canonicalWorkflowId,
+      hiddenWorkflowIds,
+    };
   }
 
   /**

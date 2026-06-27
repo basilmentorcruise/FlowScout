@@ -140,8 +140,11 @@ export class RefineIdentities {
     vector: readonly number[] | null,
     labelByState: ReadonlyMap<StateIdentity, string>,
   ): BucketInput {
-    const bucket: { signature: StateIdentity; embedding?: readonly number[]; semanticLabel?: string } =
-      { signature };
+    const bucket: {
+      signature: StateIdentity;
+      embedding?: readonly number[];
+      semanticLabel?: string;
+    } = { signature };
     // Absent / empty vector ⇒ a11y-only (the refiner's cosine gate yields null ⇒ no merge).
     if (vector !== null && vector.length > 0) bucket.embedding = vector;
     const label = labelByState.get(signature);
