@@ -55,10 +55,7 @@ export class NameAndGroupWorkflows {
    * @param workflows  the frozen extractor workflows (read-only; never mutated).
    * @param intent     the consumed intent overlay (already redacted by #55).
    */
-  async execute(
-    workflows: readonly Workflow[],
-    intent: IntentModel,
-  ): Promise<NameAndGroupResult> {
+  async execute(workflows: readonly Workflow[], intent: IntentModel): Promise<NameAndGroupResult> {
     // 1. Build the redacted screen-signal lookup once (defense-in-depth re-redaction).
     const signals = this.buildSignalMap(intent);
 
@@ -150,7 +147,10 @@ export class NameAndGroupWorkflows {
     workflow: Workflow,
     signals: ReadonlyMap<StateIdentity, RedactedScreenSignal>,
   ): string {
-    const lines: string[] = [`Workflow: ${workflow.name}`, `Steps (${String(workflow.steps.length)}):`];
+    const lines: string[] = [
+      `Workflow: ${workflow.name}`,
+      `Steps (${String(workflow.steps.length)}):`,
+    ];
     for (const step of workflow.steps) {
       lines.push(`  - ${step.description}`);
       const signal = signals.get(step.stateId);

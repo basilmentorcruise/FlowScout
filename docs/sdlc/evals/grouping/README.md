@@ -25,7 +25,7 @@ No network, no SDK, no real model.
 - The login workflow → `featureGroup: "Authentication"`, name `"Sign in screen → Home dashboard"`.
 - The checkout workflow → `featureGroup: "Cart & Checkout"`.
 - The map → `appPurpose: "An app for Authentication, Cart & Checkout"`, `appPurposeConfidence:
-  null` (rule-derived).
+null` (rule-derived).
 
 This exercises the rule-first design: the bulk of naming/grouping is deterministic and LLM-free.
 
@@ -39,7 +39,7 @@ This exercises the rule-first design: the bulk of naming/grouping is determinist
 **Expected behavior:**
 
 - **(a) Refinement disabled** ⇒ the degraded-but-present tier-1 stands: `featureGroup:
-  "Ungrouped"`, the provisional name `"Path A → B"`, `inferenceConfidence: null`, **zero LLM
+"Ungrouped"`, the provisional name `"Path A → B"`, `inferenceConfidence: null`, **zero LLM
   calls**. Never crashes, never emits an empty label.
 - **(b) Refinement enabled + scripted LLM** ⇒ exactly one LLM call; the workflow becomes
   `name: "Open hidden filters"`, `featureGroup: "Search & Browse"`, with non-null confidence

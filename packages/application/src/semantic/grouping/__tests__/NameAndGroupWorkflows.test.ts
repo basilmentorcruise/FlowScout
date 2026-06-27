@@ -69,14 +69,12 @@ describe("NameAndGroupWorkflows", () => {
   });
 
   it("is deterministic + stably ordered for identical inputs", async () => {
-    const a = await makeOrchestrator({ config: { ...defaultGroupingConfig(), inferPurposeWithLlm: false } }).uc.execute(
-      [LOGIN_WORKFLOW, CHECKOUT_WORKFLOW],
-      RICH_INTENT,
-    );
-    const b = await makeOrchestrator({ config: { ...defaultGroupingConfig(), inferPurposeWithLlm: false } }).uc.execute(
-      [LOGIN_WORKFLOW, CHECKOUT_WORKFLOW],
-      RICH_INTENT,
-    );
+    const a = await makeOrchestrator({
+      config: { ...defaultGroupingConfig(), inferPurposeWithLlm: false },
+    }).uc.execute([LOGIN_WORKFLOW, CHECKOUT_WORKFLOW], RICH_INTENT);
+    const b = await makeOrchestrator({
+      config: { ...defaultGroupingConfig(), inferPurposeWithLlm: false },
+    }).uc.execute([LOGIN_WORKFLOW, CHECKOUT_WORKFLOW], RICH_INTENT);
     expect(a).toEqual(b);
   });
 
@@ -107,9 +105,20 @@ describe("NameAndGroupWorkflows", () => {
   });
 
   it("tier-2 refines a WEAK workflow via the LLM (llm source, non-null confidence)", async () => {
-    const weakWf = workflow({ id: "wf-weak", name: "Path", steps: [step(0, id("mystery"), "tap")] });
+    const weakWf = workflow({
+      id: "wf-weak",
+      name: "Path",
+      steps: [step(0, id("mystery"), "tap")],
+    });
     const json = JSON.stringify({
-      workflows: [{ id: "wf-weak", name: "Hidden settings", description: "Adjusts settings", featureGroup: "Profile & Settings" }],
+      workflows: [
+        {
+          id: "wf-weak",
+          name: "Hidden settings",
+          description: "Adjusts settings",
+          featureGroup: "Profile & Settings",
+        },
+      ],
     });
     const { uc, fake } = makeOrchestrator({
       script: [{ kind: "ok", content: json }],
@@ -125,10 +134,23 @@ describe("NameAndGroupWorkflows", () => {
   it("budget cap: never exceeds maxLlmCalls; over-budget workflows degrade to rule labels", async () => {
     // Distinct step text ⇒ distinct skeletons/keys (so each is a separate refine attempt).
     const weak = (n: number): Workflow =>
-      workflow({ id: `wf-${String(n)}`, name: `P${String(n)}`, steps: [step(0, id(`m-${String(n)}`), `tap ${String(n)}`)] });
+      workflow({
+        id: `wf-${String(n)}`,
+        name: `P${String(n)}`,
+        steps: [step(0, id(`m-${String(n)}`), `tap ${String(n)}`)],
+      });
     const named = (n: number): FakeLlmResponse => ({
       kind: "ok",
-      content: JSON.stringify({ workflows: [{ id: `wf-${String(n)}`, name: `Named ${String(n)}`, description: "d", featureGroup: "Media" }] }),
+      content: JSON.stringify({
+        workflows: [
+          {
+            id: `wf-${String(n)}`,
+            name: `Named ${String(n)}`,
+            description: "d",
+            featureGroup: "Media",
+          },
+        ],
+      }),
       promptTokens: 10,
       completionTokens: 5,
     });
@@ -152,11 +174,18 @@ describe("NameAndGroupWorkflows", () => {
     const json = JSON.stringify({
       workflows: [{ id: "wf-weak", name: "Refined", description: "d", featureGroup: "Media" }],
     });
-    const weakWf = workflow({ id: "wf-weak", name: "Path", steps: [step(0, id("mystery"), "tap")] });
+    const weakWf = workflow({
+      id: "wf-weak",
+      name: "Path",
+      steps: [step(0, id("mystery"), "tap")],
+    });
     const cache = new InMemoryGroupingCache();
     const purposeJson = JSON.stringify({ appPurpose: "A media app" });
     const { uc, fake } = makeOrchestrator({
-      script: [{ kind: "ok", content: json }, { kind: "ok", content: purposeJson }],
+      script: [
+        { kind: "ok", content: json },
+        { kind: "ok", content: purposeJson },
+      ],
       cache,
     });
     await uc.execute([weakWf], intentModel([]));
@@ -166,7 +195,11 @@ describe("NameAndGroupWorkflows", () => {
   });
 
   it("graceful degradation: LLM unavailable ⇒ rule names + Ungrouped/Unknown, exactly one full result", async () => {
-    const weakWf = workflow({ id: "wf-weak", name: "Path", steps: [step(0, id("mystery"), "tap")] });
+    const weakWf = workflow({
+      id: "wf-weak",
+      name: "Path",
+      steps: [step(0, id("mystery"), "tap")],
+    });
     const { uc } = makeOrchestrator({
       script: [{ kind: "throws" }, { kind: "throws" }],
       config: { refinementEnabled: true, refineOnlyWeak: false, inferPurposeWithLlm: true },
@@ -181,12 +214,25 @@ describe("NameAndGroupWorkflows", () => {
   it("REDACTION: a seeded secret in intent never reaches labels, the prompt, or the cache", async () => {
     // Seeded secrets are OTP-shaped tokens — exactly what CredentialRedactor targets.
     const secretIntent: IntentModel = intentModel([
-      screen(id("s-secret"), "Your code is 482913 to continue", [control("e1", "Enter the PIN 135790")]),
+      screen(id("s-secret"), "Your code is 482913 to continue", [
+        control("e1", "Enter the PIN 135790"),
+      ]),
     ]);
-    const wf = workflow({ id: "wf-sec", name: "Path", steps: [step(0, id("s-secret"), "type 482913")] });
-    const echo = JSON.stringify({ workflows: [{ id: "wf-sec", name: "Verify 482913", description: "d", featureGroup: "Authentication" }] });
+    const wf = workflow({
+      id: "wf-sec",
+      name: "Path",
+      steps: [step(0, id("s-secret"), "type 482913")],
+    });
+    const echo = JSON.stringify({
+      workflows: [
+        { id: "wf-sec", name: "Verify 482913", description: "d", featureGroup: "Authentication" },
+      ],
+    });
     const { uc, fake } = makeOrchestrator({
-      script: [{ kind: "ok", content: echo }, { kind: "ok", content: "{}" }],
+      script: [
+        { kind: "ok", content: echo },
+        { kind: "ok", content: "{}" },
+      ],
       config: { refinementEnabled: true, refineOnlyWeak: false, inferPurposeWithLlm: true },
     });
     const out = await uc.execute([wf], secretIntent);
@@ -194,12 +240,7 @@ describe("NameAndGroupWorkflows", () => {
     // #56's OWN output fields (name/description/featureGroup/appPurpose) must be secret-free.
     // (workflow.steps are #54's frozen input — passed through unchanged, redacted at source.)
     const w0 = out.workflows[0];
-    const ownFields = JSON.stringify([
-      w0?.name,
-      w0?.description,
-      w0?.featureGroup,
-      out.appPurpose,
-    ]);
+    const ownFields = JSON.stringify([w0?.name, w0?.description, w0?.featureGroup, out.appPurpose]);
     expect(ownFields).not.toContain("482913");
     expect(ownFields).not.toContain("135790");
     // And the secret must never reach the LLM prompt (skeleton is redacted before the call).
@@ -217,7 +258,9 @@ describe("NameAndGroupWorkflows", () => {
 
   it("edge: single workflow with no intent match ⇒ provisional name + Ungrouped", async () => {
     const wf = workflow({ id: "wf-solo", name: "Solo path", steps: [step(0, id("nope"), "tap")] });
-    const { uc } = makeOrchestrator({ config: { ...defaultGroupingConfig(), refinementEnabled: false } });
+    const { uc } = makeOrchestrator({
+      config: { ...defaultGroupingConfig(), refinementEnabled: false },
+    });
     const out = await uc.execute([wf], intentModel([]));
     expect(out.workflows.length).toBe(1);
     expect(out.workflows[0]?.name).toBe("Solo path");

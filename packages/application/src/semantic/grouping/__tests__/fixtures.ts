@@ -30,16 +30,14 @@ export function budget(overrides: Partial<CrawlBudget> = {}): CrawlBudget {
 }
 
 /** Build a workflow step (terminal step passes `edge: null`). */
-export function step(
-  stepIndex: number,
-  stateId: StateIdentity,
-  description: string,
-): WorkflowStep {
+export function step(stepIndex: number, stateId: StateIdentity, description: string): WorkflowStep {
   return { stepIndex, stateId, edge: null, description };
 }
 
 /** Build a workflow with the extractor-style provisional defaults. */
-export function workflow(overrides: Partial<Workflow> & { id: string; steps: readonly WorkflowStep[] }): Workflow {
+export function workflow(
+  overrides: Partial<Workflow> & { id: string; steps: readonly WorkflowStep[] },
+): Workflow {
   return {
     name: "<entry> → <outcome>",
     description: "Provisional path",
@@ -78,10 +76,7 @@ export const ORDER_DONE_STATE = id("screen-order-confirmed");
 
 export const LOGIN_WORKFLOW: Workflow = workflow({
   id: "wf-login",
-  steps: [
-    step(0, SIGN_IN_STATE, "Enter credentials"),
-    step(1, HOME_STATE, "Arrive at home"),
-  ],
+  steps: [step(0, SIGN_IN_STATE, "Enter credentials"), step(1, HOME_STATE, "Arrive at home")],
 });
 
 export const CHECKOUT_WORKFLOW: Workflow = workflow({

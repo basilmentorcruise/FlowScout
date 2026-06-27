@@ -23,7 +23,12 @@ function infererWith(
   config: GroupingConfig = defaultGroupingConfig(),
   guard = new IntentBudgetGuard(budget()),
   cache = new InMemoryGroupingCache(),
-): { inferer: AppPurposeInferer; fake: FakeLlmPort; guard: IntentBudgetGuard; cache: InMemoryGroupingCache } {
+): {
+  inferer: AppPurposeInferer;
+  fake: FakeLlmPort;
+  guard: IntentBudgetGuard;
+  cache: InMemoryGroupingCache;
+} {
   const fake = new FakeLlmPort(script);
   const inferer = new AppPurposeInferer(fake, guard, cache, new CredentialRedactor(), config);
   return { inferer, fake, guard, cache };
@@ -33,9 +38,16 @@ const SIGNAL = "Feature groups: Authentication, Cart & Checkout";
 
 describe("AppPurposeInferer", () => {
   it("rule path: synthesises purpose from feature groups (frequency desc, name asc), null confidence", async () => {
-    const { inferer, fake } = infererWith([], { ...defaultGroupingConfig(), inferPurposeWithLlm: false });
+    const { inferer, fake } = infererWith([], {
+      ...defaultGroupingConfig(),
+      inferPurposeWithLlm: false,
+    });
     const out = await inferer.infer(
-      [labeled("a", "Cart & Checkout"), labeled("b", "Authentication"), labeled("c", "Authentication")],
+      [
+        labeled("a", "Cart & Checkout"),
+        labeled("b", "Authentication"),
+        labeled("c", "Authentication"),
+      ],
       SIGNAL,
     );
     expect(out.appPurpose).toBe("An app for Authentication, Cart & Checkout");
@@ -70,7 +82,11 @@ describe("AppPurposeInferer", () => {
 
   it("over budget ⇒ rule purpose stands, no call", async () => {
     const guard = new IntentBudgetGuard(budget({ maxLlmCalls: 0 }));
-    const { inferer, fake } = infererWith([{ kind: "ok", content: "{}" }], defaultGroupingConfig(), guard);
+    const { inferer, fake } = infererWith(
+      [{ kind: "ok", content: "{}" }],
+      defaultGroupingConfig(),
+      guard,
+    );
     const out = await inferer.infer([labeled("a", "Authentication")], SIGNAL);
     expect(out.appPurpose).toBe("An app for Authentication");
     expect(out.appPurposeConfidence).toBeNull();

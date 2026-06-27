@@ -41,64 +41,66 @@ export const MAX_DESCRIPTION_CHARS = 280;
  * lowercased screen/control signal wins — deterministic (order-stable). Add groups by appending;
  * never reorder existing entries without an ADR (it changes historical labels).
  */
-export const FEATURE_GROUP_RULES: readonly { readonly group: string; readonly keywords: readonly string[] }[] =
-  [
-    {
-      group: "Authentication",
-      keywords: [
-        "sign in",
-        "sign-in",
-        "signin",
-        "log in",
-        "login",
-        "log-in",
-        "sign up",
-        "signup",
-        "register",
-        "password",
-        "passcode",
-        "credential",
-        "authenticate",
-        "two-factor",
-        "verification code",
-      ],
-    },
-    {
-      group: "Cart & Checkout",
-      keywords: [
-        "cart",
-        "checkout",
-        "check out",
-        "payment",
-        "pay ",
-        "billing",
-        "shipping",
-        "place order",
-        "purchase",
-        "buy ",
-      ],
-    },
-    {
-      group: "Search & Browse",
-      keywords: ["search", "browse", "filter", "sort by", "catalog", "explore", "discover"],
-    },
-    {
-      group: "Onboarding",
-      keywords: ["onboarding", "welcome", "get started", "tutorial", "carousel", "next slide"],
-    },
-    {
-      group: "Profile & Settings",
-      keywords: ["profile", "settings", "preferences", "account", "edit profile"],
-    },
-    {
-      group: "Messaging",
-      keywords: ["message", "chat", "inbox", "conversation", "compose"],
-    },
-    {
-      group: "Media",
-      keywords: ["play ", "video", "photo", "gallery", "media", "stream"],
-    },
-  ];
+export const FEATURE_GROUP_RULES: readonly {
+  readonly group: string;
+  readonly keywords: readonly string[];
+}[] = [
+  {
+    group: "Authentication",
+    keywords: [
+      "sign in",
+      "sign-in",
+      "signin",
+      "log in",
+      "login",
+      "log-in",
+      "sign up",
+      "signup",
+      "register",
+      "password",
+      "passcode",
+      "credential",
+      "authenticate",
+      "two-factor",
+      "verification code",
+    ],
+  },
+  {
+    group: "Cart & Checkout",
+    keywords: [
+      "cart",
+      "checkout",
+      "check out",
+      "payment",
+      "pay ",
+      "billing",
+      "shipping",
+      "place order",
+      "purchase",
+      "buy ",
+    ],
+  },
+  {
+    group: "Search & Browse",
+    keywords: ["search", "browse", "filter", "sort by", "catalog", "explore", "discover"],
+  },
+  {
+    group: "Onboarding",
+    keywords: ["onboarding", "welcome", "get started", "tutorial", "carousel", "next slide"],
+  },
+  {
+    group: "Profile & Settings",
+    keywords: ["profile", "settings", "preferences", "account", "edit profile"],
+  },
+  {
+    group: "Messaging",
+    keywords: ["message", "chat", "inbox", "conversation", "compose"],
+  },
+  {
+    group: "Media",
+    keywords: ["play ", "video", "photo", "gallery", "media", "stream"],
+  },
+];
 
 export class RuleNameStrategy {
   /**
@@ -121,7 +123,10 @@ export class RuleNameStrategy {
         : nonEmpty(workflow.name, "Workflow");
     const description =
       purposes.length > 0
-        ? cap(`${String(purposes.length)} screen(s): ${purposes.join(" → ")}`, MAX_DESCRIPTION_CHARS)
+        ? cap(
+            `${String(purposes.length)} screen(s): ${purposes.join(" → ")}`,
+            MAX_DESCRIPTION_CHARS,
+          )
         : nonEmpty(workflow.description, name);
 
     const weak = purposes.length === 0 || featureGroup === UNGROUPED;
