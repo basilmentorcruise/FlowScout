@@ -100,14 +100,14 @@ This is the primary **safety** invariant: refinement is strictly additive and re
 
 ## Gated cascade (what the scenarios protect)
 
-| Gate                 | Condition                                          | Outcome                       |
-| -------------------- | -------------------------------------------------- | ----------------------------- |
-| Degraded-embedding   | vector missing / `< MIN_EMBEDDING_DIM`             | a11y-only (no merge)          |
-| Precision floor      | cosine `< dead-band floor`                         | distinct                      |
-| Dead-band            | cosine in `[floor, threshold)`                     | distinct + tuning note        |
-| Recall floor         | cosine `≥ threshold`                               | candidate MERGE               |
-| Label veto           | confident labels conflict on a candidate merge     | merge cancelled (distinct)    |
-| Refinement OFF       | feature flag disabled                              | singleton per bucket (== E2)  |
+| Gate               | Condition                                      | Outcome                      |
+| ------------------ | ---------------------------------------------- | ---------------------------- |
+| Degraded-embedding | vector missing / `< MIN_EMBEDDING_DIM`         | a11y-only (no merge)         |
+| Precision floor    | cosine `< dead-band floor`                     | distinct                     |
+| Dead-band          | cosine in `[floor, threshold)`                 | distinct + tuning note       |
+| Recall floor       | cosine `≥ threshold`                           | candidate MERGE              |
+| Label veto         | confident labels conflict on a candidate merge | merge cancelled (distinct)   |
+| Refinement OFF     | feature flag disabled                          | singleton per bucket (== E2) |
 
 **Budget / cache / redaction invariants** (asserted in the sibling adapter + composition suites):
 

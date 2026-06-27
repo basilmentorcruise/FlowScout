@@ -23,9 +23,7 @@ const INPUT: EmbeddingInput = {
 };
 
 // Captured call data stored externally to avoid unbound-method lint issues.
-type ProviderResponse = Awaited<
-  ReturnType<EmbeddingClientLike["embeddings"]["create"]>
->;
+type ProviderResponse = Awaited<ReturnType<EmbeddingClientLike["embeddings"]["create"]>>;
 type CreateParams = Parameters<EmbeddingClientLike["embeddings"]["create"]>[0];
 type CreateOptions = Parameters<EmbeddingClientLike["embeddings"]["create"]>[1];
 
