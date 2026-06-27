@@ -107,3 +107,8 @@ export type {
   DuplicateDetectionResult,
   DuplicateDetectorConfig,
 } from "./semantic/sameness/index.js";
+
+// E3.6 — Capstone: WorkflowMap assembly use-case + the shared cross-pass budget meter (#59)
+export { BuildWorkflowMap } from "./semantic/BuildWorkflowMap.js";
+export type { Clock } from "./semantic/BuildWorkflowMap.js";
+export { RunBudgetMeter } from "./semantic/budget/RunBudgetMeter.js";
