@@ -24,3 +24,15 @@ export { LLMPolicy } from "./LLMPolicy.js";
 export type { LlmCallResult } from "./LLMPolicy.js";
 
 export { PolicyChain, createPolicyChain, assembleLlmPolicyFromPorts } from "./PolicyChain.js";
+
+// EmbeddingAdapter — the real EmbeddingPort (#57) + its env client factory (composition root #59).
+export {
+  EmbeddingAdapter,
+  createEmbeddingClient,
+  DEFAULT_EMBEDDING_MODEL_ID,
+} from "./EmbeddingAdapter.js";
+export type {
+  EmbeddingAdapterConfig,
+  EmbeddingClientLike,
+  EmbeddingRequestOptions,
+} from "./EmbeddingAdapter.js";

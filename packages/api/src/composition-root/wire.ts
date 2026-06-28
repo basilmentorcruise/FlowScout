@@ -17,8 +17,38 @@ import {
   CachedKnowledgePolicy,
   defaultCollaborators,
   StartCrawlRun,
+  // E3.6 (#59) — WorkflowMap assembly: use-case + the five merged passes + shared budget meter.
+  BuildWorkflowMap,
+  RunBudgetMeter,
+  WorkflowExtractor,
+  InferIntent,
+  defaultInferIntentConfig,
+  A11yIntentDeriver,
+  LlmIntentRefiner,
+  IntentBudgetGuard,
+  InMemoryIntentCache,
+  RefineIdentities,
+  defaultRefineIdentitiesConfig,
+  SemanticDuplicateDetector,
+  defaultDuplicateDetectorConfig,
+  EmbeddingBudgetGuard,
+  InMemoryEmbeddingCache,
+  RuleNameStrategy,
+  LlmNamingRefiner,
+  AppPurposeInferer,
+  NameAndGroupWorkflows,
+  InMemoryGroupingCache,
+  defaultGroupingConfig,
+  CredentialRedactor,
 } from "@flowscout/application";
 import type { AppPorts } from "@flowscout/application";
+import {
+  SamenessRefiner,
+  defaultSamenessConfig,
+  projectA11ySkeleton,
+  defaultCrawlBudget,
+} from "@flowscout/domain";
+import type { CrawlBudget, EmbeddingPort, LlmPort, StateGraphRepository } from "@flowscout/domain";
 
 // Adapters — the only files in this package that import concrete adapter classes.
 // *** SWAP POINT ***: change the import + the two MobileMcpDriver lines below to swap the driver.
@@ -28,6 +58,8 @@ import {
   createAnthropicClient,
   assembleLlmPolicyFromPorts,
   createPolicyChain,
+  EmbeddingAdapter,
+  createEmbeddingClient,
 } from "@flowscout/adapter-llm";
 import { InMemoryDecisionCache } from "@flowscout/application";
 import {
@@ -144,14 +176,117 @@ export function buildAppContext(): AppContext {
 
   const startCrawlRun = new StartCrawlRun(mobileDriver, chain, collaborators);
 
+  // #59 (E3.6): assemble BuildWorkflowMap from resolved ports + composition-root adapters.
+  // The EmbeddingAdapter + the raw LlmAdapter are the ONLY concrete adapters used; the use-case
+  // itself imports no adapter (port purity / NFR1 — boundaries gate enforces).
+  const buildWorkflowMap = wireWorkflowMapUseCase(stateGraphRepository, llm);
+
   const appContext = new AppContext(ports);
   // Expose startCrawlRun via the context (AppContext.startCrawlRun)
   (appContext as AppContextWithCrawl).startCrawlRun = startCrawlRun;
+  // Expose buildWorkflowMap via the context (mirrors the …WithCrawl pattern).
+  (appContext as AppContextWithWorkflowMap).buildWorkflowMap = buildWorkflowMap;
 
   return appContext;
+}
+
+/**
+ * Construct the run's `EmbeddingPort` (Voyage adapter, model id config-pinned via `EMBEDDING_MODEL`)
+ * and assemble `BuildWorkflowMap` from it + the injected `LlmPort` + the resolved graph repository.
+ * Isolated from `buildAppContext` so the embedding-adapter construction stays a single seam.
+ */
+function wireWorkflowMapUseCase(
+  stateGraphRepository: StateGraphRepository,
+  llm: LlmPort,
+): BuildWorkflowMap {
+  const embeddingModelId = process.env["EMBEDDING_MODEL"];
+  const embeddings: EmbeddingPort = new EmbeddingAdapter(
+    createEmbeddingClient(),
+    embeddingModelId !== undefined ? { modelId: embeddingModelId } : {},
+  );
+  return wireBuildWorkflowMap({
+    stateGraphRepository,
+    llm,
+    embeddings,
+    crawlBudget: defaultCrawlBudget(),
+  });
+}
+
+/**
+ * Resolved-port dependencies for `BuildWorkflowMap` — ALL port-typed (`StateGraphRepository`,
+ * `LlmPort`, `EmbeddingPort`, `CrawlBudget`). The concrete adapters are constructed by the caller
+ * (`buildAppContext`) and injected here, so this factory — and the use-case it builds — names no
+ * adapter (NFR1). Exported so the wiring/port-purity test can drive it with fakes.
+ */
+export interface BuildWorkflowMapDeps {
+  readonly stateGraphRepository: StateGraphRepository;
+  readonly llm: LlmPort;
+  readonly embeddings: EmbeddingPort;
+  readonly crawlBudget: CrawlBudget;
+}
+
+/**
+ * Assemble `BuildWorkflowMap` (#59) from resolved ports. Threads ONE shared `RunBudgetMeter` into
+ * the intent/naming/purpose `IntentBudgetGuard` and the embedding `EmbeddingBudgetGuard` so the
+ * combined LLM + embedding spend is bounded by a single ceiling (§4). The detector runs BEFORE the
+ * naming/grouping pass (so the final workflow objects already carry `isHiddenPath`).
+ */
+export function wireBuildWorkflowMap(deps: BuildWorkflowMapDeps): BuildWorkflowMap {
+  const { stateGraphRepository, llm, embeddings, crawlBudget } = deps;
+  const redactor = new CredentialRedactor();
+
+  // ONE shared counter → one global LLM+embedding ceiling for the run (§4).
+  const meter = new RunBudgetMeter(crawlBudget);
+  const intentGuard = new IntentBudgetGuard(meter);
+  const embeddingGuard = new EmbeddingBudgetGuard(meter);
+
+  const extractor = new WorkflowExtractor(); // #54
+
+  const inferIntent = new InferIntent(
+    redactor,
+    new A11yIntentDeriver(),
+    new LlmIntentRefiner(llm, intentGuard, new InMemoryIntentCache()),
+    defaultInferIntentConfig(),
+  ); // #55
+
+  const refineIdentities = new RefineIdentities(
+    embeddings,
+    new InMemoryEmbeddingCache(),
+    redactor,
+    embeddingGuard,
+    new SamenessRefiner(defaultSamenessConfig()),
+    projectA11ySkeleton,
+    defaultRefineIdentitiesConfig(),
+  ); // #58 (refine)
+  const duplicateDetector = new SemanticDuplicateDetector(defaultDuplicateDetectorConfig()); // #58 (detect)
+
+  const groupingConfig = defaultGroupingConfig();
+  const groupingCache = new InMemoryGroupingCache(); // shared by the naming refiner + purpose inferer
+  const nameAndGroup = new NameAndGroupWorkflows(
+    redactor,
+    new RuleNameStrategy(),
+    new LlmNamingRefiner(llm, intentGuard, groupingCache, redactor),
+    new AppPurposeInferer(llm, intentGuard, groupingCache, redactor, groupingConfig),
+    groupingConfig,
+  ); // #56
+
+  return new BuildWorkflowMap(
+    stateGraphRepository,
+    extractor,
+    inferIntent,
+    refineIdentities,
+    duplicateDetector,
+    nameAndGroup,
+    meter,
+  );
 }
 
 /** Extended AppContext that exposes the wired StartCrawlRun use-case. */
 export interface AppContextWithCrawl extends AppContext {
   startCrawlRun: StartCrawlRun;
+}
+
+/** Extended AppContext that exposes the wired BuildWorkflowMap use-case (#59). */
+export interface AppContextWithWorkflowMap extends AppContext {
+  buildWorkflowMap: BuildWorkflowMap;
 }
