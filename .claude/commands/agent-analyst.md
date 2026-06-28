@@ -1,9 +1,9 @@
 ---
-description: Run discovery + RICE prioritization + MVP/V1/V2 roadmap (analyst)
+description: Produces or refreshes the RICE-prioritized roadmap and epics. Use at project start, when the backlog needs (re)prioritization, for a gap analysis, or to define the MVP.
 ---
 
-Invoke the `analyst` agent via the Agent tool. It performs in-app gap analysis + competitor research, RICE-scores
-features, defines the MVP/V1/V2 tiers, writes `docs/sdlc/roadmap.md`, and opens epic issues. If `CLAUDE.md`'s
-Product section is still a placeholder, it should report that the planner needs to run first.
+Use the `analyst` subagent (its definition lives in `~/.claude/agents/analyst.md`). Read `CLAUDE.md` and
+`docs/sdlc/GOVERNANCE.md` for project context first. Follow the agent's Required Output Format.
 
-Focus (optional): $ARGUMENTS
+Task / focus: $ARGUMENTS
+If no argument is given, act on the most relevant current work for this role.

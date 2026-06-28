@@ -1,8 +1,9 @@
 ---
-description: Threat model (per epic) or security gate (per ticket) (security)
+description: Threat-models an epic before code, or runs the security gate on a PR. Use for OWASP/ASVS, secret/PII, and vulnerable-dependency review.
 ---
 
-Invoke the `security` agent via the Agent tool. For an epic → produce the threat model + per-ticket security
-requirements. For a PR/branch → run the security gate (OWASP, secrets/PII, SCA; block High+Critical, track Medium).
+Use the `security` subagent (its definition lives in `~/.claude/agents/security.md`). Read `CLAUDE.md` and
+`docs/sdlc/GOVERNANCE.md` for project context first. Follow the agent's Required Output Format.
 
-Epic/PR (if empty, infer from the current diff): $ARGUMENTS
+Task / focus: $ARGUMENTS
+If no argument is given, act on the most relevant current work for this role.
