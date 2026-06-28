@@ -38,22 +38,22 @@ The **coordinator** is the only long-running agent; it owns the loop and spawns 
 
 Reasoning/gatekeeping roles = `opus`; lighter execution roles = `sonnet`. The **developer is `opus`** — implementation quality is worth the strongest model. Least-privilege tools. `memory` only where knowledge accumulates.
 
-| Role                    | Model  | Tools                                          | Memory | Home    | One-line job                                                 |
-| ----------------------- | ------ | ---------------------------------------------- | ------ | ------- | ------------------------------------------------------------ |
-| **coordinator**         | opus   | Agent, Bash(gh/git), Read, Glob, Grep          | yes    | project | Runs the autonomous loop; dispatches, **verifies** gates, merges, ships, runs the per-epic progress-review. |
-| **analyst**             | opus   | Read, Glob, Grep, WebSearch, WebFetch, Bash, Write, Edit | yes | global | Gap/feature discovery, prioritization, MVP/V1/V2 roadmap; owns roadmap-readiness gate. |
-| **product**             | opus   | Read, Glob, Grep, Bash, Write, Edit            | yes    | global  | PRD + breakdown into vertical-slice tickets w/ ACs; owns ticket-readiness gate. |
-| **planner**             | opus   | Read, Glob, Grep, Write, Edit                  | yes    | global  | Human-voice: vision/epic-intent brief + escalation resolution (kickoff/new-epic/escalation only; not per-ticket). |
-| **architect**           | opus   | Read, Glob, Grep, Bash, Write, Edit (ADRs only) | yes   | global  | Design-time plan + post-impl architecture review gate; mandates the CI gate set. |
-| **designer**            | sonnet | Read, Glob, Grep, Write, Edit (design docs only) | no   | global  | HCI + design-system spec for UI tickets; design-review gate (read-only on code). |
-| **security**            | opus   | Read, Glob, Grep, Bash, Write, Edit (security docs only) | yes | global | Threat model + OWASP/leak security gate; owns scanning policy. |
-| **developer**           | opus   | Read, Glob, Grep, Bash, Edit, Write            | no     | global  | Implements one ticket test-first; runs + pastes real local checks. |
-| **code-reviewer**       | opus   | Read, Glob, Grep, Bash                         | no     | global  | Code-review gate: correctness, smells, DRY, test quality, docs-in-sync (PASS/FAIL/BLOCKED). |
-| **qa**                  | sonnet | Read, Glob, Grep, Bash, Edit(tests), Write(tests), **Agent**(E2E fan-out) | yes | global | Per-ticket gate + real-app epic E2E gate (the verified epic DoD). |
-| **progress-reviewer**   | opus   | Agent, Read, Glob, Grep, Bash                  | yes    | global  | Per-epic self-correction: re-prioritize board, open correction tickets, adjust epics (board-only). |
-| **preplanner**          | opus   | Agent, Read, Glob, Grep, Bash                  | yes    | global  | On-demand full audit + backlog reconciliation + milestone tickets + pinned handoff brief (board-only). |
-| **release-coordinator** | sonnet | Read, Glob, Grep, Bash, Write, Edit (CHANGELOG/release only) | no | global | Final SHIP/HOLD/BLOCKED go/no-go; cuts the tagged release + changelog. |
-| **docs**                | sonnet | Read, Glob, Grep, Bash, Edit, Write            | no     | global  | Keeps README + STATUS + user docs in sync (verified); per-epic comprehensive pass. |
+| Role                    | Model  | Tools                                                                     | Memory | Home    | One-line job                                                                                                      |
+| ----------------------- | ------ | ------------------------------------------------------------------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| **coordinator**         | opus   | Agent, Bash(gh/git), Read, Glob, Grep                                     | yes    | project | Runs the autonomous loop; dispatches, **verifies** gates, merges, ships, runs the per-epic progress-review.       |
+| **analyst**             | opus   | Read, Glob, Grep, WebSearch, WebFetch, Bash, Write, Edit                  | yes    | global  | Gap/feature discovery, prioritization, MVP/V1/V2 roadmap; owns roadmap-readiness gate.                            |
+| **product**             | opus   | Read, Glob, Grep, Bash, Write, Edit                                       | yes    | global  | PRD + breakdown into vertical-slice tickets w/ ACs; owns ticket-readiness gate.                                   |
+| **planner**             | opus   | Read, Glob, Grep, Write, Edit                                             | yes    | global  | Human-voice: vision/epic-intent brief + escalation resolution (kickoff/new-epic/escalation only; not per-ticket). |
+| **architect**           | opus   | Read, Glob, Grep, Bash, Write, Edit (ADRs only)                           | yes    | global  | Design-time plan + post-impl architecture review gate; mandates the CI gate set.                                  |
+| **designer**            | sonnet | Read, Glob, Grep, Write, Edit (design docs only)                          | no     | global  | HCI + design-system spec for UI tickets; design-review gate (read-only on code).                                  |
+| **security**            | opus   | Read, Glob, Grep, Bash, Write, Edit (security docs only)                  | yes    | global  | Threat model + OWASP/leak security gate; owns scanning policy.                                                    |
+| **developer**           | opus   | Read, Glob, Grep, Bash, Edit, Write                                       | no     | global  | Implements one ticket test-first; runs + pastes real local checks.                                                |
+| **code-reviewer**       | opus   | Read, Glob, Grep, Bash                                                    | no     | global  | Code-review gate: correctness, smells, DRY, test quality, docs-in-sync (PASS/FAIL/BLOCKED).                       |
+| **qa**                  | sonnet | Read, Glob, Grep, Bash, Edit(tests), Write(tests), **Agent**(E2E fan-out) | yes    | global  | Per-ticket gate + real-app epic E2E gate (the verified epic DoD).                                                 |
+| **progress-reviewer**   | opus   | Agent, Read, Glob, Grep, Bash                                             | yes    | global  | Per-epic self-correction: re-prioritize board, open correction tickets, adjust epics (board-only).                |
+| **preplanner**          | opus   | Agent, Read, Glob, Grep, Bash                                             | yes    | global  | On-demand full audit + backlog reconciliation + milestone tickets + pinned handoff brief (board-only).            |
+| **release-coordinator** | sonnet | Read, Glob, Grep, Bash, Write, Edit (CHANGELOG/release only)              | no     | global  | Final SHIP/HOLD/BLOCKED go/no-go; cuts the tagged release + changelog.                                            |
+| **docs**                | sonnet | Read, Glob, Grep, Bash, Edit, Write                                       | no     | global  | Keeps README + STATUS + user docs in sync (verified); per-epic comprehensive pass.                                |
 
 `Agent` tool is granted to coordinator (orchestration), qa (E2E sub-agent fan-out), and progress-reviewer +
 preplanner (specialist fan-out during audit/review). `Edit/Write`
