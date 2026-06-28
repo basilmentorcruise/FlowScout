@@ -70,7 +70,7 @@ Repeat until no eligible work:
 
 ## Verify, don't assume (before advancing a gate or merging — independently confirm; do not trust verdict text)
 
-A subagent's claimed `PASS` is a *claim*. Before you act on it, confirm the load-bearing facts with evidence:
+A subagent's claimed `PASS` is a _claim_. Before you act on it, confirm the load-bearing facts with evidence:
 
 - **CI:** `gh pr checks <pr>` is actually green — never advance/merge on red or pending.
 - **Board:** re-query that the item exists on the board and its Status was actually set.

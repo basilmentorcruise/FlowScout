@@ -50,10 +50,10 @@ Resolved by the agents at runtime — never hardcoded in their prompts.
 
 - Repo: `basilmentorcruise/FlowScout`
 - Auth: `basilmentorcruise` (ssh)
-- Board: **#4**  id `PVT_kwHOB4GO_s4BbKFF`
+- Board: **#4** id `PVT_kwHOB4GO_s4BbKFF`
 - Status field id `PVTSSF_lAHOB4GO_s4BbKFFzhV8n8Q` → Todo=`f75ad846` · In Progress=`47fc9ee4` · Done=`98236657`
 - Concurrency cap: 3 developers
-- Branch prefix: `fs`  (branches are `fs-<issue>-<slug>`)
+- Branch prefix: `fs` (branches are `fs-<issue>-<slug>`)
 - Branch protection: unavailable on free private repo → PRs enforced by convention
 
 ## Pointers
