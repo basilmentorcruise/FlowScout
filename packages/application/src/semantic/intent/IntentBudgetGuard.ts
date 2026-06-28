@@ -13,21 +13,29 @@
  * budget it is handed (the composition root, #59, decides the allocation).
  */
 import type { CrawlBudget } from "@flowscout/domain";
+import { RunBudgetMeter } from "../budget/RunBudgetMeter.js";
 
 export class IntentBudgetGuard {
-  private _callsUsed = 0;
-  private _tokensUsed = 0;
+  /**
+   * The counter this guard delegates to (#59 §4). A `CrawlBudget` self-constructs a PRIVATE meter
+   * (the existing, back-compat path — every pre-#59 guard/refiner test is untouched). A shared
+   * `RunBudgetMeter` is used DIRECTLY (the #59 path — intent/naming/embedding draw on ONE ceiling).
+   */
+  private readonly meter: RunBudgetMeter;
 
-  constructor(private readonly budget: CrawlBudget) {}
+  constructor(budgetOrMeter: CrawlBudget | RunBudgetMeter) {
+    this.meter =
+      budgetOrMeter instanceof RunBudgetMeter ? budgetOrMeter : new RunBudgetMeter(budgetOrMeter);
+  }
 
   /** Number of LLM calls counted so far (successful + failed). */
   get callsUsed(): number {
-    return this._callsUsed;
+    return this.meter.callsUsed;
   }
 
   /** Total tokens (prompt + completion) counted so far. */
   get tokensUsed(): number {
-    return this._tokensUsed;
+    return this.meter.tokensUsed;
   }
 
   /**
@@ -35,7 +43,7 @@ export class IntentBudgetGuard {
    * Tier-2 MUST consult this before `LlmPort.complete(...)`.
    */
   canCall(): boolean {
-    return this._callsUsed < this.budget.maxLlmCalls && this._tokensUsed < this.budget.maxTokens;
+    return this.meter.canCall();
   }
 
   /**
@@ -45,7 +53,6 @@ export class IntentBudgetGuard {
    * Negative token inputs are clamped to 0 (defensive — a provider must never reduce usage).
    */
   recordUsage(promptTokens: number, completionTokens: number): void {
-    this._callsUsed += 1;
-    this._tokensUsed += Math.max(0, promptTokens) + Math.max(0, completionTokens);
+    this.meter.recordUsage(promptTokens, completionTokens);
   }
 }
