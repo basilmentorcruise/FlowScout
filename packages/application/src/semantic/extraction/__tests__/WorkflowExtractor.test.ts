@@ -98,6 +98,13 @@ describe("WorkflowExtractor — convergent / duplicate-path graph (AC1)", () => 
   it("does NOT set any semantic hidden-path flag (that is #58)", () => {
     expect(result.workflows.every((w) => !w.isHiddenPath)).toBe(true);
   });
+
+  it("surfaces D as an orphan when its only parent C is a duplicate-outcome (#73 lock)", () => {
+    // C is a duplicatePathNodeId ⇒ treated as an outcome, so traversal terminates at C
+    // and never descends the C→D edge. D is therefore unreached on any emitted path and
+    // MUST be reported as an orphan — pin this so the convergent fixture can't regress.
+    expect(result.orphanStateIds).toEqual([id("D")]);
+  });
 });
 
 describe("WorkflowExtractor — cyclic graph (AC3)", () => {
@@ -121,6 +128,42 @@ describe("WorkflowExtractor — cyclic graph (AC3)", () => {
     for (const wf of result.workflows) {
       expect(wf.steps.length).toBeLessThanOrEqual(2);
     }
+  });
+});
+
+describe("WorkflowExtractor — orphan accounting under path-length cap (#73)", () => {
+  // A→B→C→D, a simple chain, capped at maxPathLength=2.
+  const chain = (): StateGraph =>
+    makeGraph({
+      nodes: [node("A", 0), node("B", 1), node("C", 2), node("D", 3)],
+      edges: [edge("e1", "A", "B"), edge("e2", "B", "C"), edge("e3", "C", "D")],
+    });
+
+  it("reports BOTH nodes past a maxPathLength cut as orphans, not just the far one", () => {
+    // Cap = 2 ⇒ the only emitted workflow is the truncated A→B. C (one hop past the cut)
+    // and D (two hops) are BOTH unreached. Pre-fix, C was pre-marked visited (the .add ran
+    // before the cap check) and silently omitted while only D was reported — an accounting
+    // asymmetry. Post-fix, "visited" means "appended to an emitted path", so the truncated
+    // edge target falls through to orphan collection, symmetric with nodes further out.
+    const extractor = new WorkflowExtractor(undefined, undefined, {
+      maxPathLength: 2,
+      maxWorkflows: 500,
+    });
+    const result = extractor.extract(chain());
+
+    expect(result.workflows.map((w) => w.steps.map((s) => s.stateId))).toEqual([
+      [id("A"), id("B")],
+    ]);
+    // orphanStateIds is sorted ascending: C before D.
+    expect(result.orphanStateIds).toEqual([id("C"), id("D")]);
+  });
+
+  it("stays benign uncapped: the same chain surfaces no orphans (no behavior change)", () => {
+    const result = defaultWorkflowExtractor().extract(chain());
+    expect(result.workflows.map((w) => w.steps.map((s) => s.stateId))).toEqual([
+      [id("A"), id("B"), id("C"), id("D")],
+    ]);
+    expect(result.orphanStateIds).toEqual([]);
   });
 });
 
