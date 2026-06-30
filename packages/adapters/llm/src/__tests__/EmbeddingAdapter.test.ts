@@ -79,6 +79,35 @@ describe("EmbeddingAdapter — happy path", () => {
     expect(getOptions()[0]?.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("counts Voyage-shaped usage.total_tokens as promptTokens (real embedding path, #75)", async () => {
+    // Voyage's embeddings API reports usage as `total_tokens`, not Anthropic's `input_tokens`.
+    // The adapter must read it so the shared RunBudgetMeter does not under-count embedding spend.
+    const { client } = resolving({
+      data: [{ embedding: [0.1, 0.2] }],
+      model: "voyage-3",
+      usage: { total_tokens: 11 },
+    });
+    const adapter = new EmbeddingAdapter(client);
+
+    const result = await adapter.embed(INPUT);
+
+    expect(result.promptTokens).toBe(11);
+  });
+
+  it("prefers total_tokens but still honors input_tokens when total is absent (#75)", async () => {
+    // Existing Anthropic-shaped fakes/tests report `input_tokens`; that path stays valid.
+    const { client } = resolving({
+      data: [{ embedding: [0.3] }],
+      model: "m",
+      usage: { input_tokens: 4 },
+    });
+    const adapter = new EmbeddingAdapter(client);
+
+    const result = await adapter.embed(INPUT);
+
+    expect(result.promptTokens).toBe(4);
+  });
+
   it("forwards the documented default model id when none is configured", async () => {
     const { client, getCalls } = resolving({
       data: [{ embedding: [1] }],
