@@ -99,11 +99,9 @@ export class WorkflowExtractor {
     visitedNodes: Set<StateIdentity>,
     capState: { stopped: boolean },
   ): void {
-    visitedNodes.add(node);
-
     // An outcome terminates the path here even if it has outgoing edges.
     if (this.outcomePolicy.isOutcome(node, graph, adjacency)) {
-      this.emit(out, pathStates, pathEdges, capState);
+      this.emit(out, pathStates, pathEdges, visitedNodes, capState);
       return;
     }
 
@@ -112,18 +110,21 @@ export class WorkflowExtractor {
 
     for (const edge of outgoing) {
       if (capState.stopped) break;
-      visitedNodes.add(edge.toId);
 
       // Back-edge / cycle: close the current path into a workflow; do NOT recurse.
+      // `edge.toId` is an ancestor already on `pathStates`, so it is still marked
+      // visited via the emit below — only nodes BEYOND the cut are left unmarked.
       if (visitedOnPath.has(edge.toId)) {
-        this.emit(out, pathStates, pathEdges, capState);
+        this.emit(out, pathStates, pathEdges, visitedNodes, capState);
         recursed = true;
         continue;
       }
 
-      // Length cap: emit the truncated path (nothing silently dropped) and stop descending.
+      // Length cap: emit the truncated path (nothing silently dropped) and stop
+      // descending. `edge.toId` is NOT appended, so it is intentionally left unmarked
+      // here and surfaced as an orphan — symmetric with nodes further past the cut (#73).
       if (pathStates.length + 1 > this.config.maxPathLength) {
-        this.emit(out, pathStates, pathEdges, capState);
+        this.emit(out, pathStates, pathEdges, visitedNodes, capState);
         recursed = true;
         continue;
       }
@@ -145,22 +146,30 @@ export class WorkflowExtractor {
     // No child path was emitted (no outgoing edges, or a custom OutcomePolicy left a
     // sink non-terminal) ⇒ this path is still a workflow.
     if (!recursed) {
-      this.emit(out, pathStates, pathEdges, capState);
+      this.emit(out, pathStates, pathEdges, visitedNodes, capState);
     }
   }
 
   /**
    * Record a path unless the workflow cap has already been hit. Flipping `capState.stopped`
    * here is the SINGLE source of cap enforcement — the per-entry and per-edge loops check it.
+   *
+   * Marking `visitedNodes` here (over the states actually appended to an emitted path) is
+   * the SINGLE source of "visited" truth (#73): a node counts as visited only when it lands
+   * on a real, emitted workflow path. Uncapped this is benign — every reachable node ends up
+   * on some emitted path — but under a maxPathLength cut the node just past the boundary is
+   * correctly left unmarked and surfaced as an orphan, symmetric with nodes further out.
    */
   private emit(
     out: EnumeratedPath[],
     pathStates: readonly StateIdentity[],
     pathEdges: readonly StateEdge[],
+    visitedNodes: Set<StateIdentity>,
     capState: { stopped: boolean },
   ): void {
     if (capState.stopped) return;
     out.push({ states: pathStates, edges: pathEdges });
+    for (const stateId of pathStates) visitedNodes.add(stateId);
     if (out.length >= this.config.maxWorkflows) {
       capState.stopped = true;
     }
