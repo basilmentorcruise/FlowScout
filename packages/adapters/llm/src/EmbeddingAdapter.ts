@@ -63,7 +63,8 @@ export interface EmbeddingClientLike {
     ): Promise<{
       data: ReadonlyArray<{ embedding: readonly number[] }>;
       model: string;
-      usage?: { input_tokens?: number };
+      // Voyage reports `total_tokens`; `input_tokens` kept for Anthropic-shaped fakes/tests (#75).
+      usage?: { total_tokens?: number; input_tokens?: number };
     }>;
   };
 }
@@ -125,7 +126,9 @@ export class EmbeddingAdapter implements EmbeddingPort {
       return {
         vector,
         modelId: response.model,
-        promptTokens: response.usage?.input_tokens ?? 0,
+        // Voyage reports `total_tokens`; fall back to `input_tokens` (Anthropic-shaped) so the
+        // shared RunBudgetMeter counts real embedding spend instead of under-counting to 0 (#75).
+        promptTokens: response.usage?.total_tokens ?? response.usage?.input_tokens ?? 0,
       };
     } catch {
       // Timeout / network / abort / unexpected ⇒ DEGRADED (NFR6). No error detail leaked.
@@ -170,7 +173,7 @@ export function createEmbeddingClient(apiKey?: string): EmbeddingClientLike {
       ): Promise<{
         data: ReadonlyArray<{ embedding: readonly number[] }>;
         model: string;
-        usage?: { input_tokens?: number };
+        usage?: { total_tokens?: number; input_tokens?: number };
       }> {
         if (!key) {
           // No key configured ⇒ degrade (the adapter maps a rejection to an empty-vector result).
@@ -191,7 +194,7 @@ export function createEmbeddingClient(apiKey?: string): EmbeddingClientLike {
         return (await response.json()) as {
           data: ReadonlyArray<{ embedding: readonly number[] }>;
           model: string;
-          usage?: { input_tokens?: number };
+          usage?: { total_tokens?: number; input_tokens?: number };
         };
       },
     },
