@@ -1,10 +1,31 @@
 /**
  * Repository ports — persistence abstractions for the three core aggregates.
- * Implemented in adapters/persistence (PostgreSQL + Prisma for MVP).
+ * Implemented in adapters/persistence (durable store per ADR-0008 — embedded SQLite for MVP;
+ * Postgres remains the documented scale-out target behind the same ports).
  */
 import type { Run } from "../models/run.js";
 import type { StateGraph, StateIdentity, StateNode, StateEdge } from "../models/state-graph.js";
 import type { Report } from "../models/report.js";
+
+/**
+ * Options for cross-app paginated run listing (ADR-0008 §4).
+ * `cursor` is an opaque token from a previous page's `nextCursor`;
+ * null/undefined ⇒ first page. Implementations MUST treat a malformed
+ * cursor as the first page (defensive decode — never a throw).
+ */
+export interface ListRunsOptions {
+  readonly limit: number;
+  readonly cursor?: string | null;
+}
+
+/** One page of runs, newest-first (ADR-0008 §4). */
+export interface RunPage {
+  readonly runs: readonly Run[];
+  /** Opaque cursor for the next page, or null when this is the last page. */
+  readonly nextCursor: string | null;
+  /** Total number of runs in the store (across all pages). */
+  readonly total: number;
+}
 
 /** RunRepository — manages crawl run lifecycle records. */
 export interface RunRepository {
@@ -12,6 +33,8 @@ export interface RunRepository {
   findById(id: string): Promise<Run | null>;
   findByAppId(appId: string, limit?: number): Promise<readonly Run[]>;
   update(id: string, patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void>;
+  /** Cross-app run history: newest-first by (startedAt, id), cursor-paginated (FR6). */
+  listRuns(options: ListRunsOptions): Promise<RunPage>;
 }
 
 /** StateGraphRepository — persists and retrieves the per-run state-graph. */

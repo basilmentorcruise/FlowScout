@@ -6,6 +6,7 @@ import type { WorkflowMap } from "./workflow.js";
 
 /** The run status when the report was generated. */
 export type RunStatus =
+  | "running" // created at crawl start, not yet finalized (ADR-0008 §2)
   | "completed"
   | "partial" // step cap / budget hit
   | "blocked-on-2fa"
