@@ -46,3 +46,9 @@ pnpm-lock.yaml.bak
 e2e/fixtures/sample-app/build/
 e2e/fixtures/sample-app/DerivedData/
 e2e/fixtures/**/*.app
+
+# FlowScout demo apps (local only, never committed)
+.flowscout-demo-apps/
+
+# transient agent worktrees
+.claude/worktrees/

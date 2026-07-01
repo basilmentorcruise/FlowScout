@@ -1,0 +1,19 @@
+---
+name: delivery-loop-gotchas
+description: Recurring operational lessons for the autonomous delivery loop (worktrees, PRs, rebases, gate verification).
+metadata:
+  type: project
+---
+
+# Delivery-loop gotchas (learned during E1)
+
+- **Stale worktrees mislead read-only gates.** Spent dev worktrees under `.claude/worktrees/agent-*` persist with pre-fix code. Architect/security/qa agents that read a worktree path instead of the PR head produce FALSE verdicts (a #12 arch FAIL and several near-misses traced to this). ALWAYS instruct gate agents: confirm `gh pr view <n> --json headRefOid`, review via `git show origin/<branch>:<path>` / `gh pr diff <n>`, and IGNORE `.claude/worktrees/`.
+- **PRs open as draft.** `gh pr merge` fails with "still a draft" — run `gh pr ready <n>` first.
+- **SendMessage to resume a subagent is NOT available** in this harness. To continue a dev's work, dispatch a fresh developer that does `git fetch && git checkout <branch> && git reset --hard origin/<branch>` (fetch the remote branch, don't rely on the old worktree).
+- **Interrupted subagents may leave uncommitted work** in their worktree (a dev hit a usage limit mid-#18). The work was committed locally but unpushed; recover by committing/pushing from the worktree, then dispatch a fresh dev to validate/finalize.
+- **Shared-file rebase conflicts are expected** when batched tickets touch the same files. In E1, all capability tickets touched `vitest.config.ts` (coverage-exclusion list) + the three stub-test files (`McpConnection.test.ts`, `MobileMcpDriver.test.ts`, `defaultCapabilities.test.ts`). Merge one at a time; rebase each subsequent branch onto new `main`, KEEPING all prior tickets' edits (union). `pnpm install` to regenerate `pnpm-lock.yaml` on lockfile conflicts.
+- **depcruise / SCA / SAST are separate CI steps** not covered by `pnpm -w test`. A #16 circular import (validator↔manager) passed tests but failed CI's depcruise; the #18 release gate caught a red CI. Tell devs to run `pnpm -w depcruise` (and SCA/SAST) locally before handoff; the release gate must verify CI green, not just the gate verdicts.
+- **QA earns its keep on functional integrity.** QA caught real defects the reasoning gates only flagged as "low": #17 listTools cache breaking mid-poll WDA detection; #18 hardcoded `tapSucceeded`/`resetSucceeded` making the success metric vacuous. Keep QA adversarial on AC semantics, not just test counts.
+- **Conformance harness for partial adapters:** a single full-driver contract suite can't test partial-capability real adapters — needed per-capability section runners (ADR-0003). Design conformance harnesses to be consumable per-capability from the start.
+- **Commit design docs to main BEFORE dispatching worktree-isolated developers.** Architect/security agents dispatched WITHOUT `isolation: worktree` write their specs (ADRs/plans/threat models) into the _main checkout_ working tree as **uncommitted** files. A developer dispatched WITH `isolation: worktree` branches off `origin/main` in a _separate_ worktree and **cannot see those uncommitted docs** — so "FOLLOW THE PLAN: docs/.../ADR-XXXX.md" points at a file the dev doesn't have. Fix (E3 cycle): after the design agents finish, land all their docs on `main` via a small docs PR (CI runs `prettier --check` on `**/*.md`, so run `pnpm -w format` / `prettier --write` first or it fails fast in ~30s), THEN dispatch developers. Stopgap: put the full plan content inline in the dev prompt so the dev can implement without the file.
+- **Concurrent architect agents collide on ADR numbers.** Two architects running in parallel (E3 #53 + #55) each picked "the next ADR number" = 0005, producing two `ADR-0005-*.md`. Assign ADR numbers up front when fanning out parallel design work, or reconcile before committing (renumber the later one; keep the one already cross-referenced by sibling docs — E3.1 plan referenced 0005=sameness, so the intent ADR became 0006).
