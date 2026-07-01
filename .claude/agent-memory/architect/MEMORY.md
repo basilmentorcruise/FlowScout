@@ -14,3 +14,4 @@
 - [E3.5 duplicate detection](project_e3-58-duplicate-detection.md) — #58: RefineIdentities orchestrator + cross-identity SemanticDuplicateDetector; precision-first; additive EmbeddingCachePort/DuplicatePathGroup/projectA11ySkeleton
 - [E3.6 capstone](project_e3-59-capstone.md) — #59 BuildWorkflowMap assembly; canonical-map POST-HOC (no collaborators edit); shared RunBudgetMeter; duplicateGroups additive; orphan debt deferred
 - [E7 run persistence](project_e7-run-persistence.md) — ADR-0008: SQLite (amends ADR-0001 §2.7); RunStatus+running; artifactUri="" E4-additive; #83 owns domain edits; #84 orchestrator; #84/#85 serialize
+- [E4 HTML report](project_e4-html-report.md) — ADR-0009: SafeHtml tagged-template T7 boundary; relative artifactUri; GenerateReportArtifact+Decorator (no #84 edit); #88 annotation slots
