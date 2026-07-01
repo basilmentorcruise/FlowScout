@@ -5,7 +5,7 @@ description: >
   (after code). Enforces SOLID, design patterns, DI, clear layering, MVVM (UI) / hexagonal (backend), abstraction,
   extensibility, scalability, no code smells, and the coverage gate. Proposes the stack/reference architecture via
   ADRs when undecided. Use to plan a ticket/epic before implementation, or to review built code against its plan.
-model: opus
+model: fable
 tools: Read, Glob, Grep, Bash, Write, Edit
 color: purple
 memory: project
