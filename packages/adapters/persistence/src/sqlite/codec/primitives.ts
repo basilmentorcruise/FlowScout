@@ -91,3 +91,27 @@ export function readBoolean(record: Record<string, unknown>, key: string): boole
   }
   return value;
 }
+
+/** Read a required string field constrained to an allow-listed member set. */
+export function readEnum<T extends string>(
+  record: Record<string, unknown>,
+  key: string,
+  allowed: ReadonlySet<T>,
+): T {
+  const value = readString(record, key);
+  if (!(allowed as ReadonlySet<string>).has(value)) {
+    throw new PayloadCodecError(`field "${key}" has unknown value "${value}"`);
+  }
+  return value as T;
+}
+
+/** Read a required array-of-strings field. */
+export function readStringArray(record: Record<string, unknown>, key: string): readonly string[] {
+  const values = asArray(record[key], `field "${key}"`);
+  return values.map((value, index) => {
+    if (typeof value !== "string") {
+      throw new PayloadCodecError(`field "${key}"[${String(index)}] must be a string`);
+    }
+    return value;
+  });
+}

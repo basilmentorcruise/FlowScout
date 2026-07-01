@@ -11,12 +11,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  runRunRepositoryContract,
+  runPersistenceContractSuite,
   defaultRunFixtures,
+  defaultGraphFixtures,
+  defaultReportFixtures,
 } from "@flowscout/testing-persistence";
 import { openDatabase } from "../sqlite/Database.js";
 import type { SqliteDatabase } from "../sqlite/Database.js";
 import { SqliteRunRepository } from "../sqlite/SqliteRunRepository.js";
+import { SqliteStateGraphRepository } from "../sqlite/SqliteStateGraphRepository.js";
+import { SqliteReportRepository } from "../sqlite/SqliteReportRepository.js";
 
 interface Storage {
   readonly path: string;
@@ -65,11 +69,29 @@ function track<T extends object>(repository: T, storage: Storage): T {
   return repository;
 }
 
-runRunRepositoryContract({
-  createRepository: () => {
-    const storage = createStore();
-    return track(new SqliteRunRepository(storage.db), storage);
+runPersistenceContractSuite({
+  run: {
+    createRepository: () => {
+      const storage = createStore();
+      return track(new SqliteRunRepository(storage.db), storage);
+    },
+    reopen: (repository) => reopenStore(repository, (db) => new SqliteRunRepository(db)),
+    fixtures: defaultRunFixtures,
   },
-  reopen: (repository) => reopenStore(repository, (db) => new SqliteRunRepository(db)),
-  fixtures: defaultRunFixtures,
+  graph: {
+    createRepository: () => {
+      const storage = createStore();
+      return track(new SqliteStateGraphRepository(storage.db), storage);
+    },
+    reopen: (repository) => reopenStore(repository, (db) => new SqliteStateGraphRepository(db)),
+    fixtures: defaultGraphFixtures,
+  },
+  report: {
+    createRepository: () => {
+      const storage = createStore();
+      return track(new SqliteReportRepository(storage.db), storage);
+    },
+    reopen: (repository) => reopenStore(repository, (db) => new SqliteReportRepository(db)),
+    fixtures: defaultReportFixtures,
+  },
 });

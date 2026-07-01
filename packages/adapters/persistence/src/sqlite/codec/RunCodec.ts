@@ -12,14 +12,20 @@ import type { Run, CrawlBudget } from "@flowscout/domain";
 import {
   asRecord,
   parsePayload,
-  PayloadCodecError,
+  readEnum,
   readNullableString,
   readNumber,
   readString,
 } from "./primitives.js";
 
-const RUN_STATUSES = new Set(["running", "completed", "partial", "blocked-on-2fa", "error"]);
-const PLATFORMS = new Set(["ios", "android"]);
+const RUN_STATUSES: ReadonlySet<Run["status"]> = new Set<Run["status"]>([
+  "running",
+  "completed",
+  "partial",
+  "blocked-on-2fa",
+  "error",
+]);
+const PLATFORMS: ReadonlySet<Run["platform"]> = new Set<Run["platform"]>(["ios", "android"]);
 
 function encodeBudget(budget: CrawlBudget): Record<string, number> {
   return {
@@ -42,22 +48,6 @@ function decodeBudget(value: unknown): CrawlBudget {
     plateauWindow: readNumber(record, "plateauWindow"),
     plateauWarnRatio: readNumber(record, "plateauWarnRatio"),
   };
-}
-
-function decodeStatus(record: Record<string, unknown>): Run["status"] {
-  const status = readString(record, "status");
-  if (!RUN_STATUSES.has(status)) {
-    throw new PayloadCodecError(`unknown run status "${status}"`);
-  }
-  return status as Run["status"];
-}
-
-function decodePlatform(record: Record<string, unknown>): Run["platform"] {
-  const platform = readString(record, "platform");
-  if (!PLATFORMS.has(platform)) {
-    throw new PayloadCodecError(`unknown platform "${platform}"`);
-  }
-  return platform as Run["platform"];
 }
 
 /** Encode a Run to its deterministic JSON payload. */
@@ -84,9 +74,9 @@ export function decodeRun(payload: string): Run {
     id: readString(record, "id"),
     appId: readString(record, "appId"),
     appVersion: readString(record, "appVersion"),
-    platform: decodePlatform(record),
+    platform: readEnum(record, "platform", PLATFORMS),
     budget: decodeBudget(record["budget"]),
-    status: decodeStatus(record),
+    status: readEnum(record, "status", RUN_STATUSES),
     startedAt: readString(record, "startedAt"),
     finishedAt: readNullableString(record, "finishedAt"),
     driverVersion: readString(record, "driverVersion"),
