@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "packages/adapters/*"
+  - "packages/testing/*"
   - "e2e"
 allowBuilds:
   esbuild: true
