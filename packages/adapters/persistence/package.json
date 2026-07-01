@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@flowscout/config": "workspace:*",
+    "@flowscout/testing-persistence": "workspace:*",
     "@types/better-sqlite3": "7.6.13",
     "typescript": "^5.5.0",
     "vitest": "^3.0.0"

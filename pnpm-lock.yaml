@@ -135,6 +135,9 @@ importers:
       '@flowscout/config':
         specifier: workspace:*
         version: link:../../config
+      '@flowscout/testing-persistence':
+        specifier: workspace:*
+        version: link:../../testing/persistence
       '@types/better-sqlite3':
         specifier: 7.6.13
         version: 7.6.13
