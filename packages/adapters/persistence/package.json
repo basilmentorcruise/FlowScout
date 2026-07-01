@@ -2,7 +2,7 @@
   "name": "@flowscout/adapter-persistence",
   "version": "0.0.1",
   "private": true,
-  "description": "Persistence adapter — implements RunRepository, StateGraphRepository, ReportRepository via PostgreSQL + Prisma.",
+  "description": "Persistence adapter — implements RunRepository, StateGraphRepository, ReportRepository via embedded SQLite (better-sqlite3, ADR-0008). Postgres remains the documented scale-out target behind the same ports.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
