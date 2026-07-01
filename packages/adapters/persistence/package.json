@@ -19,10 +19,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@flowscout/domain": "workspace:*"
+    "@flowscout/domain": "workspace:*",
+    "better-sqlite3": "12.11.1"
   },
   "devDependencies": {
     "@flowscout/config": "workspace:*",
+    "@types/better-sqlite3": "7.6.13",
     "typescript": "^5.5.0",
     "vitest": "^3.0.0"
   }
