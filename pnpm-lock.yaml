@@ -141,6 +141,9 @@ importers:
       '@types/better-sqlite3':
         specifier: 7.6.13
         version: 7.6.13
+      '@vitest/coverage-v8':
+        specifier: ^3.2.6
+        version: 3.2.6(vitest@3.2.6(@types/node@20.19.43))
       typescript:
         specifier: ^5.5.0
         version: 5.9.3

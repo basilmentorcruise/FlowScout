@@ -14,6 +14,7 @@
 import type { Report, ReportRepository } from "@flowscout/domain";
 import type { SqliteDatabase } from "./Database.js";
 import { decodeReport, encodeReport } from "./codec/ReportCodec.js";
+import { resolveAfter } from "./promiseBridge.js";
 
 /** `LIMIT -1` = no limit in SQLite — used when `findByAppId` gets no limit. */
 const NO_LIMIT = -1;
@@ -73,8 +74,9 @@ export class SqliteReportRepository implements ReportRepository {
   }
 
   save(report: Report): Promise<void> {
-    this.saveInTransaction(report);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.saveInTransaction(report);
+    });
   }
 
   findById(reportId: string): Promise<Report | null> {

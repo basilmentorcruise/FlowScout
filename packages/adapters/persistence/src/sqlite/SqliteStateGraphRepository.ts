@@ -21,6 +21,7 @@ import type {
 import type { SqliteDatabase } from "./Database.js";
 import { decodeGraph, encodeGraph } from "./codec/GraphCodec.js";
 import { assertNoUnredactedSecureField } from "./redactionGuard.js";
+import { resolveAfter } from "./promiseBridge.js";
 
 interface PayloadRow {
   readonly payload: string;
@@ -73,18 +74,21 @@ export class SqliteStateGraphRepository implements StateGraphRepository {
   }
 
   saveGraph(graph: StateGraph): Promise<void> {
-    this.saveInTransaction(graph);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.saveInTransaction(graph);
+    });
   }
 
   upsertNode(runId: string, node: StateNode): Promise<void> {
-    this.upsertNodeInTransaction(runId, node);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.upsertNodeInTransaction(runId, node);
+    });
   }
 
   appendEdge(runId: string, edge: StateEdge): Promise<void> {
-    this.appendEdgeInTransaction(runId, edge);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.appendEdgeInTransaction(runId, edge);
+    });
   }
 
   findByRunId(runId: string): Promise<StateGraph | null> {

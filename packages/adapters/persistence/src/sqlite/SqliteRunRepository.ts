@@ -17,6 +17,7 @@ import type { ListRunsOptions, Run, RunPage, RunRepository } from "@flowscout/do
 import type { SqliteDatabase } from "./Database.js";
 import { decodeRun, encodeRun } from "./codec/RunCodec.js";
 import { decodeRunPageCursor, encodeRunPageCursor } from "./cursor.js";
+import { resolveAfter } from "./promiseBridge.js";
 
 /** Fallback page size when the caller supplies a non-positive/non-integer limit. */
 const DEFAULT_PAGE_SIZE = 50;
@@ -113,8 +114,9 @@ export class SqliteRunRepository implements RunRepository {
   }
 
   save(run: Run): Promise<void> {
-    this.saveInTransaction(run);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.saveInTransaction(run);
+    });
   }
 
   findById(id: string): Promise<Run | null> {
@@ -128,8 +130,9 @@ export class SqliteRunRepository implements RunRepository {
   }
 
   update(id: string, patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void> {
-    this.updateInTransaction(id, patch);
-    return Promise.resolve();
+    return resolveAfter(() => {
+      this.updateInTransaction(id, patch);
+    });
   }
 
   listRuns(options: ListRunsOptions): Promise<RunPage> {
