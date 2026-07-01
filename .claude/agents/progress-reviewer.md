@@ -6,7 +6,7 @@ description: >
   re-prioritizes the board, opens correction/improvement tickets, and adjusts epics — autonomously. Escalates only
   big pivots. Use after an epic's release, or to ask "are we still building toward the vision?".
   Examples: "review progress after the checkout epic", "are we on track vs the roadmap".
-model: opus
+model: fable
 tools: Agent, Read, Glob, Grep, Bash
 color: blue
 memory: project

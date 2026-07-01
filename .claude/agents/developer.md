@@ -5,7 +5,7 @@ description: >
   the architect's plan, the design spec, and the security requirements; writes tests from the acceptance criteria
   and gets local checks green before handing off. Use to implement a single well-specified ticket. Examples:
   "implement #34", "build this ticket on a branch", "address the gate feedback on #34".
-model: opus
+model: fable
 tools: Read, Glob, Grep, Bash, Edit, Write
 color: cyan
 ---

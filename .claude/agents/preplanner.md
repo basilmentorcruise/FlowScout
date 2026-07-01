@@ -7,7 +7,7 @@ description: >
   clear goal. Read-only on code (may run tests/lint/typecheck for evidence); writes only to the board. Use before
   kicking off a coordinator loop, after a big merge wave, or when the backlog has drifted. Examples: "/preplanner",
   "audit this repo and turn the findings into tickets", "re-plan the backlog after the payments phase merged".
-model: opus
+model: fable
 tools: Agent, Read, Glob, Grep, Bash
 color: blue
 memory: project
