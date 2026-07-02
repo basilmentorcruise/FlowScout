@@ -51,7 +51,11 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
       it("re-saving the same id is an upsert — latest wins, no duplication", async () => {
         const run = fixtures.makeRun();
         await repository.save(run);
-        const updated: Run = { ...run, status: "completed", finishedAt: "2026-07-02T11:00:00.000Z" };
+        const updated: Run = {
+          ...run,
+          status: "completed",
+          finishedAt: "2026-07-02T11:00:00.000Z",
+        };
         await repository.save(updated);
         await expect(repository.findById(run.id)).resolves.toEqual(updated);
         await expect(repository.findByAppId(run.appId)).resolves.toHaveLength(1);
@@ -89,7 +93,9 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
       });
 
       it("is a no-op (no throw) for an unknown id", async () => {
-        await expect(repository.update("no-such-run", { status: "error" })).resolves.toBeUndefined();
+        await expect(
+          repository.update("no-such-run", { status: "error" }),
+        ).resolves.toBeUndefined();
       });
     });
 
@@ -115,7 +121,10 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
         expect(pageOne.total).toBe(5);
         expect(pageOne.nextCursor).not.toBeNull();
 
-        const pageTwo = await repository.listRuns({ limit: PAGE_LIMIT, cursor: pageOne.nextCursor });
+        const pageTwo = await repository.listRuns({
+          limit: PAGE_LIMIT,
+          cursor: pageOne.nextCursor,
+        });
         expect(pageTwo.runs.map((r) => r.id)).toEqual(["run-3", "run-2"]);
         expect(pageTwo.total).toBe(5);
         expect(pageTwo.nextCursor).not.toBeNull();
@@ -171,7 +180,10 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
     if (reopen) {
       describe("durability across a fresh store instance (NFR1)", () => {
         it("returns saved runs from a reopened repository", async () => {
-          const run = fixtures.makeRun({ status: "completed", finishedAt: "2026-07-02T11:00:00.000Z" });
+          const run = fixtures.makeRun({
+            status: "completed",
+            finishedAt: "2026-07-02T11:00:00.000Z",
+          });
           await repository.save(run);
           const reopened = reopen(repository);
           await expect(reopened.findById(run.id)).resolves.toEqual(run);

@@ -47,8 +47,7 @@ export class FakeRunRepository implements RunRepository {
         : b.startedAt.localeCompare(a.startedAt),
     );
     // Malformed/unknown cursor ⇒ findIndex -1 ⇒ start at 0 (first page — defensive per port doc).
-    const start =
-      options.cursor != null ? sorted.findIndex((r) => r.id === options.cursor) + 1 : 0;
+    const start = options.cursor != null ? sorted.findIndex((r) => r.id === options.cursor) + 1 : 0;
     const page = sorted.slice(start, start + options.limit);
     const hasMore = start + options.limit < sorted.length;
     const lastOnPage = page[page.length - 1];

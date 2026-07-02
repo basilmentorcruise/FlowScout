@@ -89,9 +89,7 @@ export function runReportRepositoryContract(options: ReportRepositoryContractOpt
           "report-fixture-1",
           "report-fixture-2",
         ]);
-        await expect(
-          repository.findByAppId(reportOne.metadata.appId, 1),
-        ).resolves.toHaveLength(1);
+        await expect(repository.findByAppId(reportOne.metadata.appId, 1)).resolves.toHaveLength(1);
       });
     });
 

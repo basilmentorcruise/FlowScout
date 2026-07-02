@@ -23,10 +23,7 @@ import type { SqliteDatabase } from "../sqlite/Database.js";
 import { SqliteRunRepository } from "../sqlite/SqliteRunRepository.js";
 import { SqliteStateGraphRepository } from "../sqlite/SqliteStateGraphRepository.js";
 import { SqliteReportRepository } from "../sqlite/SqliteReportRepository.js";
-import {
-  assertNoUnredactedSecureField,
-  UnredactedSecretError,
-} from "../sqlite/redactionGuard.js";
+import { assertNoUnredactedSecureField, UnredactedSecretError } from "../sqlite/redactionGuard.js";
 
 /** E3 seeded-secret markers (threat model T1) — must NEVER survive into the store. */
 const SEEDED_SECRET = "hunter2-SECRET";
@@ -58,7 +55,10 @@ function open(path: string): SqliteDatabase {
 describe("reopen durability — write → close → reopen → intact (T9/M83.7, NFR1)", () => {
   it("returns all three aggregates deep-equal from a fresh handle over the same file", async () => {
     const path = makeDbPath();
-    const run = defaultRunFixtures.makeRun({ status: "completed", finishedAt: "2026-07-02T11:00:00.000Z" });
+    const run = defaultRunFixtures.makeRun({
+      status: "completed",
+      finishedAt: "2026-07-02T11:00:00.000Z",
+    });
     const graph = defaultGraphFixtures.makeGraph({ runId: run.id });
     const report = defaultReportFixtures.makeReport();
 

@@ -102,20 +102,22 @@ describe("openDatabase", () => {
     const dbPath = join(root, "flowscout.db");
     const first = open(dbPath);
     first
-      .prepare("INSERT INTO runs (id, app_id, app_version, platform, status, started_at, driver_version, policy_version, schema_version, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .prepare(
+        "INSERT INTO runs (id, app_id, app_version, platform, status, started_at, driver_version, policy_version, schema_version, payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
       .run("r1", "a1", "1.0", "ios", "running", "2026-07-02T10:00:00.000Z", "d", "p", "s", "{}");
     first.close();
     const second = open(dbPath);
-    const row = second.prepare<[string], { id: string }>("SELECT id FROM runs WHERE id = ?").get("r1");
+    const row = second
+      .prepare<[string], { id: string }>("SELECT id FROM runs WHERE id = ?")
+      .get("r1");
     expect(row?.id).toBe("r1");
   });
 
   it("supports :memory: for tests without touching the filesystem", () => {
     const db = openDatabase(":memory:");
     openHandles.push(db);
-    const count = db
-      .prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM runs")
-      .get();
+    const count = db.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM runs").get();
     expect(count?.n).toBe(0);
   });
 });
