@@ -9,6 +9,8 @@ import type { HeaderView } from "../viewmodel.js";
 export const PURPOSE_PLACEHOLDER = "Purpose not determined for this run.";
 
 const STATUS_COPY: Record<HeaderView["runStatus"], string> = {
+  // "running" joined RunStatus with E7.1 (#83) — a report rendered mid-run is partial-like.
+  running: "Running (exploration in progress)",
   completed: "Completed",
   partial: "Partial (budget/step cap reached)",
   "blocked-on-2fa": "Blocked on 2FA",
@@ -16,6 +18,7 @@ const STATUS_COPY: Record<HeaderView["runStatus"], string> = {
 };
 
 const STATUS_CLASS: Record<HeaderView["runStatus"], string> = {
+  running: "fs-status fs-status-warn",
   completed: "fs-status",
   partial: "fs-status fs-status-warn",
   "blocked-on-2fa": "fs-status fs-status-warn",

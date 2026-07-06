@@ -178,17 +178,20 @@ describe("edge-case states (design spec §7)", () => {
     expect(doc.querySelector("h1")).not.toBeNull();
   });
 
-  it("labels a non-completed run with a visible status badge (non-color signifier = text)", () => {
-    const map = makeMap([]);
-    const partial = makeReport(map, {});
-    const report = {
-      ...partial,
-      metadata: { ...partial.metadata, runStatus: "partial" as const },
-    };
-    const doc = parse(renderDoc(map, makeGraph([]), report));
-    const badge = doc.querySelector(".fs-status-warn");
-    expect(badge?.textContent).toBe("Partial (budget/step cap reached)");
-  });
+  it.each([
+    ["partial", "Partial (budget/step cap reached)"],
+    ["running", "Running (exploration in progress)"],
+  ] as const)(
+    "labels a %s run with a visible status badge (non-color signifier = text)",
+    (runStatus, copy) => {
+      const map = makeMap([]);
+      const base = makeReport(map, {});
+      const report = { ...base, metadata: { ...base.metadata, runStatus } };
+      const doc = parse(renderDoc(map, makeGraph([]), report));
+      const badge = doc.querySelector(".fs-status-warn");
+      expect(badge?.textContent).toBe(copy);
+    },
+  );
 });
 
 describe("edge-case states — scale, clamping, determinism (design spec §7)", () => {
