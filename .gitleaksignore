@@ -1,0 +1,6 @@
+# Fingerprint-scoped ignores ONLY (commit:file:rule:line) — never rule- or path-wide.
+# Historical commit on fs-83-durable-run-store: seeded T1 test fixture ("hunter2-SECRET")
+# tripped generic-api-key. Provably a test fixture, removed from the tree in the follow-up
+# commit (now constructed at runtime); this entry only unblocks the history scan of the
+# already-pushed commit.
+a74606631ce787c920652d59f668bf6545a1b2d4:packages/adapters/persistence/src/__tests__/durability.security.test.ts:generic-api-key:32

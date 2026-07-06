@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/config" },
     { "path": "packages/domain" },
+    { "path": "packages/testing/persistence" },
     { "path": "packages/application" },
     { "path": "packages/adapters/mobile-mcp" },
     { "path": "packages/adapters/llm" },

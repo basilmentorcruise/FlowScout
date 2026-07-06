@@ -12,6 +12,8 @@ import type {
   StateEdge,
   StateIdentity,
   Report,
+  ListRunsOptions,
+  RunPage,
 } from "@flowscout/domain";
 export declare class FakeRunRepository implements RunRepository {
   private store;
@@ -19,6 +21,8 @@ export declare class FakeRunRepository implements RunRepository {
   findById(id: string): Promise<Run | null>;
   findByAppId(appId: string, limit?: number): Promise<readonly Run[]>;
   update(id: string, patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void>;
+  /** Newest-first cross-app listing; cursor = last run id of the previous page (fake-simple). */
+  listRuns(options: ListRunsOptions): Promise<RunPage>;
   /** Test helper: get all stored runs. */
   all(): readonly Run[];
 }
