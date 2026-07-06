@@ -20,13 +20,15 @@ See [`STATUS.md`](STATUS.md) for the per-epic table, and the [GitHub Project boa
 
 **E2 — Autonomous crawl engine** (`packages/application`): a `StartCrawlRun` use-case that runs an observe → identify → decide → act → record loop. Includes: `A11ySignatureStrategy` for screen state identity (deterministic hash of the normalized accessibility tree, volatile-content tolerant); `Frontier` with visited tracking, backtrack, and dead-end handling; `BudgetEnforcer` and `PlateauDetector` enforcing per-run step caps, LLM-call caps, token budget, revisit caps, and plateau termination; hidden-affordance probes (scroll-reveal, swipe-reveal, overflow menu — long-press is wired as a degraded no-op pending port extension); a `CachedKnowledgePolicy` → `LLMPolicy` chain (Chain of Responsibility) where the cache selects untried actions LLM-lessly and falls through to the LLM only when no known action remains; `LlmAdapter` over `@anthropic-ai/sdk` (Anthropic Claude, model id is config — default `claude-opus-4-8`, overridable via `LLM_MODEL_ID` env); `InMemoryDecisionCache` (process-lifetime, replaced by E7's persistent store); `CredentialRedactor` stripping secrets from prompts and events; and `CredentialBoundaryDetector` for 2FA/OTP surface detection with blocked-on-2fa state transition.
 
+**E7 — Run persistence** (`packages/adapters/persistence`, `packages/application`, `packages/api`): a durable, zero-setup embedded-SQLite run store (`better-sqlite3`, ADR-0008 — Postgres deferred behind the same repository ports) with deterministic proto-safe JSON payload codecs, WAL + one-transaction saves, a save-time redaction guard, and a shared `@flowscout/testing-persistence` port-conformance suite passed by both the SQLite adapter and the in-memory reference repos. The `RunAndPersist` orchestrator auto-persists every crawl through the composition root: a `Run` row is created `running`/`finishedAt:null` **before** the crawl (crash-discoverable), the graph persists incrementally through the durable repo, and on the terminal crawl event the finalized `WorkflowMap` is assembled into a `Report` (`artifactUri: ""` until E4 renders) and the run is finalized with status + `finishedAt`; store failures are recorded as `status:"error"`, never silently lost. Remaining: run-history queries (#85).
+
 **Foundation**: hexagonal monorepo scaffold, full CI pipeline, pre-commit hooks, and all domain ports and models.
 
 ## What is planned (not yet built)
 
 | Tier | Epics                                                                                                                                                                                                                                  |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MVP  | E2.7 duplicate-path detector + composition-root wiring (open, #37); E3 semantic understanding + workflow mapping; E4 grouped HTML report; E5 web dashboard; E6 credential vault + 2FA resume; E7 run persistence (PostgreSQL + Prisma) |
+| MVP  | E2.7 duplicate-path detector + composition-root wiring (open, #37); E3 semantic understanding + workflow mapping; E4 grouped HTML report; E5 web dashboard; E6 credential vault + 2FA resume; E7 run-history queries (#85 — the durable SQLite store #83 and the auto-persist write path #84 are built) |
 | V1   | E8 test-plan generation                                                                                                                                                                                                                |
 | V2   | E9 human-like test authoring + execution; E10 release gates + CI integration                                                                                                                                                           |
 
@@ -43,7 +45,7 @@ packages/
   adapters/
     mobile-mcp/     # MobileDriverPort + SimulatorLifecycle over mobile-next/mobile-mcp
     llm/            # DecisionPolicy chain + LlmAdapter over @anthropic-ai/sdk
-    persistence/    # Repository ports (stub; PostgreSQL + Prisma in E7)
+    persistence/    # Durable embedded-SQLite run store (better-sqlite3, ADR-0008)
     vault/          # CredentialVaultPort (stub; AES-256-GCM implementation in E6)
     report-html/    # ReportRendererPort (stub; HTML renderer in E4)
   api/              # Fastify HTTP + SSE backend; composition root; thin transport layer
