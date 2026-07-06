@@ -50,6 +50,13 @@ e2e/fixtures/**/*.app
 # FlowScout demo apps (local only, never committed)
 .flowscout-demo-apps/
 
+# --- E7 run store (ADR-0008, T2/M83.2): SQLite DB + WAL/SHM sidecars — never committed ---
+.flowscout/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
 # transient agent worktrees
 .claude/worktrees/
 

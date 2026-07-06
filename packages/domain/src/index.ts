@@ -51,6 +51,8 @@ export type {
   RunRepository,
   StateGraphRepository,
   ReportRepository,
+  ListRunsOptions,
+  RunPage,
 } from "./ports/RepositoryPorts.js";
 
 export type {

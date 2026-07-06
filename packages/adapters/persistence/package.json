@@ -2,7 +2,7 @@
   "name": "@flowscout/adapter-persistence",
   "version": "0.0.1",
   "private": true,
-  "description": "Persistence adapter — implements RunRepository, StateGraphRepository, ReportRepository via PostgreSQL + Prisma.",
+  "description": "Persistence adapter — implements RunRepository, StateGraphRepository, ReportRepository via embedded SQLite (better-sqlite3, ADR-0008). Postgres remains the documented scale-out target behind the same ports.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,10 +19,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@flowscout/domain": "workspace:*"
+    "@flowscout/domain": "workspace:*",
+    "better-sqlite3": "12.11.1"
   },
   "devDependencies": {
     "@flowscout/config": "workspace:*",
+    "@flowscout/testing-persistence": "workspace:*",
+    "@types/better-sqlite3": "7.6.13",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.5.0",
     "vitest": "^3.0.0"
   }

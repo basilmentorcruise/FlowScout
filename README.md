@@ -123,7 +123,7 @@ See `.env.example` for the full, annotated list with placeholder values. Key var
 | Variable                           | Used by                    | Description                                                                                         |
 | ---------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
 | `FLOWSCOUT_VAULT_KEY`              | `adapters/vault`           | Master key for AES-256-GCM credential encryption (32-byte hex; required when vault is active)       |
-| `DATABASE_URL`                     | `adapters/persistence`     | PostgreSQL connection string (required when persistence adapter is active)                          |
+| `FLOWSCOUT_DB_PATH`                | `adapters/persistence`     | Path to the embedded SQLite run store (ADR-0008); default `./.flowscout/flowscout.db`, zero-setup   |
 | `LLM_API_KEY`                      | `adapters/llm`             | Anthropic API key (required; never logged or committed)                                             |
 | `FLOWSCOUT_MCP_SERVER_COMMAND`     | `adapters/mobile-mcp`      | Comma-separated argv to launch the MCP server (default: `npx,mobile-mcp`)                           |
 | `FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS` | `adapters/mobile-mcp`      | MCP connection timeout in ms (default: 10000)                                                       |
