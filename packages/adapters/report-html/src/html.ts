@@ -89,7 +89,7 @@ function encodeInterpolation(value: HtmlInterpolation): string {
 export function html(strings: TemplateStringsArray, ...values: HtmlInterpolation[]): SafeHtml {
   let out = "";
   for (let i = 0; i < strings.length; i += 1) {
-    out += strings[i];
+    out += strings[i] ?? "";
     if (i < values.length) {
       out += encodeInterpolation(values[i]);
     }

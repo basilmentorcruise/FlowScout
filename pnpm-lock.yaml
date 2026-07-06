@@ -148,6 +148,9 @@ importers:
       '@flowscout/config':
         specifier: workspace:*
         version: link:../../config
+      '@vitest/coverage-v8':
+        specifier: ^3.0.0
+        version: 3.2.6(vitest@3.2.6(@types/node@20.19.43)(happy-dom@20.10.6))
       happy-dom:
         specifier: ^20.10.6
         version: 20.10.6

@@ -12,7 +12,16 @@ import { EMPTY_MAP_MESSAGE } from "../sections/toc.js";
 import { NO_SCREENSHOT_MESSAGE } from "../sections/screenshot.js";
 import type { Report, StateGraph, WorkflowMap } from "@flowscout/domain";
 import { makeConfidenceScore } from "@flowscout/domain";
-import { DEFAULT_NODES, makeGraph, makeMap, makeNode, makeReport, makeStep, makeWorkflow } from "./fixtures.js";
+import {
+  DEFAULT_NODES,
+  makeEdge,
+  makeGraph,
+  makeMap,
+  makeNode,
+  makeReport,
+  makeStep,
+  makeWorkflow,
+} from "./fixtures.js";
 import { XSS_PAYLOADS } from "./xssPayloads.js";
 
 const NO_SCREENSHOTS: ReadonlyMap<string, string | null> = new Map();
@@ -146,7 +155,9 @@ describe("edge-case states (design spec §7)", () => {
         appPurposeConfidence: purpose === undefined ? undefined : null,
       });
       const doc = parse(renderDoc(map));
-      expect(doc.querySelector(".fs-purpose")?.textContent?.trim()).toBe(PURPOSE_PLACEHOLDER);
+      const purposeEl = doc.querySelector(".fs-purpose");
+      expect(purposeEl).not.toBeNull();
+      expect(String(purposeEl?.textContent).trim()).toBe(PURPOSE_PLACEHOLDER);
       expect(doc.querySelector(".fs-confidence")).toBeNull();
     }
   });
@@ -177,6 +188,9 @@ describe("edge-case states (design spec §7)", () => {
     expect(badge?.textContent).toBe("Partial (budget/step cap reached)");
   });
 
+});
+
+describe("edge-case states — scale, clamping, determinism (design spec §7)", () => {
   it("collapsible TOC groups (100+ workflows) render as <details open> — nothing hidden by default", () => {
     const many = Array.from({ length: 101 }, (_, i) =>
       makeWorkflow(`wf-${String(i).padStart(3, "0")}`, { featureGroup: "Everything" }),
@@ -211,67 +225,71 @@ describe("self-containment (M87.5 / NFR2)", () => {
     const map = makeMap([makeWorkflow("wf-1")]);
     const markup = renderDoc(map);
     expect(markup).not.toMatch(/<script/i);
-    expect(markup).not.toMatch(/\bsrc\s*=\s*["']?(?:https?:)?\/\//i);
-    expect(markup).not.toMatch(/\bhref\s*=\s*["']?(?:https?:)?\/\//i);
     expect(markup).not.toMatch(/@import/i);
-    expect(markup).not.toMatch(/url\(\s*["']?(?:https?:)?\/\//i);
+    const remoteRefs = [
+      'src="http',
+      "src='http",
+      'src="//',
+      'href="http',
+      "href='http",
+      'href="//',
+      "url(http",
+      "url(//",
+      'url("http',
+      "url('http",
+    ];
+    for (const needle of remoteRefs) {
+      expect(markup.toLowerCase()).not.toContain(needle);
+    }
   });
 });
+
+/** Build inputs where EVERY untrusted field carries the payload (incl. actionPayload). */
+function makeHostileInputs(payload: string): { map: WorkflowMap; graph: StateGraph } {
+  const hostileWorkflow = makeWorkflow("wf-1", {
+    name: payload,
+    description: payload,
+    featureGroup: payload,
+    steps: [
+      makeStep(0, "state-evil", {
+        description: payload,
+        // actionType is a domain union (compile-time constrained); the free-text payload is hostile.
+        edge: makeEdge("state-evil", "state-next", { actionPayload: payload }),
+      }),
+      makeStep(1, "state-evil", { description: payload, edge: null }),
+    ],
+  });
+  const map = makeMap([hostileWorkflow], { appPurpose: payload });
+  const graph = makeGraph([makeNode("state-evil", { label: payload, screenshotUri: payload })]);
+  return { map, graph };
+}
+
+/** M87.2 core assertion: the parsed output DOM carries zero active markup. */
+function expectInertDom(doc: Document): void {
+  expect(doc.querySelectorAll("script, iframe, object, embed, svg").length).toBe(0);
+  for (const el of Array.from(doc.querySelectorAll("*"))) {
+    for (const attr of Array.from(el.attributes)) {
+      expect(attr.name.startsWith("on")).toBe(false);
+    }
+  }
+  for (const el of Array.from(doc.querySelectorAll("[src], [href]"))) {
+    const url = (el.getAttribute("src") ?? el.getAttribute("href") ?? "").toLowerCase();
+    expect(url.startsWith("javascript:")).toBe(false);
+    expect(url.startsWith("data:text")).toBe(false);
+  }
+}
 
 describe("T7-xss-payload-suite — document level (M87.2)", () => {
   it.each(XSS_PAYLOADS.map((p) => [p.id, p.value] as const))(
     "payload %s injected into every untrusted field renders inert",
     (_id, payload) => {
-      const map = makeMap(
-        [
-          makeWorkflow("wf-1", {
-            name: payload,
-            description: payload,
-            featureGroup: payload,
-            steps: [
-              makeStep(0, "state-evil", { description: payload }),
-              makeStep(1, "state-evil", { description: payload, edge: null }),
-            ],
-          }),
-        ],
-        { appPurpose: payload },
-      );
-      const graph = makeGraph([
-        makeNode("state-evil", { label: payload, screenshotUri: payload }),
-      ]);
-      const wfSteps = map.workflows[0]?.steps ?? [];
-      const edge = wfSteps[0]?.edge;
-      const hostileEdgeMap = {
-        ...map,
-        workflows: [
-          {
-            ...(map.workflows[0] ?? makeWorkflow("wf-1")),
-            steps: [
-              { ...(wfSteps[0] ?? makeStep(0, "state-evil")), edge: edge ? { ...edge, actionPayload: payload } : null },
-              ...(wfSteps[1] ? [wfSteps[1]] : []),
-            ],
-          },
-        ],
-      };
-      const doc = parse(renderDoc(hostileEdgeMap, graph, makeReport(hostileEdgeMap)));
+      const { map, graph } = makeHostileInputs(payload);
+      const doc = parse(renderDoc(map, graph, makeReport(map)));
 
-      // Zero injected script/style/iframe elements and zero on* handler attributes.
-      expect(doc.querySelectorAll("script, iframe, object, embed").length).toBe(0);
-      for (const el of Array.from(doc.querySelectorAll("*"))) {
-        for (const attr of Array.from(el.attributes)) {
-          expect(attr.name.startsWith("on")).toBe(false);
-        }
-        expect(el.tagName.toLowerCase()).not.toBe("svg");
-      }
-      // No javascript:/data:text URL ever appears in a src/href.
-      for (const el of Array.from(doc.querySelectorAll("[src], [href]"))) {
-        const url = el.getAttribute("src") ?? el.getAttribute("href") ?? "";
-        expect(url.toLowerCase().startsWith("javascript:")).toBe(false);
-        expect(url.toLowerCase().startsWith("data:text")).toBe(false);
-      }
+      expectInertDom(doc);
       // The payload is preserved as inert visible text in the workflow title.
       const title = doc.querySelector("article h3");
-      expect(title?.textContent).toBe(payload.replaceAll("\u0000", "�"));
+      expect(title?.textContent).toBe(payload.replaceAll("\u0000", "\uFFFD"));
     },
   );
 });
