@@ -55,7 +55,10 @@ class TestEventStream implements CrawlEventStream {
     this.handlers.set(runId, [...existing, handler]);
     this.activeSubscriptions++;
     return () => {
-      this.handlers.set(runId, (this.handlers.get(runId) ?? []).filter((h) => h !== handler));
+      this.handlers.set(
+        runId,
+        (this.handlers.get(runId) ?? []).filter((h) => h !== handler),
+      );
       this.activeSubscriptions--;
     };
   }
@@ -217,10 +220,7 @@ interface Harness {
   build(executor: CrawlExecutor): RunAndPersist;
 }
 
-function harness(overrides?: {
-  runRepo?: RunRepository;
-  reportRepo?: ReportRepository;
-}): Harness {
+function harness(overrides?: { runRepo?: RunRepository; reportRepo?: ReportRepository }): Harness {
   const runRepo = overrides?.runRepo ?? new InMemoryRunRepository();
   const graphRepo = new InMemoryStateGraphRepository();
   const reportRepo = overrides?.reportRepo ?? new InMemoryReportRepository();
@@ -286,7 +286,11 @@ describe("RunAndPersist — run created at start (FR4 / AC1)", () => {
 describe("RunAndPersist — completed crawl finalizes run + graph + report (AC2/AC4)", () => {
   it("updates the run to the event's terminal status with finishedAt set", async () => {
     const h = harness();
-    const executor = crawlExecutor({ stream: h.stream, graphRepo: h.graphRepo, graph: makeGraph() });
+    const executor = crawlExecutor({
+      stream: h.stream,
+      graphRepo: h.graphRepo,
+      graph: makeGraph(),
+    });
 
     const result = await h.build(executor).execute(input());
 
@@ -314,7 +318,7 @@ describe("RunAndPersist — completed crawl finalizes run + graph + report (AC2/
     }
   });
 
-  it("persists a Report retrievable by run id with counts, metadata and \"\" artifactUri", async () => {
+  it('persists a Report retrievable by run id with counts, metadata and "" artifactUri', async () => {
     const h = harness();
     const graph = makeGraph();
     const executor = crawlExecutor({ stream: h.stream, graphRepo: h.graphRepo, graph });
@@ -336,7 +340,11 @@ describe("RunAndPersist — completed crawl finalizes run + graph + report (AC2/
 
   it("graph and report retrieved by run id correspond to the same run (AC4)", async () => {
     const h = harness();
-    const executor = crawlExecutor({ stream: h.stream, graphRepo: h.graphRepo, graph: makeGraph() });
+    const executor = crawlExecutor({
+      stream: h.stream,
+      graphRepo: h.graphRepo,
+      graph: makeGraph(),
+    });
 
     await h.build(executor).execute(input());
 
@@ -381,7 +389,11 @@ describe("RunAndPersist — failure paths keep the run discoverable (AC3, M84.2/
 
   it('M84.2: a store save failure maps to status:"error" + finishedAt — never silently lost', async () => {
     const h = harness({ reportRepo: new FailingReportRepository() });
-    const executor = crawlExecutor({ stream: h.stream, graphRepo: h.graphRepo, graph: makeGraph() });
+    const executor = crawlExecutor({
+      stream: h.stream,
+      graphRepo: h.graphRepo,
+      graph: makeGraph(),
+    });
 
     await expect(h.build(executor).execute(input())).rejects.toThrow("report save failed");
 

@@ -47,7 +47,10 @@ class TestEventStream implements CrawlEventStream {
     const existing = this.handlers.get(runId) ?? [];
     this.handlers.set(runId, [...existing, handler]);
     return () => {
-      this.handlers.set(runId, (this.handlers.get(runId) ?? []).filter((h) => h !== handler));
+      this.handlers.set(
+        runId,
+        (this.handlers.get(runId) ?? []).filter((h) => h !== handler),
+      );
     };
   }
 }

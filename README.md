@@ -26,11 +26,11 @@ See [`STATUS.md`](STATUS.md) for the per-epic table, and the [GitHub Project boa
 
 ## What is planned (not yet built)
 
-| Tier | Epics                                                                                                                                                                                                                                  |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier | Epics                                                                                                                                                                                                                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MVP  | E2.7 duplicate-path detector + composition-root wiring (open, #37); E3 semantic understanding + workflow mapping; E4 grouped HTML report; E5 web dashboard; E6 credential vault + 2FA resume; E7 run-history queries (#85 — the durable SQLite store #83 and the auto-persist write path #84 are built) |
-| V1   | E8 test-plan generation                                                                                                                                                                                                                |
-| V2   | E9 human-like test authoring + execution; E10 release gates + CI integration                                                                                                                                                           |
+| V1   | E8 test-plan generation                                                                                                                                                                                                                                                                                 |
+| V2   | E9 human-like test authoring + execution; E10 release gates + CI integration                                                                                                                                                                                                                            |
 
 ---
 

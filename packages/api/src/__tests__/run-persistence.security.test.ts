@@ -19,11 +19,7 @@
  * exists in this source for gitleaks to flag.
  */
 import { describe, it, expect } from "vitest";
-import {
-  StartCrawlRun,
-  defaultCollaborators,
-  REDACTED_MARKER,
-} from "@flowscout/application";
+import { StartCrawlRun, defaultCollaborators, REDACTED_MARKER } from "@flowscout/application";
 import type {
   A11ySnapshot,
   CrawlEvent,
@@ -132,7 +128,10 @@ class InProcessStream implements CrawlEventStream {
     const existing = this.handlers.get(runId) ?? [];
     this.handlers.set(runId, [...existing, handler]);
     return () => {
-      this.handlers.set(runId, (this.handlers.get(runId) ?? []).filter((h) => h !== handler));
+      this.handlers.set(
+        runId,
+        (this.handlers.get(runId) ?? []).filter((h) => h !== handler),
+      );
     };
   }
 }
