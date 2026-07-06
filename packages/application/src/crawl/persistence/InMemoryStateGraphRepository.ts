@@ -4,9 +4,10 @@
  *
  * Home: packages/application/src/crawl/persistence/ per ADR-0004 §5.
  *
- * This is the development/CI stand-in used until E7 ships the Prisma/Postgres
- * implementation in packages/adapters/persistence. The composition root swaps it
- * with a single-line change (Open/Closed principle).
+ * This is the development/CI reference implementation; production wiring uses the
+ * durable SQLite adapter in packages/adapters/persistence (E7 / ADR-0008). The
+ * composition root swaps implementations with a single-line change (Open/Closed);
+ * both sides pass the same @flowscout/testing-persistence conformance suite.
  *
  * Security: no PII/secrets written here — callers are responsible for redaction
  * before passing node/edge data (T7 boundary is enforced upstream in the loop).
