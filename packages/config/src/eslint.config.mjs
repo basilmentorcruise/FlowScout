@@ -97,12 +97,13 @@ export const flowscoutEslintConfig = [
           rules: [
             // domain depends on nothing internal
             { from: "domain", allow: [] },
-            // application depends only on domain
-            { from: "application", allow: ["domain"] },
+            // application depends only on domain (+ the neutral persistence
+            // conformance suite, test-only devDependency — ADR-0008 §7)
+            { from: "application", allow: ["domain", "testing-persistence"] },
             // adapters depend on domain + their own scope
             { from: "adapter-mobile-mcp", allow: ["domain"] },
             { from: "adapter-llm", allow: ["domain"] },
-            { from: "adapter-persistence", allow: ["domain"] },
+            { from: "adapter-persistence", allow: ["domain", "testing-persistence"] },
             { from: "adapter-vault", allow: ["domain"] },
             { from: "adapter-report-html", allow: ["domain"] },
             // api wires application + adapters (composition root)
@@ -111,6 +112,9 @@ export const flowscoutEslintConfig = [
             { from: "web", allow: ["domain"] },
             // config has no boundaries restriction
             { from: "config", allow: ["*"] },
+            // neutral test-support: shared port-conformance suite (ADR-0008 §7)
+            // — depends on domain ONLY (must NOT import application/adapters)
+            { from: "testing-persistence", allow: ["domain"] },
           ],
         },
       ],
@@ -127,6 +131,7 @@ export const flowscoutEslintConfig = [
         { type: "api", pattern: "packages/api/src/**" },
         { type: "web", pattern: "packages/web/src/**" },
         { type: "config", pattern: "packages/config/src/**" },
+        { type: "testing-persistence", pattern: "packages/testing/persistence/src/**" },
       ],
     },
   },

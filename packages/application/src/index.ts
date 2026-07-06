@@ -18,6 +18,11 @@ export type {
 } from "./crawl/collaborators.js";
 export { InMemoryStateGraphRepository } from "./crawl/persistence/InMemoryStateGraphRepository.js";
 
+// E7.1 (#83) — In-memory reference impls for the Run/Report ports (ADR-0008 §7):
+// pass the same conformance suite as the durable SQLite adapter.
+export { InMemoryRunRepository } from "./crawl/persistence/InMemoryRunRepository.js";
+export { InMemoryReportRepository } from "./crawl/persistence/InMemoryReportRepository.js";
+
 // E2.6 — Decision cache (in-memory implementation) + cached-knowledge policy (chain link)
 export { InMemoryDecisionCache } from "./crawl/policy/InMemoryDecisionCache.js";
 export { CachedKnowledgePolicy } from "./crawl/policy/CachedKnowledgePolicy.js";

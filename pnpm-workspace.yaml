@@ -1,7 +1,11 @@
 packages:
   - "packages/*"
   - "packages/adapters/*"
+  - "packages/testing/*"
   - "e2e"
 allowBuilds:
   esbuild: true
   sharp: false
+  # E7.1 (#83, ADR-0008 / threat model T8): native addon for the embedded run store.
+  # Exact-pinned in adapters/persistence; pinned version ships a darwin-arm64 prebuild.
+  better-sqlite3: true

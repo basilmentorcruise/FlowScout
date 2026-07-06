@@ -1,9 +1,11 @@
 /**
- * PersistenceAdapters — stubs implementing the three repository ports.
- * Uses PostgreSQL + Prisma (schema-aware, migration-tracked per ADR-0001 §2.7).
+ * PersistenceAdapters — throwing stubs for the three repository ports.
  *
- * TODO (E4/E5): Add Prisma client, schema migrations, and full implementations.
- *               Connection config from env (DATABASE_URL).
+ * @deprecated Superseded by the durable SQLite implementations in `./sqlite/` (ADR-0008,
+ * which amends ADR-0001 §2.7 — Postgres/Prisma is deferred behind the same ports).
+ * These stubs remain ONLY because the composition root (`packages/api/src/composition-root/wire.ts`)
+ * still constructs them; #84 (E7.2) owns the wire.ts swap to the Sqlite* repositories and
+ * removes these classes.
  */
 import type {
   RunRepository,
@@ -15,6 +17,8 @@ import type {
   StateEdge,
   StateIdentity,
   Report,
+  ListRunsOptions,
+  RunPage,
 } from "@flowscout/domain";
 
 function notImplemented(method: string): Promise<never> {
@@ -38,6 +42,9 @@ export class PrismaRunRepository implements RunRepository {
   }
   update(_id: string, _patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void> {
     return notImplemented("PrismaRunRepository.update");
+  }
+  listRuns(_options: ListRunsOptions): Promise<RunPage> {
+    return notImplemented("PrismaRunRepository.listRuns");
   }
 }
 
