@@ -11,7 +11,14 @@ import {
   UNGROUPED_LABEL,
   UNKNOWN_SCREEN_LABEL,
 } from "../viewmodel.js";
-import { DEFAULT_NODES, makeGraph, makeMap, makeReport, makeStep, makeWorkflow } from "./fixtures.js";
+import {
+  DEFAULT_NODES,
+  makeGraph,
+  makeMap,
+  makeReport,
+  makeStep,
+  makeWorkflow,
+} from "./fixtures.js";
 import { makeConfidenceScore } from "@flowscout/domain";
 
 const graph = makeGraph(DEFAULT_NODES);
@@ -64,10 +71,7 @@ describe("groupByFeature (FR3)", () => {
 describe("step resolution (FR4)", () => {
   it("orders steps by stepIndex and resolves screen labels from the graph", () => {
     const wf = makeWorkflow("wf-1", {
-      steps: [
-        makeStep(1, "state-b", { edge: null }),
-        makeStep(0, "state-a"),
-      ],
+      steps: [makeStep(1, "state-b", { edge: null }), makeStep(0, "state-a")],
     });
     const [group] = view([wf]).groups;
     const steps = group?.workflows[0]?.steps ?? [];
@@ -103,13 +107,18 @@ describe("step resolution (FR4)", () => {
 
 describe("header view (FR2)", () => {
   it("exposes the purpose with a whole-number confidence percentage", () => {
-    const v = view([], { appPurpose: "A ride app", appPurposeConfidence: makeConfidenceScore(0.824) });
+    const v = view([], {
+      appPurpose: "A ride app",
+      appPurposeConfidence: makeConfidenceScore(0.824),
+    });
     expect(v.header.purpose).toBe("A ride app");
     expect(v.header.confidencePct).toBe(82);
   });
 
   it("maps absent and 'Unknown' purpose to the null placeholder with no confidence", () => {
-    expect(view([], { appPurpose: undefined, appPurposeConfidence: undefined }).header.purpose).toBeNull();
+    expect(
+      view([], { appPurpose: undefined, appPurposeConfidence: undefined }).header.purpose,
+    ).toBeNull();
     const unknown = view([], { appPurpose: "Unknown", appPurposeConfidence: null }).header;
     expect(unknown.purpose).toBeNull();
     expect(unknown.confidencePct).toBeNull();

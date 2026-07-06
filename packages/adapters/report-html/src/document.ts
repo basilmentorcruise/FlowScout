@@ -35,9 +35,7 @@ function renderGroupSection(
   group: FeatureGroupView,
   screenshotSrcByUri: ReadonlyMap<string, string | null>,
 ): SafeHtml {
-  const articles = group.workflows.map((workflow) =>
-    renderWorkflow(workflow, screenshotSrcByUri),
-  );
+  const articles = group.workflows.map((workflow) => renderWorkflow(workflow, screenshotSrcByUri));
   return html`<section class="fs-group" data-group="${group.name}">
     <h2>${group.name}</h2>
     ${articles}

@@ -55,7 +55,9 @@ describe("html tagged template — SafeHtml composition", () => {
 
   it("joins arrays of SafeHtml without separators", () => {
     const items = ["a", "b"].map((v) => html`<li>${v}</li>`);
-    expect(html`<ul>${items}</ul>`.value).toBe("<ul><li>a</li><li>b</li></ul>");
+    // prettier-ignore
+    const out = html`<ul>${items}</ul>`;
+    expect(out.value).toBe("<ul><li>a</li><li>b</li></ul>");
   });
 
   it("escapes each element of a raw-string array", () => {
@@ -64,6 +66,7 @@ describe("html tagged template — SafeHtml composition", () => {
   });
 
   it("trustedRaw passes package-owned static fragments through verbatim", () => {
+    // prettier-ignore
     const out = html`<head>${trustedRaw("<style>:root{}</style>")}</head>`;
     expect(out.value).toBe("<head><style>:root{}</style></head>");
   });
@@ -78,33 +81,30 @@ describe("html tagged template — SafeHtml composition", () => {
 });
 
 describe("T7-xss-payload-suite — engine level (M87.2)", () => {
-  describe.each(XSS_PAYLOADS.map((p) => [p.id, p.value] as const))(
-    "payload %s",
-    (_id, payload) => {
-      it("is inert in element-text position (parsed DOM has no script/handler)", () => {
-        const doc = parseFragment(html`<p>${payload}</p>`.value);
-        expect(doc.querySelectorAll("script").length).toBe(0);
-        expect(doc.querySelectorAll("img, svg, style, iframe").length).toBe(0);
-        for (const el of Array.from(doc.body.querySelectorAll("*"))) {
-          for (const attr of Array.from(el.attributes)) {
-            expect(attr.name.startsWith("on")).toBe(false);
-          }
+  describe.each(XSS_PAYLOADS.map((p) => [p.id, p.value] as const))("payload %s", (_id, payload) => {
+    it("is inert in element-text position (parsed DOM has no script/handler)", () => {
+      const doc = parseFragment(html`<p>${payload}</p>`.value);
+      expect(doc.querySelectorAll("script").length).toBe(0);
+      expect(doc.querySelectorAll("img, svg, style, iframe").length).toBe(0);
+      for (const el of Array.from(doc.body.querySelectorAll("*"))) {
+        for (const attr of Array.from(el.attributes)) {
+          expect(attr.name.startsWith("on")).toBe(false);
         }
-        // The payload survives as visible text (minus the stripped null byte).
-        const expectedText = payload.replaceAll("\u0000", "�");
-        expect(doc.querySelector("p")?.textContent).toBe(expectedText);
-      });
+      }
+      // The payload survives as visible text (minus the stripped null byte).
+      const expectedText = payload.replaceAll("\u0000", "�");
+      expect(doc.querySelector("p")?.textContent).toBe(expectedText);
+    });
 
-      it("is inert in attribute position (no breakout, attribute stays quoted)", () => {
-        const doc = parseFragment(html`<p title="${payload}" data-x="${payload}">x</p>`.value);
-        expect(doc.querySelectorAll("script, img, svg").length).toBe(0);
-        const p = doc.querySelector("p");
-        expect(p).not.toBeNull();
-        for (const attr of Array.from(p?.attributes ?? [])) {
-          expect(["title", "data-x"]).toContain(attr.name);
-        }
-        expect(p?.getAttribute("title")).toBe(payload.replaceAll("\u0000", "�"));
-      });
-    },
-  );
+    it("is inert in attribute position (no breakout, attribute stays quoted)", () => {
+      const doc = parseFragment(html`<p title="${payload}" data-x="${payload}">x</p>`.value);
+      expect(doc.querySelectorAll("script, img, svg").length).toBe(0);
+      const p = doc.querySelector("p");
+      expect(p).not.toBeNull();
+      for (const attr of Array.from(p?.attributes ?? [])) {
+        expect(["title", "data-x"]).toContain(attr.name);
+      }
+      expect(p?.getAttribute("title")).toBe(payload.replaceAll("\u0000", "�"));
+    });
+  });
 });

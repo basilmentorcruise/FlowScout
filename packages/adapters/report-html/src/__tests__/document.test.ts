@@ -135,7 +135,9 @@ describe("screenshots (FR5)", () => {
         ),
       }),
     ]);
-    const doc = parse(renderDoc(longMap, graph, makeReport(longMap), new Map([[shotUri, dataSrc]])));
+    const doc = parse(
+      renderDoc(longMap, graph, makeReport(longMap), new Map([[shotUri, dataSrc]])),
+    );
     const img = doc.querySelector("img.fs-screenshot");
     expect(img?.closest("details")?.hasAttribute("open")).toBe(false);
   });
@@ -187,7 +189,6 @@ describe("edge-case states (design spec §7)", () => {
     const badge = doc.querySelector(".fs-status-warn");
     expect(badge?.textContent).toBe("Partial (budget/step cap reached)");
   });
-
 });
 
 describe("edge-case states — scale, clamping, determinism (design spec §7)", () => {

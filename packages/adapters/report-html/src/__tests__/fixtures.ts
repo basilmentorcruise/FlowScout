@@ -39,7 +39,11 @@ export function makeNode(id: string, overrides: Overrides<StateNode> = {}): Stat
   );
 }
 
-export function makeEdge(from: string, to: string, overrides: Overrides<StateEdge> = {}): StateEdge {
+export function makeEdge(
+  from: string,
+  to: string,
+  overrides: Overrides<StateEdge> = {},
+): StateEdge {
   return mergeDefined<StateEdge>(
     {
       id: `edge-${from}-${to}`,

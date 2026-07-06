@@ -45,10 +45,7 @@ function makeInputs(): { map: WorkflowMap; graph: StateGraph } {
     makeWorkflow("wf-login", { name: "Sign in", featureGroup: "Authentication" }),
     makeWorkflow("wf-cart", { name: "Add to cart", featureGroup: "Cart" }),
   ]);
-  const graph = makeGraph([
-    makeNode("state-a", { screenshotUri: SHOT_URI }),
-    makeNode("state-b"),
-  ]);
+  const graph = makeGraph([makeNode("state-a", { screenshotUri: SHOT_URI }), makeNode("state-b")]);
   return { map, graph };
 }
 

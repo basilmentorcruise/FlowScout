@@ -25,12 +25,7 @@ export function renderScreenshot(input: ScreenshotViewInput): SafeHtml {
     return html`<p class="fs-step-noshot">${NO_SCREENSHOT_MESSAGE}</p>`;
   }
   const alt = `Screen: ${input.screenLabel} — step ${String(input.stepNumber)} of ${input.workflowName}`;
-  const img = html`<img
-    src="${input.src}"
-    alt="${alt}"
-    loading="lazy"
-    class="fs-screenshot"
-  />`;
+  const img = html`<img src="${input.src}" alt="${alt}" loading="lazy" class="fs-screenshot" />`;
   if (input.open) {
     return html`<details class="fs-step-shot" open>
       <summary>Screenshot</summary>

@@ -65,8 +65,7 @@ export function renderHeader(view: HeaderView): SafeHtml {
       <dl class="fs-run-meta">
         ${metaEntry("Run", html`${view.runId}`)}
         ${metaEntry("App version", html`${view.appVersion}`)} ${metaEntry("Generated", generated)}
-        ${metaEntry("Status", status)}
-        ${metaEntry("States explored", html`${view.totalStates}`)}
+        ${metaEntry("Status", status)} ${metaEntry("States explored", html`${view.totalStates}`)}
         ${metaEntry("Workflows found", html`${view.totalWorkflows}`)}
       </dl>
     </header>
