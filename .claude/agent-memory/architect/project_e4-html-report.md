@@ -28,6 +28,14 @@ Decisions (gate against these in review):
 - **Ordering:** #87 starts NOW, fully ∥-safe vs in-flight E7 (report-html only). #88 after #87. #89 after
   #84 (+ behind #85's wire.ts line if open). No domain edit anywhere in E4.
 
+**#87 arch-review (PR #92, head ec4fae3): PASS 2026-07-07.** Coverage re-verified from head: 99.66/96.07
+(thresholds in vitest.config.ts). Supersession accepted + plan amended: design-spec §2.2 **first-seen group
+order** is authoritative over the plan's "name asc" parenthetical — #88 preserves it. Forward conditions:
+(a) #88 binding — no DOM-global usage in production src (tsconfig lib DOM is package-wide; prefer test-scoped
+split) and re-run T7-xss-payload-suite over callout markup; (b) #88 nice-to-have — single clock() read in
+render(); (c) #89 note — per-run outputDir is the tmp-collision mitigation, keep one execution per runId.
+`emptyState.ts` never materialized — empty-state lives in toc.ts (spec §9 copy); accepted placement.
+
 **Why:** T7 threat model + ADR-0008 §3 additive boundary + #84 in flight (mid-flight respec forbidden).
 **How to apply:** in review-gate, FAIL: any per-call-esc discipline instead of the tagged template; a
 template-lib runtime dep; renderer creating outputDir; edits to RunAndPersist/wireRunPersistence; persisted
