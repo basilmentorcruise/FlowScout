@@ -43,6 +43,9 @@ Branch: `fs-87-html-report-renderer` · **Depends-on: none** (WorkflowMap contra
 - `viewmodel.ts` — pure derivation from `(Report, WorkflowMap, StateGraph)` to a render-ready view-model:
   - `groupByFeature(workflows)` — FR3: group by `featureGroup`; absent/`"Ungrouped"` → the labelled catch-all
     group; deterministic ordering (group name asc, catch-all last; workflows by `id` within a group).
+    > **Amended (arch-review #92, 2026-07-07):** the designer spec (`docs/sdlc/design/e4-html-report-spec.md`
+    > §1/§2.2) mandates **first-seen group order** (catch-all still last) and is **authoritative** over the
+    > "name asc" parenthetical above. #88 must preserve first-seen order.
   - step resolution — FR4: `step.stateId` → `StateNode` via `stateGraph.nodes` (missing node ⇒ a labelled
     "unknown screen" placeholder, never a crash); terminal step (`edge === null`) shows no action.
   - `WorkflowAnnotations` type + `deriveAnnotations(workflowMap)` returning **empty annotations** — the #88

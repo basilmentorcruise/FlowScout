@@ -13,5 +13,6 @@
 - [E3.4 refinement seam](project_e3-57-refinement-seam.md) — #57 PASS (blocks+seam); post-hoc embedding ORCHESTRATOR deferred to #58 producer + #59 root-wiring; 2 should-fixes to #58
 - [E3.5 duplicate detection](project_e3-58-duplicate-detection.md) — #58: RefineIdentities orchestrator + cross-identity SemanticDuplicateDetector; precision-first; additive EmbeddingCachePort/DuplicatePathGroup/projectA11ySkeleton
 - [E3.6 capstone](project_e3-59-capstone.md) — #59 BuildWorkflowMap assembly; canonical-map POST-HOC (no collaborators edit); shared RunBudgetMeter; duplicateGroups additive; orphan debt deferred
-- [E7 run persistence](project_e7-run-persistence.md) — ADR-0008: SQLite (amends ADR-0001 §2.7); RunStatus+running; artifactUri="" E4-additive; #83 owns domain edits; #84 orchestrator; #84/#85 serialize
-- [E4 HTML report](project_e4-html-report.md) — ADR-0009: SafeHtml tagged-template T7 boundary; relative artifactUri; GenerateReportArtifact+Decorator (no #84 edit); #88 annotation slots
+- [E7 run persistence](project_e7-run-persistence.md) — ADR-0008 SQLite; #83+#84 PASS; coherence-window accepted-risk → #85 must treat run row as authoritative status; #85 owes 2 more #83-routed items
+- [E4 HTML report](project_e4-html-report.md) — ADR-0009: SafeHtml T7 boundary; relative artifactUri; #87 PASS (first-seen order supersession recorded); #88/#89 forward conditions
+- [E5 dashboard](project_e5-dashboard.md) — ADR-0010: Fastify pinned; persisted-map OQ1; same-origin sandbox="" OQ2; no-cancel OQ5; verbatim SSE (E6 seam); 4 reg-line seams

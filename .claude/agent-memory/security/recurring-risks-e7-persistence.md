@@ -51,6 +51,17 @@ is narrow: **introduce no new secret sink, never de-redact** (NFR4).
 - **LOW — WAL/transaction integrity (T9, CWE-662).** `PRAGMA journal_mode=WAL` at init + one
   transaction per `save*`; the reopen/durability conformance test (NFR1) covers it.
 
+**T1 save-time guard scope (settled on #83):** the E7 `redactionGuard` (`assertNoUnredactedSecureField`)
+scans each node's parsed `a11ySnapshot` for a `secureTextField` with a non-`[REDACTED]`/non-empty value —
+it does **not** scan edge `actionPayload`. That is acceptable, not a T1 gap: (1) the guard is the M83.5
+**SHOULD** (defense-in-depth), not the T1 MUST — the MUST is "no new sink, no de-redaction," which holds;
+(2) `actionPayload` **is** redacted **upstream** at edge-record time — `StartCrawlRun.redactAction` runs
+`redactor.redactText(p.text)` and records the redacted payload onto the edge before the graph E7 persists is
+built. **Residual (routed to E2, not E7):** `redactText` only masks **OTP-shaped digit runs** (4–8 digits),
+so a non-numeric secret typed into a secure field would pass through unmasked; today's typeText payloads are
+enumerated with empty text, so no live leak. A cheap symmetry win is to extend the E7 save-time guard to also
+scan `actionPayload` — a follow-up SHOULD, non-blocking.
+
 **Scope note:** raw credentials are E6 (vault) scope — E7 must NEVER persist them; the run DB must not
 become a shadow credential store. At-rest **encryption** of the run DB (beyond redaction) is deferred
 (E6/platform decision), not E7. See [[scope-boundaries]].
