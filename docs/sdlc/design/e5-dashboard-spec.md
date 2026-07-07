@@ -302,7 +302,7 @@ report…` label inside the skeleton, not just a bare shimmering rectangle — s
   - Run not finished yet: heading `Report not ready`, body `This run hasn't finished yet — the report will be
 ready once it completes.`, CTA `Watch live` → `/runs/:runId`.
   - Finished but no artifact / resolution failure: heading `Report not available`, body `No report was
-  generated for this run.`
+generated for this run.`
     Both keep the `← Back to run` bar above them — the back affordance is never lost, even in a broken state.
 
 ---
