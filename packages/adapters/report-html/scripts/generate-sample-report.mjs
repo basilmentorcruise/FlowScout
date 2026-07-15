@@ -1,11 +1,13 @@
 /**
- * Sample-report fixture generator (#87 review aid).
+ * Sample-report fixture generator (#87/#88 review aid).
  *
- * Renders a realistic multi-group WorkflowMap — including one isHiddenPath workflow
- * and one DuplicatePathGroup, so the #88 annotation seam is visible as plain sections
- * for now — through the REAL public API (HtmlReportRenderer) into a gitignored
- * sample-output/ directory. Screenshots are tiny solid-color PNGs generated at
- * runtime (no binary fixtures, no high-entropy literals committed).
+ * Renders a realistic multi-group WorkflowMap — including a hidden-path workflow
+ * (amber badge in TOC + header), a THREE-way DuplicatePathGroup (canonical / hidden /
+ * alternate route chips in the indigo convergence callout on every member), a
+ * >140-char screen label (CSS clamp + title attribute) and a step with no screenshot
+ * (text-only placeholder) — through the REAL public API (HtmlReportRenderer) into a
+ * gitignored sample-output/ directory. Screenshots are tiny solid-color PNGs generated
+ * at runtime (no binary fixtures, no high-entropy literals committed).
  *
  * Usage (from the repo root):
  *   pnpm --filter @flowscout/adapter-report-html build   # once, for dist/
@@ -83,21 +85,30 @@ const SCREENS = [
   { id: "state-login", label: "Sign in", color: [46, 160, 105] },
   { id: "state-home", label: "Home feed", color: [214, 158, 46] },
   { id: "state-search", label: "Search results", color: [154, 92, 199] },
-  { id: "state-product", label: "Product detail — Waterproof hiking boots", color: [200, 82, 70] },
+  {
+    id: "state-product",
+    // Deliberately >140 chars to exercise the design-spec §4 CSS clamp + title attribute.
+    label:
+      "Product detail — Waterproof hiking boots with reinforced toe cap, breathable Gore-Tex membrane, " +
+      "Vibram outsole, quick-lace eyelets, and a removable dual-density footbed (style #BT-4417, alpine edition)",
+    color: [200, 82, 70],
+  },
+  // No color ⇒ no PNG is generated and screenshotUri stays null (text-only step, spec §4).
+  { id: "state-wishlist", label: "Wishlist", color: null },
   { id: "state-cart", label: "Cart", color: [52, 152, 166] },
   { id: "state-checkout", label: "Checkout", color: [120, 120, 128] },
   { id: "state-confirm", label: "Order confirmed", color: [40, 167, 90] },
   { id: "state-profile", label: "Profile", color: [90, 98, 180] },
 ];
 
-function node(id, label) {
+function node(id, label, hasScreenshot) {
   return {
     id: makeStateIdentity(id),
     label,
     platform: "ios",
     firstSeenAt: "2026-07-02T09:00:00.000Z",
     a11ySnapshot: "{}",
-    screenshotUri: `shots/${id}.png`,
+    screenshotUri: hasScreenshot ? `shots/${id}.png` : null,
   };
 }
 
@@ -210,7 +221,41 @@ const workflows = [
       }),
       step(3, "state-confirm", "Order confirmed via the express path", null),
     ],
-    true, // isHiddenPath — #88 will badge this; today it renders as a plain section
+    true, // isHiddenPath — renders the amber #88 badge in TOC + header
+  ),
+  workflow(
+    "wf-buy-wishlist",
+    "Buy a product from the wishlist",
+    "A third converging purchase route via the wishlist — neither the canonical search path nor a hidden path.",
+    "Shopping",
+    [
+      step(0, "state-home", "Open the wishlist (no screenshot was captured here)", {
+        to: "state-wishlist",
+        type: "tap",
+        payload: '{"element":"Wishlist"}',
+      }),
+      step(1, "state-wishlist", "Open the saved boots from the wishlist", {
+        to: "state-product",
+        type: "tap",
+        payload: '{"element":"Saved: hiking boots"}',
+      }),
+      step(2, "state-product", "Add the boots to the cart", {
+        to: "state-cart",
+        type: "tap",
+        payload: '{"element":"Add to cart"}',
+      }),
+      step(3, "state-cart", "Proceed to checkout", {
+        to: "state-checkout",
+        type: "tap",
+        payload: '{"element":"Checkout"}',
+      }),
+      step(4, "state-checkout", "Confirm payment", {
+        to: "state-confirm",
+        type: "tap",
+        payload: '{"element":"Pay now"}',
+      }),
+      step(5, "state-confirm", "Order confirmed via the wishlist path", null),
+    ],
   ),
   workflow(
     "wf-view-profile",
@@ -249,11 +294,12 @@ const workflowMap = {
   appPurpose:
     "An outdoor-gear shopping app: browse and search products, manage a cart, and place orders.",
   appPurposeConfidence: makeConfidenceScore(0.93),
-  // One DuplicatePathGroup so the #88 empty annotation seam has visible data.
+  // A THREE-way DuplicatePathGroup: canonical (search) / hidden (promo deeplink) /
+  // alternate (wishlist) — every #88 route chip appears in the rendered callout.
   duplicateGroups: [
     {
       outcomeIdentity: makeStateIdentity("state-confirm"),
-      workflowIds: ["wf-buy-deeplink", "wf-buy-search"],
+      workflowIds: ["wf-buy-deeplink", "wf-buy-search", "wf-buy-wishlist"],
       canonicalWorkflowId: "wf-buy-search",
       hiddenWorkflowIds: ["wf-buy-deeplink"],
     },
@@ -265,7 +311,9 @@ const stateGraph = {
   appId: "com.example.trailhead",
   appVersion: "2.4.1",
   platform: "ios",
-  nodes: new Map(SCREENS.map(({ id, label }) => [makeStateIdentity(id), node(id, label)])),
+  nodes: new Map(
+    SCREENS.map(({ id, label, color }) => [makeStateIdentity(id), node(id, label, color !== null)]),
+  ),
   edges: [],
   duplicatePathNodeIds: new Set(),
 };
@@ -293,7 +341,7 @@ const report = {
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(path.join(storeDir, "shots"), { recursive: true });
 await Promise.all(
-  SCREENS.map(({ id, color }) =>
+  SCREENS.filter(({ color }) => color !== null).map(({ id, color }) =>
     writeFile(path.join(storeDir, "shots", `${id}.png`), makePng(96, 192, color)),
   ),
 );
