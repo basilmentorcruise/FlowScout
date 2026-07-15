@@ -64,13 +64,20 @@ export function runReportRepositoryContract(options: ReportRepositoryContractOpt
     });
 
     describe("findByAppId", () => {
-      it("returns only that app's reports and respects limit", async () => {
-        const reportOne = fixtures.makeReport();
+      it("returns only that app's reports, NEWEST-FIRST by (generatedAt, reportId), and respects limit (#85 pinned ordering)", async () => {
+        // Saved OUT of chronological order so insertion order cannot pass by accident.
+        const reportOne = fixtures.makeReport({
+          metadata: {
+            ...fixtures.makeReport().metadata,
+            generatedAt: "2026-07-02T10:01:00.000Z",
+          },
+        });
         const reportTwo = fixtures.makeReport({
           metadata: {
             ...fixtures.makeReport().metadata,
             reportId: "report-fixture-2",
             runId: "run-fixture-2",
+            generatedAt: "2026-07-02T10:02:00.000Z",
           },
         });
         const otherApp = fixtures.makeReport({
@@ -82,14 +89,31 @@ export function runReportRepositoryContract(options: ReportRepositoryContractOpt
           },
         });
         await repository.save(reportOne);
-        await repository.save(reportTwo);
         await repository.save(otherApp);
+        await repository.save(reportTwo);
         const reports = await repository.findByAppId(reportOne.metadata.appId);
-        expect(reports.map((r) => r.metadata.reportId).sort()).toEqual([
-          "report-fixture-1",
+        expect(reports.map((r) => r.metadata.reportId)).toEqual([
           "report-fixture-2",
+          "report-fixture-1",
         ]);
-        await expect(repository.findByAppId(reportOne.metadata.appId, 1)).resolves.toHaveLength(1);
+        await expect(repository.findByAppId(reportOne.metadata.appId, 1)).resolves.toEqual([
+          reportTwo,
+        ]);
+      });
+
+      it("breaks generatedAt ties by reportId descending (deterministic order, #85)", async () => {
+        const sameTime = "2026-07-02T10:10:00.000Z";
+        const base = fixtures.makeReport().metadata;
+        const reportA = fixtures.makeReport({
+          metadata: { ...base, reportId: "report-a", runId: "run-a", generatedAt: sameTime },
+        });
+        const reportB = fixtures.makeReport({
+          metadata: { ...base, reportId: "report-b", runId: "run-b", generatedAt: sameTime },
+        });
+        await repository.save(reportA);
+        await repository.save(reportB);
+        const reports = await repository.findByAppId(base.appId);
+        expect(reports.map((r) => r.metadata.reportId)).toEqual(["report-b", "report-a"]);
       });
     });
 

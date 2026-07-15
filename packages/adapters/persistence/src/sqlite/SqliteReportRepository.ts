@@ -80,17 +80,24 @@ export class SqliteReportRepository implements ReportRepository {
   }
 
   findById(reportId: string): Promise<Report | null> {
-    const row = this.selectById.get(reportId);
-    return Promise.resolve(row === undefined ? null : decodeReport(row.payload));
+    // #85 read-path bridge: a corrupt-payload decode rejects, never throws sync.
+    return resolveAfter(() => {
+      const row = this.selectById.get(reportId);
+      return row === undefined ? null : decodeReport(row.payload);
+    });
   }
 
   findByRunId(runId: string): Promise<Report | null> {
-    const row = this.selectByRunId.get(runId);
-    return Promise.resolve(row === undefined ? null : decodeReport(row.payload));
+    return resolveAfter(() => {
+      const row = this.selectByRunId.get(runId);
+      return row === undefined ? null : decodeReport(row.payload);
+    });
   }
 
   findByAppId(appId: string, limit?: number): Promise<readonly Report[]> {
-    const rows = this.selectByAppId.all(appId, limit ?? NO_LIMIT);
-    return Promise.resolve(rows.map((row) => decodeReport(row.payload)));
+    return resolveAfter(() => {
+      const rows = this.selectByAppId.all(appId, limit ?? NO_LIMIT);
+      return rows.map((row) => decodeReport(row.payload));
+    });
   }
 }
