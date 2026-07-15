@@ -117,3 +117,22 @@ export type {
 export { BuildWorkflowMap } from "./semantic/BuildWorkflowMap.js";
 export type { Clock } from "./semantic/BuildWorkflowMap.js";
 export { RunBudgetMeter } from "./semantic/budget/RunBudgetMeter.js";
+
+// E7.2 (#84) — Write-path orchestrator (Facade, ADR-0008 §6): create Run at start,
+// crawl (graph persists incrementally), assemble + save Report, finalize the Run.
+export { RunAndPersist } from "./run/RunAndPersist.js";
+export type {
+  RunAndPersistInput,
+  RunAndPersistResult,
+  CrawlExecutor,
+  WorkflowMapBuilder,
+} from "./run/RunAndPersist.js";
+export { assembleReport, REPORT_UNRENDERED_URI, REPORT_ID_PREFIX } from "./run/assembleReport.js";
+export type { AssembleReportInput } from "./run/assembleReport.js";
+export {
+  defaultRunVersions,
+  DRIVER_VERSION,
+  POLICY_VERSION,
+  SCHEMA_VERSION,
+} from "./run/versions.js";
+export type { RunVersions } from "./run/versions.js";
