@@ -354,6 +354,100 @@ code {
   margin: var(--fs-space-1) 0 0;
 }
 
+/* #88 — hidden-path badge (amber, inline chip) vs duplicate-group callout (indigo,
+   full-width aside). Deliberately different hue FAMILIES + different DOM structure so
+   the two concepts are never confusable, even in grayscale (design spec §3/§5). All
+   rules compose from the §6 token set — no ad-hoc hex values. */
+.fs-icon {
+  width: 0.875em;
+  height: 0.875em;
+  flex: none;
+  vertical-align: -0.08em;
+}
+
+.fs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fs-space-1);
+  font-size: var(--fs-size-sm);
+  padding: 0 var(--fs-space-2);
+  border-radius: var(--fs-radius-sm);
+}
+
+.fs-badge-hidden {
+  background: var(--fs-color-hidden-bg);
+  color: var(--fs-color-hidden-fg);
+  border: 1px solid var(--fs-color-hidden-fg);
+}
+
+.fs-badge-hidden-index {
+  padding: 0 var(--fs-space-1);
+  margin-left: var(--fs-space-1);
+}
+
+.fs-duplicate-callout {
+  background: var(--fs-color-duplicate-bg);
+  border: 1px solid var(--fs-color-duplicate-border);
+  border-radius: var(--fs-radius-md);
+  padding: var(--fs-space-3) var(--fs-space-4);
+  margin: 0 0 var(--fs-space-3);
+}
+
+.fs-duplicate-title {
+  display: flex;
+  align-items: center;
+  gap: var(--fs-space-2);
+  color: var(--fs-color-duplicate-fg);
+  margin: 0 0 var(--fs-space-1);
+}
+
+.fs-duplicate-outcome {
+  margin: 0 0 var(--fs-space-2);
+  font-size: var(--fs-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.fs-duplicate-routes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fs-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--fs-space-2);
+  padding: var(--fs-space-1) 0;
+}
+
+.fs-route a {
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.fs-chip-canonical {
+  background: var(--fs-color-canonical-bg);
+  color: var(--fs-color-canonical-fg);
+  border-color: var(--fs-color-canonical-fg);
+}
+
+.fs-chip-hidden {
+  background: var(--fs-color-hidden-bg);
+  color: var(--fs-color-hidden-fg);
+  border-color: var(--fs-color-hidden-fg);
+}
+
+.fs-chip-alt {
+  background: var(--fs-color-surface);
+  color: var(--fs-color-text-muted);
+}
+
+.fs-you-are-here {
+  color: var(--fs-color-text-muted);
+  font-size: var(--fs-size-sm);
+}
+
 /* Empty state */
 .fs-empty {
   color: var(--fs-color-text-muted);
