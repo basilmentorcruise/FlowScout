@@ -19,6 +19,7 @@ import {
 } from "@flowscout/testing-persistence";
 import { openDatabase } from "../sqlite/Database.js";
 import type { SqliteDatabase } from "../sqlite/Database.js";
+import { resolveAfter } from "../sqlite/promiseBridge.js";
 import { SqliteRunRepository } from "../sqlite/SqliteRunRepository.js";
 import { SqliteStateGraphRepository } from "../sqlite/SqliteStateGraphRepository.js";
 import { SqliteReportRepository } from "../sqlite/SqliteReportRepository.js";
@@ -82,6 +83,15 @@ describe("SQLite read paths bridge corrupt-payload decode into a rejected promis
     await expectAsyncRejection(() => repository.findById(report.metadata.reportId));
     await expectAsyncRejection(() => repository.findByRunId(report.metadata.runId));
     await expectAsyncRejection(() => repository.findByAppId(report.metadata.appId));
+  });
+
+  it("resolveAfter coerces a thrown non-Error value into an Error rejection", async () => {
+    await expect(
+      resolveAfter(() => {
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- exercises the coercion branch
+        throw "raw-string-failure";
+      }),
+    ).rejects.toThrow("raw-string-failure");
   });
 
   it("intact rows still resolve normally through the bridge (no behavior change on the happy path)", async () => {

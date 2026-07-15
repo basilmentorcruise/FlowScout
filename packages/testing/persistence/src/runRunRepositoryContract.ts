@@ -112,8 +112,12 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
 
       it("breaks startedAt ties by id descending (deterministic order, #85)", async () => {
         const sameTime = "2026-07-02T10:10:00.000Z";
-        await repository.save(fixtures.makeRun({ id: "run-a", appId: "app.tie", startedAt: sameTime }));
-        await repository.save(fixtures.makeRun({ id: "run-b", appId: "app.tie", startedAt: sameTime }));
+        await repository.save(
+          fixtures.makeRun({ id: "run-a", appId: "app.tie", startedAt: sameTime }),
+        );
+        await repository.save(
+          fixtures.makeRun({ id: "run-b", appId: "app.tie", startedAt: sameTime }),
+        );
         const runs = await repository.findByAppId("app.tie");
         expect(runs.map((r) => r.id)).toEqual(["run-b", "run-a"]);
       });
