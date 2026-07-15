@@ -41,7 +41,7 @@ import {
   defaultGroupingConfig,
   CredentialRedactor,
 } from "@flowscout/application";
-import type { AppPorts } from "@flowscout/application";
+import type { AppPorts, UsageReporter } from "@flowscout/application";
 import {
   SamenessRefiner,
   defaultSamenessConfig,
@@ -86,6 +86,10 @@ import { loadMobileMcpConfig } from "../config/index.js";
 // #84 (E7.2): run-persistence wiring seam (new-file seam — e7-plan §Parallelization).
 import { wireRunPersistence } from "./wireRunPersistence.js";
 import type { AppContextWithRunPersistence } from "./wireRunPersistence.js";
+
+// #85 (E7.3): run-history query wiring seam (new-file seam — e7-plan §Parallelization).
+import { wireRunQueries } from "./wireRunQueries.js";
+import type { AppContextWithRunQueries } from "./wireRunQueries.js";
 
 // TODO (E1+): Add a real CrawlEventStream adapter (in-process event bus or Redis pub/sub)
 import type { CrawlEventStream, CrawlEvent } from "@flowscout/domain";
@@ -159,19 +163,8 @@ export function buildAppContext(): AppContext {
     crawlEventStream,
   };
 
-  // #37: usageReporter closure over chain.llmPolicy.lastCallResult.
-  // This bridges token usage from the chain to the engine WITHOUT importing PolicyChain
-  // in the application layer (preserves port-purity / T10).
-  const usageReporter = {
-    lastCall: () => {
-      const result = chain.llmPolicy.lastCallResult;
-      if (result === null) return null;
-      return {
-        promptTokens: result.promptTokens,
-        completionTokens: result.completionTokens,
-      };
-    },
-  };
+  // #37: usageReporter closure over chain.llmPolicy.lastCallResult (see helper).
+  const usageReporter = createUsageReporter(chain);
 
   // #37: CrawlRunSafety — non-production guard (T4). Loaded from env/config.
   // This is the documented, config-driven control against accidental production targeting.
@@ -211,8 +204,32 @@ export function buildAppContext(): AppContext {
     startCrawlRun,
     buildWorkflowMap,
   });
+  // #85 (E7.3): run-history read queries — the ONE added construction line (e7-plan §#85).
+  (appContext as AppContextWithRunQueries).runQueries = wireRunQueries({
+    runRepository,
+    stateGraphRepository,
+    reportRepository,
+  });
 
   return appContext;
+}
+
+/**
+ * #37: bridge token usage from the policy chain to the engine WITHOUT importing
+ * PolicyChain in the application layer (preserves port-purity / T10). Extracted
+ * from `buildAppContext` (#85) to keep the root under the function-size lint cap.
+ */
+function createUsageReporter(chain: ReturnType<typeof createPolicyChain>): UsageReporter {
+  return {
+    lastCall: () => {
+      const result = chain.llmPolicy.lastCallResult;
+      if (result === null) return null;
+      return {
+        promptTokens: result.promptTokens,
+        completionTokens: result.completionTokens,
+      };
+    },
+  };
 }
 
 /**
