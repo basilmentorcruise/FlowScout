@@ -140,6 +140,36 @@ describe("load — fail-closed validation", () => {
     expect(() => store.load()).toThrow(VaultIntegrityError);
   });
 
+});
+
+describe("load — fail-closed validation (document structure)", () => {
+  it("fails closed when the document is valid JSON but not an object", () => {
+    const path = vaultPathIn(tempRoot);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(["not", "an", "object"]));
+    expect(() => new VaultFileStore(path).load()).toThrow(VaultIntegrityError);
+  });
+
+  it("fails closed on an entry whose iv is not strictly valid base64", () => {
+    const path = vaultPathIn(tempRoot);
+    const store = new VaultFileStore(path);
+    store.save(freshModel([freshEntry("app-a", "default")]));
+    const raw = JSON.parse(readFileSync(path, "utf8")) as {
+      entries: Record<string, unknown>[];
+    };
+    if (raw.entries[0]) {
+      raw.entries[0]["iv"] = "*** not base64 ***";
+    }
+    writeFileSync(path, JSON.stringify(raw));
+    expect(() => store.load()).toThrow(VaultIntegrityError);
+  });
+
+  it("propagates a non-ENOENT filesystem error instead of masking it as a miss", () => {
+    // Reading a directory as a file raises EISDIR — must surface, not return null.
+    mkdirSync(join(tempRoot, "iamadir"), { recursive: true });
+    expect(() => new VaultFileStore(join(tempRoot, "iamadir")).load()).toThrow();
+  });
+
   it("fails closed when entries is not an array", () => {
     const path = vaultPathIn(tempRoot);
     const store = new VaultFileStore(path);
