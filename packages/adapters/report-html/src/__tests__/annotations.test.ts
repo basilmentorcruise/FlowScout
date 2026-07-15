@@ -15,7 +15,14 @@ import { renderConvergenceCallout } from "../sections/convergence.js";
 import { renderDocument } from "../document.js";
 import { buildReportView, DEFAULT_MAX_STRING_LENGTH } from "../viewmodel.js";
 import { REPORT_STYLESHEET } from "../assets/styles.js";
-import { DEFAULT_NODES, makeGraph, makeMap, makeNode, makeReport, makeWorkflow } from "./fixtures.js";
+import {
+  DEFAULT_NODES,
+  makeGraph,
+  makeMap,
+  makeNode,
+  makeReport,
+  makeWorkflow,
+} from "./fixtures.js";
 
 const limits = { maxStringLength: DEFAULT_MAX_STRING_LENGTH };
 
@@ -133,9 +140,7 @@ describe("deriveAnnotations — convergence callout (AC 2/AC 3)", () => {
         makeWorkflow("alt", { name: "Alternate" }),
       ],
       {
-        duplicateGroups: [
-          makeGroup({ workflowIds: ["alt", "hidden", "main"] }),
-        ],
+        duplicateGroups: [makeGroup({ workflowIds: ["alt", "hidden", "main"] })],
       },
     );
     const doc = parse(renderMarkup(map));
@@ -159,7 +164,6 @@ describe("deriveAnnotations — convergence callout (AC 2/AC 3)", () => {
       expect(doc.getElementById(href.slice(1))).not.toBeNull();
     }
   });
-
 });
 
 describe("deriveAnnotations — convergence callout details + resilience (AC 3/NFR4/T6)", () => {
@@ -200,13 +204,15 @@ describe("deriveAnnotations — convergence callout details + resilience (AC 3/N
 
   it("renders a route whose workflow is missing from the map as inert text (NFR4, no crash)", () => {
     const map = makeConvergingMap({
-      duplicateGroups: [
-        makeGroup({ workflowIds: ["ghost", "hidden", "main"] }),
-      ],
+      duplicateGroups: [makeGroup({ workflowIds: ["ghost", "hidden", "main"] })],
     });
     const doc = parse(renderMarkup(map));
     const links = Array.from(doc.querySelectorAll("#wf-main .fs-duplicate-routes a"));
-    expect(links.map((a) => a.textContent)).toEqual(["Buy via search", "ghost", "Buy via promo tile"]);
+    expect(links.map((a) => a.textContent)).toEqual([
+      "Buy via search",
+      "ghost",
+      "Buy via promo tile",
+    ]);
   });
 
   it("length-caps untrusted route names and outcome labels (T6)", () => {
@@ -290,7 +296,9 @@ describe("convergence partial markup (design spec §5.2)", () => {
         { anchorId: "wf-b", name: "B", role: "hidden", isCurrent: false },
       ],
     }).value;
-    expect(markup).toContain('<aside class="fs-duplicate-callout" aria-label="Duplicate path group">');
+    expect(markup).toContain(
+      '<aside class="fs-duplicate-callout" aria-label="Duplicate path group">',
+    );
     expect(markup).toContain("<strong>2 distinct paths reach the same outcome</strong>");
     expect(markup).toContain('class="fs-icon"');
     expect(markup).toContain('href="#wf-a"');
@@ -298,7 +306,7 @@ describe("convergence partial markup (design spec §5.2)", () => {
   });
 
   it("entity-encodes hostile route names and outcome labels (T7 in added markup)", () => {
-    const hostile = '<script>alert(1)</script>';
+    const hostile = "<script>alert(1)</script>";
     const markup = renderConvergenceCallout({
       pathCount: 2,
       outcomeLabel: hostile,
