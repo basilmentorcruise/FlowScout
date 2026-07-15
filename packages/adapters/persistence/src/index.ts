@@ -18,11 +18,5 @@ export { SqliteReportRepository } from "./sqlite/SqliteReportRepository.js";
 export { UnredactedSecretError } from "./sqlite/redactionGuard.js";
 export { PayloadCodecError } from "./sqlite/codec/primitives.js";
 
-// DEPRECATED throwing stubs — still constructed by the composition root
-// (`packages/api/src/composition-root/wire.ts`, frozen for this ticket).
-// #84 (E7.2) owns the wire.ts swap to the Sqlite* repositories and removes these.
-export {
-  PrismaRunRepository,
-  PrismaStateGraphRepository,
-  PrismaReportRepository,
-} from "./PersistenceAdapters.js";
+// The deprecated Prisma* throwing stubs were DELETED by #84 (E7.2) — the
+// composition root now constructs the Sqlite* repositories above (ADR-0008).

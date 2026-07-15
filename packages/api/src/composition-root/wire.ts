@@ -48,7 +48,14 @@ import {
   projectA11ySkeleton,
   defaultCrawlBudget,
 } from "@flowscout/domain";
-import type { CrawlBudget, EmbeddingPort, LlmPort, StateGraphRepository } from "@flowscout/domain";
+import type {
+  CrawlBudget,
+  EmbeddingPort,
+  LlmPort,
+  ReportRepository,
+  RunRepository,
+  StateGraphRepository,
+} from "@flowscout/domain";
 
 // Adapters — the only files in this package that import concrete adapter classes.
 // *** SWAP POINT ***: change the import + the two MobileMcpDriver lines below to swap the driver.
@@ -62,16 +69,23 @@ import {
   createEmbeddingClient,
 } from "@flowscout/adapter-llm";
 import { InMemoryDecisionCache } from "@flowscout/application";
+// E7 (#84): durable SQLite run store (ADR-0008) — replaces the deleted Prisma* stubs.
 import {
-  PrismaRunRepository,
-  PrismaStateGraphRepository,
-  PrismaReportRepository,
+  openDatabase,
+  resolveDatabasePath,
+  SqliteRunRepository,
+  SqliteStateGraphRepository,
+  SqliteReportRepository,
 } from "@flowscout/adapter-persistence";
 import { VaultAdapter } from "@flowscout/adapter-vault";
 import { HtmlReportRenderer } from "@flowscout/adapter-report-html";
 
 // Config loader — the sole env-reading logic for the mobile driver.
 import { loadMobileMcpConfig } from "../config/index.js";
+
+// #84 (E7.2): run-persistence wiring seam (new-file seam — e7-plan §Parallelization).
+import { wireRunPersistence } from "./wireRunPersistence.js";
+import type { AppContextWithRunPersistence } from "./wireRunPersistence.js";
 
 // TODO (E1+): Add a real CrawlEventStream adapter (in-process event bus or Redis pub/sub)
 import type { CrawlEventStream, CrawlEvent } from "@flowscout/domain";
@@ -129,15 +143,17 @@ export function buildAppContext(): AppContext {
   const mobileDriver = new MobileMcpDriver(driverConfig);
 
   const crawlEventStream = new InProcessCrawlEventStream();
-  const stateGraphRepository = new PrismaStateGraphRepository();
+
+  // E7 (#84): durable SQLite store — ONE handle per process (see wireDurableRunStore).
+  const { runRepository, stateGraphRepository, reportRepository } = wireDurableRunStore();
 
   const ports: AppPorts = {
     mobileDriver,
     simulatorLifecycle: mobileDriver, // MobileMcpDriver implements both ports — single instance
     decisionPolicy: chain,
-    runRepository: new PrismaRunRepository(),
+    runRepository,
     stateGraphRepository,
-    reportRepository: new PrismaReportRepository(),
+    reportRepository,
     credentialVault: new VaultAdapter(),
     reportRenderer: new HtmlReportRenderer(),
     crawlEventStream,
@@ -186,8 +202,38 @@ export function buildAppContext(): AppContext {
   (appContext as AppContextWithCrawl).startCrawlRun = startCrawlRun;
   // Expose buildWorkflowMap via the context (mirrors the …WithCrawl pattern).
   (appContext as AppContextWithWorkflowMap).buildWorkflowMap = buildWorkflowMap;
+  // #84 (E7.2): run-persistence orchestrator — the ONE added construction line (e7-plan §#84).
+  (appContext as AppContextWithRunPersistence).runAndPersist = wireRunPersistence({
+    runRepository,
+    stateGraphRepository,
+    reportRepository,
+    crawlEventStream,
+    startCrawlRun,
+    buildWorkflowMap,
+  });
 
   return appContext;
+}
+
+/**
+ * E7 (#84): open the durable SQLite run store and construct the three repositories
+ * over ONE shared handle (ADR-0008 §1 — one connection per process, DI).
+ *
+ * The DB path is resolved EXPLICITLY here at the composition root and passed down —
+ * no ambient env read inside the adapter call path (T2: config-owned location,
+ * `FLOWSCOUT_DB_PATH` or the documented `./.flowscout/flowscout.db` default).
+ */
+function wireDurableRunStore(): {
+  runRepository: RunRepository;
+  stateGraphRepository: StateGraphRepository;
+  reportRepository: ReportRepository;
+} {
+  const db = openDatabase(resolveDatabasePath(process.env));
+  return {
+    runRepository: new SqliteRunRepository(db),
+    stateGraphRepository: new SqliteStateGraphRepository(db),
+    reportRepository: new SqliteReportRepository(db),
+  };
 }
 
 /**
