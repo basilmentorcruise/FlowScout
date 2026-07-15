@@ -4,14 +4,13 @@
  *
  * All credential/key fixtures are runtime-constructed (M11 — never hardcoded literals).
  */
-import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { PlaintextCredential } from "@flowscout/domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VaultKeyMissingError } from "../errors.js";
 import { VaultAdapter } from "../VaultAdapter.js";
+import { freshCredential, freshSecret } from "./fixtures.js";
 
 let tempRoot: string;
 
@@ -22,19 +21,6 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(tempRoot, { recursive: true, force: true });
 });
-
-function freshSecret(prefix: string): string {
-  return `${prefix}-${randomBytes(12).toString("hex")}`;
-}
-
-function freshCredential(overrides: Partial<PlaintextCredential> = {}): PlaintextCredential {
-  return {
-    username: `${freshSecret("user")}@example.test`,
-    password: freshSecret("pw"),
-    otpSeed: null,
-    ...overrides,
-  };
-}
 
 function makeAdapter(masterSecret: string | null = freshSecret("master")): VaultAdapter {
   return new VaultAdapter({

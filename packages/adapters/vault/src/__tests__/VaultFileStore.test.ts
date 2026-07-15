@@ -90,7 +90,6 @@ describe("load", () => {
     writeFileSync(path, "not-json{{{");
     expect(() => new VaultFileStore(path).load()).toThrow(VaultIntegrityError);
   });
-
 });
 
 describe("load — fail-closed validation", () => {
@@ -139,7 +138,6 @@ describe("load — fail-closed validation", () => {
     writeFileSync(path, JSON.stringify(raw));
     expect(() => store.load()).toThrow(VaultIntegrityError);
   });
-
 });
 
 describe("load — fail-closed validation (document structure)", () => {

@@ -46,7 +46,7 @@ packages/
     mobile-mcp/     # MobileDriverPort + SimulatorLifecycle over mobile-next/mobile-mcp
     llm/            # DecisionPolicy chain + LlmAdapter over @anthropic-ai/sdk
     persistence/    # Durable embedded-SQLite run store (better-sqlite3, ADR-0008)
-    vault/          # CredentialVaultPort (stub; AES-256-GCM implementation in E6)
+    vault/          # Encrypted credential vault — AES-256-GCM + scrypt KDF over CredentialVaultPort (ADR-0011)
     report-html/    # ReportRendererPort (stub; HTML renderer in E4)
   api/              # Fastify HTTP + SSE backend; composition root; thin transport layer
   web/              # React + Vite dashboard SPA (MVVM); stub UI
@@ -122,18 +122,19 @@ If `FLOWSCOUT_FIXTURE_APP` is unset the job exits cleanly with a skip message. T
 
 See `.env.example` for the full, annotated list with placeholder values. Key variables:
 
-| Variable                           | Used by                    | Description                                                                                         |
-| ---------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
-| `FLOWSCOUT_VAULT_KEY`              | `adapters/vault`           | Master key for AES-256-GCM credential encryption (32-byte hex; required when vault is active)       |
-| `FLOWSCOUT_DB_PATH`                | `adapters/persistence`     | Path to the embedded SQLite run store (ADR-0008); default `./.flowscout/flowscout.db`, zero-setup   |
-| `LLM_API_KEY`                      | `adapters/llm`             | Anthropic API key (required; never logged or committed)                                             |
-| `FLOWSCOUT_MCP_SERVER_COMMAND`     | `adapters/mobile-mcp`      | Comma-separated argv to launch the MCP server (default: `npx,mobile-mcp`)                           |
-| `FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS` | `adapters/mobile-mcp`      | MCP connection timeout in ms (default: 10000)                                                       |
-| `FLOWSCOUT_MCP_CALL_TIMEOUT_MS`    | `adapters/mobile-mcp`      | Per-tool-call timeout in ms (default: 30000)                                                        |
-| `FLOWSCOUT_APP_BUNDLE_DIR`         | `adapters/mobile-mcp`, E2E | Allowlisted base directory for `.app` bundles; required for the real-simulator E2E lane             |
-| `FLOWSCOUT_FIXTURE_APP`            | E2E lane                   | Path to the fixture `.app` (must be inside `FLOWSCOUT_APP_BUNDLE_DIR`); leave unset to skip the E2E |
-| `FLOWSCOUT_FIXTURE_BUNDLE_ID`      | E2E lane                   | Bundle identifier of the fixture `.app`; required when `FLOWSCOUT_FIXTURE_APP` is set               |
-| `FLOWSCOUT_E2E_SIM_UDID`           | E2E lane                   | iOS Simulator UDID; if unset the harness picks the first booted simulator                           |
+| Variable                           | Used by                    | Description                                                                                                                                        |
+| ---------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FLOWSCOUT_VAULT_KEY`              | `adapters/vault`           | Vault master secret (passphrase or high-entropy value; AES-256 key scrypt-derived, ADR-0011). No default — vault operations fail closed when unset |
+| `FLOWSCOUT_VAULT_PATH`             | `adapters/vault`           | Path to the encrypted credential-vault file (dir `0700`/file `0600`, gitignored, separate from the run DB); default `./.flowscout/vault.json`      |
+| `FLOWSCOUT_DB_PATH`                | `adapters/persistence`     | Path to the embedded SQLite run store (ADR-0008); default `./.flowscout/flowscout.db`, zero-setup                                                  |
+| `LLM_API_KEY`                      | `adapters/llm`             | Anthropic API key (required; never logged or committed)                                                                                            |
+| `FLOWSCOUT_MCP_SERVER_COMMAND`     | `adapters/mobile-mcp`      | Comma-separated argv to launch the MCP server (default: `npx,mobile-mcp`)                                                                          |
+| `FLOWSCOUT_MCP_CONNECT_TIMEOUT_MS` | `adapters/mobile-mcp`      | MCP connection timeout in ms (default: 10000)                                                                                                      |
+| `FLOWSCOUT_MCP_CALL_TIMEOUT_MS`    | `adapters/mobile-mcp`      | Per-tool-call timeout in ms (default: 30000)                                                                                                       |
+| `FLOWSCOUT_APP_BUNDLE_DIR`         | `adapters/mobile-mcp`, E2E | Allowlisted base directory for `.app` bundles; required for the real-simulator E2E lane                                                            |
+| `FLOWSCOUT_FIXTURE_APP`            | E2E lane                   | Path to the fixture `.app` (must be inside `FLOWSCOUT_APP_BUNDLE_DIR`); leave unset to skip the E2E                                                |
+| `FLOWSCOUT_FIXTURE_BUNDLE_ID`      | E2E lane                   | Bundle identifier of the fixture `.app`; required when `FLOWSCOUT_FIXTURE_APP` is set                                                              |
+| `FLOWSCOUT_E2E_SIM_UDID`           | E2E lane                   | iOS Simulator UDID; if unset the harness picks the first booted simulator                                                                          |
 
 ---
 

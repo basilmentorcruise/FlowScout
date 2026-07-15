@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { VaultIntegrityError } from "../errors.js";
 import { VaultAdapter } from "../VaultAdapter.js";
 import { buildAad, deriveKey, seal } from "../VaultCrypto.js";
+import { freshCredential as buildCredential, freshSecret } from "./fixtures.js";
 
 const PERMISSION_MASK = 0o777;
 
@@ -31,16 +32,9 @@ afterEach(() => {
   rmSync(tempRoot, { recursive: true, force: true });
 });
 
-function freshSecret(prefix: string): string {
-  return `${prefix}-${randomBytes(12).toString("hex")}`;
-}
-
+/** Security-suite credentials always carry a non-null otpSeed (max secret surface). */
 function freshCredential(): PlaintextCredential {
-  return {
-    username: `${freshSecret("user")}@example.test`,
-    password: freshSecret("pw"),
-    otpSeed: freshSecret("totp-seed"),
-  };
+  return buildCredential({ otpSeed: freshSecret("totp-seed") });
 }
 
 function adapterWith(masterSecret: string): VaultAdapter {
