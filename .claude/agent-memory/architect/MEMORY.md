@@ -16,3 +16,4 @@
 - [E7 run persistence](project_e7-run-persistence.md) — ADR-0008 SQLite; #83+#84 PASS; coherence-window accepted-risk → #85 must treat run row as authoritative status; #85 owes 2 more #83-routed items
 - [E4 HTML report](project_e4-html-report.md) — ADR-0009: SafeHtml T7 boundary; relative artifactUri; #87 PASS (first-seen order supersession recorded); #88/#89 forward conditions
 - [E5 dashboard](project_e5-dashboard.md) — ADR-0010: Fastify pinned; persisted-map OQ1; same-origin sandbox="" OQ2; no-cancel OQ5; verbatim SSE (E6 seam); 4 reg-line seams
+- [E6 vault + pause](project_e6-vault-and-pause.md) — ADR-0011: scrypt+GCM file vault; resolver-chain seam (#102 only StartCrawlRun edit — FAIL #103 if it touches it); app-layer response channel

@@ -38,3 +38,34 @@ isolation.
   supported and skips filesystem prep entirely.
 
 See also [[feedback-worktree-setup]] for how the scratchpad worktree was set up to run this gate.
+
+**Update (#84/PR#98, E7.2 write-path orchestrator — PASSed):** extended these probes to the
+`RunAndPersist` orchestrator that composes `StartCrawlRun` + `BuildWorkflowMap` + the three
+Sqlite\* repos via the api package's composition-root wiring functions (`wireRunPersistence`,
+`wireBuildWorkflowMap` in `packages/api/src/composition-root/`).
+
+- To drive the REAL composition root from a standalone probe script (not vitest), don't
+  `import "@flowscout/api"` — its `src/index.ts` has a side effect (`void start()` boots a real
+  Fastify server on import). Instead import the composition-root file directly by absolute file
+  path (`${repoRoot}/packages/api/dist/composition-root/wire.js`) — Node's ESM resolver allows
+  direct file-path imports even when the package's `exports` map only exposes `"."`; only bare
+  `@flowscout/api` specifiers are restricted.
+- Probe scripts placed outside the workspace (e.g. under a scratchpad dir) won't resolve bare
+  `@flowscout/*` specifiers — Node walks `node_modules` up from the _importing file's own path_,
+  not cwd. Fix: drop the scratch `.mjs` probe files into a throwaway subdirectory INSIDE a
+  package that already has the pnpm-symlinked `node_modules/@flowscout/*` (e.g.
+  `packages/api/qa-probe-scratch/`), run from there, then delete the directory before tearing
+  down the worktree — never commit it.
+- For "kill -9 mid-crawl" timing, don't guess a sleep duration — have the slow driver method
+  (e.g. `tap()`) IPC-signal the parent (`process.send`) the instant it starts its first call
+  (which only happens after `RunAndPersist`'s pre-crawl `Run` save has already landed), then have
+  the parent `SIGKILL` ~100ms after receiving that signal. This makes "mid-crawl" deterministic
+  instead of a race against an arbitrary timeout.
+- On reopen after the kill, `better-sqlite3`'s `db.pragma("integrity_check")` returns
+  `[{integrity_check: "ok"}]` when the WAL-mode journal protected the file — assert on that array
+  shape, not just "no throw".
+- Re-execute-same-runId (upsert/no-dupe) probes are cheap: just call the orchestrator twice
+  against the same file-backed db, then raw-SQL `COUNT(*) WHERE id/run_id = ?` on `runs`,
+  `graphs`, `reports` — all three tables in this schema key on `run_id`/`id` with
+  `ON CONFLICT ... DO UPDATE` (runs, graphs) or delete-then-insert (reports), so the count must
+  stay 1 regardless of re-execution count.
