@@ -103,11 +103,14 @@ export class HtmlReportRenderer implements ReportRendererPort {
     const view = buildReportView(report, workflowMap, stateGraph, {
       maxStringLength: this.maxStringLength,
     });
-    const document = await this.composeDocument(view, report, options);
+    // Single clock read per render (arch-review #92 advisory): the document's
+    // <time> and the returned generatedAt are always the same instant.
+    const renderedAt = this.clock().toISOString();
+    const document = await this.composeDocument(view, report, options, renderedAt);
     await this.writeAtomically(artifactPath, document);
     return {
       artifactUri: pathToFileURL(artifactPath).href,
-      generatedAt: this.clock().toISOString(),
+      generatedAt: renderedAt,
       sizeBytes: Buffer.byteLength(document, "utf8"),
     };
   }
@@ -139,6 +142,7 @@ export class HtmlReportRenderer implements ReportRendererPort {
     view: ReportView,
     report: Report,
     options: RenderOptions,
+    renderedAt: string,
   ): Promise<string> {
     const uris = view.groups
       .flatMap((group) => group.workflows)
@@ -153,7 +157,7 @@ export class HtmlReportRenderer implements ReportRendererPort {
     });
     return renderDocument(view, {
       title: options.title ?? `FlowScout report — ${report.metadata.appId}`,
-      renderedAt: this.clock().toISOString(),
+      renderedAt,
       screenshotSrcByUri,
     }).value;
   }
