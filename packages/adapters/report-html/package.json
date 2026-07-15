@@ -16,13 +16,17 @@
     "build": "tsc --build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "sample": "node scripts/generate-sample-report.mjs"
   },
   "dependencies": {
     "@flowscout/domain": "workspace:*"
   },
   "devDependencies": {
     "@flowscout/config": "workspace:*",
+    "@vitest/coverage-v8": "^3.0.0",
+    "happy-dom": "^20.10.6",
     "typescript": "^5.5.0",
     "vitest": "^3.0.0"
   }
