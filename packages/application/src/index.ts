@@ -136,3 +136,9 @@ export {
   SCHEMA_VERSION,
 } from "./run/versions.js";
 export type { RunVersions } from "./run/versions.js";
+
+// E7.3 (#85) — CQRS-lite read use-cases: paginated newest-first run history +
+// composed single-run detail (run row is the authoritative status — #98 ruling).
+export { ListRunHistory } from "./run/queries/ListRunHistory.js";
+export { GetRunDetail } from "./run/queries/GetRunDetail.js";
+export type { RunHistoryPage, RunDetail } from "./run/queries/dto.js";

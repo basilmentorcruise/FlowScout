@@ -99,7 +99,7 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
       });
     });
 
-    describe("findByAppId (FR1)", () => {
+    describe("findByAppId (FR1) — NEWEST-FIRST by (startedAt, id), #85 pinned ordering", () => {
       it("returns only that app's runs, newest-first, and respects limit", async () => {
         for (const run of seedRuns(fixtures)) {
           await repository.save(run);
@@ -108,6 +108,18 @@ export function runRunRepositoryContract(options: RunRepositoryContractOptions):
         expect(appOneRuns.map((r) => r.id)).toEqual(["run-5", "run-3", "run-1"]);
         const limited = await repository.findByAppId("app.one", PAGE_LIMIT);
         expect(limited.map((r) => r.id)).toEqual(["run-5", "run-3"]);
+      });
+
+      it("breaks startedAt ties by id descending (deterministic order, #85)", async () => {
+        const sameTime = "2026-07-02T10:10:00.000Z";
+        await repository.save(
+          fixtures.makeRun({ id: "run-a", appId: "app.tie", startedAt: sameTime }),
+        );
+        await repository.save(
+          fixtures.makeRun({ id: "run-b", appId: "app.tie", startedAt: sameTime }),
+        );
+        const runs = await repository.findByAppId("app.tie");
+        expect(runs.map((r) => r.id)).toEqual(["run-b", "run-a"]);
       });
     });
 

@@ -120,13 +120,18 @@ export class SqliteRunRepository implements RunRepository {
   }
 
   findById(id: string): Promise<Run | null> {
-    const row = this.selectById.get(id);
-    return Promise.resolve(row === undefined ? null : decodeRun(row.payload));
+    // #85 read-path bridge: a corrupt-payload decode rejects, never throws sync.
+    return resolveAfter(() => {
+      const row = this.selectById.get(id);
+      return row === undefined ? null : decodeRun(row.payload);
+    });
   }
 
   findByAppId(appId: string, limit?: number): Promise<readonly Run[]> {
-    const rows = this.selectByAppId.all(appId, limit ?? NO_LIMIT);
-    return Promise.resolve(rows.map((row) => decodeRun(row.payload)));
+    return resolveAfter(() => {
+      const rows = this.selectByAppId.all(appId, limit ?? NO_LIMIT);
+      return rows.map((row) => decodeRun(row.payload));
+    });
   }
 
   update(id: string, patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void> {
@@ -136,24 +141,30 @@ export class SqliteRunRepository implements RunRepository {
   }
 
   listRuns(options: ListRunsOptions): Promise<RunPage> {
-    const limit =
-      Number.isInteger(options.limit) && options.limit > 0 ? options.limit : DEFAULT_PAGE_SIZE;
-    const cursor = decodeRunPageCursor(options.cursor);
-    // Fetch limit+1 rows to learn whether a next page exists without a second query.
-    const probeLimit = limit + 1;
-    const rows = cursor
-      ? this.pageAfterCursor.all({ startedAt: cursor.startedAt, id: cursor.id, limit: probeLimit })
-      : this.pageFirst.all(probeLimit);
-    const hasMore = rows.length > limit;
-    const runs = rows.slice(0, limit).map((row) => decodeRun(row.payload));
-    const lastOnPage = runs[runs.length - 1];
-    return Promise.resolve({
-      runs,
-      nextCursor:
-        hasMore && lastOnPage !== undefined
-          ? encodeRunPageCursor({ startedAt: lastOnPage.startedAt, id: lastOnPage.id })
-          : null,
-      total: this.countAll.get()?.total ?? 0,
+    return resolveAfter(() => {
+      const limit =
+        Number.isInteger(options.limit) && options.limit > 0 ? options.limit : DEFAULT_PAGE_SIZE;
+      const cursor = decodeRunPageCursor(options.cursor);
+      // Fetch limit+1 rows to learn whether a next page exists without a second query.
+      const probeLimit = limit + 1;
+      const rows = cursor
+        ? this.pageAfterCursor.all({
+            startedAt: cursor.startedAt,
+            id: cursor.id,
+            limit: probeLimit,
+          })
+        : this.pageFirst.all(probeLimit);
+      const hasMore = rows.length > limit;
+      const runs = rows.slice(0, limit).map((row) => decodeRun(row.payload));
+      const lastOnPage = runs[runs.length - 1];
+      return {
+        runs,
+        nextCursor:
+          hasMore && lastOnPage !== undefined
+            ? encodeRunPageCursor({ startedAt: lastOnPage.startedAt, id: lastOnPage.id })
+            : null,
+        total: this.countAll.get()?.total ?? 0,
+      };
     });
   }
 }

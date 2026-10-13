@@ -10,6 +10,13 @@
  */
 import type { Report, ReportRepository } from "@flowscout/domain";
 
+/** Newest-first comparator: (generatedAt, reportId) descending — pinned port ordering (#85). */
+function byNewestFirst(a: Report, b: Report): number {
+  return a.metadata.generatedAt === b.metadata.generatedAt
+    ? b.metadata.reportId.localeCompare(a.metadata.reportId)
+    : b.metadata.generatedAt.localeCompare(a.metadata.generatedAt);
+}
+
 export class InMemoryReportRepository implements ReportRepository {
   /** Keyed by runId — one report per run, latest save wins (upsert-by-runId). */
   private readonly store = new Map<string, Report>();
@@ -29,7 +36,9 @@ export class InMemoryReportRepository implements ReportRepository {
   }
 
   findByAppId(appId: string, limit?: number): Promise<readonly Report[]> {
-    const results = [...this.store.values()].filter((r) => r.metadata.appId === appId);
+    const results = [...this.store.values()]
+      .filter((r) => r.metadata.appId === appId)
+      .sort(byNewestFirst);
     return Promise.resolve(limit !== undefined ? results.slice(0, limit) : results);
   }
 }

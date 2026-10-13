@@ -31,6 +31,10 @@ export interface RunPage {
 export interface RunRepository {
   save(run: Run): Promise<void>;
   findById(id: string): Promise<Run | null>;
+  /**
+   * One app's runs, NEWEST-FIRST by (startedAt, id) descending (#85 —
+   * pinned ordering; the conformance suite asserts it on every impl).
+   */
   findByAppId(appId: string, limit?: number): Promise<readonly Run[]>;
   update(id: string, patch: Partial<Pick<Run, "status" | "finishedAt">>): Promise<void>;
   /** Cross-app run history: newest-first by (startedAt, id), cursor-paginated (FR6). */
@@ -55,5 +59,9 @@ export interface ReportRepository {
   save(report: Report): Promise<void>;
   findById(reportId: string): Promise<Report | null>;
   findByRunId(runId: string): Promise<Report | null>;
+  /**
+   * One app's reports, NEWEST-FIRST by (generatedAt, reportId) descending
+   * (#85 — pinned ordering; the conformance suite asserts it on every impl).
+   */
   findByAppId(appId: string, limit?: number): Promise<readonly Report[]>;
 }

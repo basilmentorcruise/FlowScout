@@ -92,7 +92,8 @@ export class SqliteStateGraphRepository implements StateGraphRepository {
   }
 
   findByRunId(runId: string): Promise<StateGraph | null> {
-    return Promise.resolve(this.readGraph(runId));
+    // #85 read-path bridge: a corrupt-payload decode rejects, never throws sync.
+    return resolveAfter(() => this.readGraph(runId));
   }
 
   /** Cross-run diffing is an explicit E7 non-goal — always empty (ADR-0008 R-C). */
