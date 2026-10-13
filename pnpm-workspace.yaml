@@ -9,3 +9,14 @@ allowBuilds:
   # E7.1 (#83, ADR-0008 / threat model T8): native addon for the embedded run store.
   # Exact-pinned in adapters/persistence; pinned version ships a darwin-arm64 prebuild.
   better-sqlite3: true
+overrides:
+  # Security floors for transitive deps flagged by `pnpm audit --prod` (CI SCA gate), 2026-10.
+  # Mostly pulled in via mobile-mcp → mobile-use and @modelcontextprotocol/sdk → express/ajv.
+  proxy-addr: ^2.0.8
+  fast-uri: ^3.1.7
+  ip-address: ^10.3.1
+  nanoid@^3: ^3.3.18
+  fast-xml-parser: ^5.10.1
+  jsondiffpatch: ^0.7.6
+  sharp: ^0.35.5
+  find-my-way: ^9.6.1
