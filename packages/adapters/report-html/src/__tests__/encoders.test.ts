@@ -48,6 +48,8 @@ describe("safeImageSrc — embed mode (data:image allowlist)", () => {
 
   it("rejects data URIs whose payload contains non-base64 characters", () => {
     expect(safeImageSrc('data:image/png;base64,"><script>', "embed")).toBeNull();
+    // Tightened per arch-review #92: an EMPTY base64 body is rejected too.
+    expect(safeImageSrc("data:image/png;base64,", "embed")).toBeNull();
   });
 
   it("rejects every hostile URI in embed mode", () => {

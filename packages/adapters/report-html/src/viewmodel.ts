@@ -12,14 +12,21 @@
  * entity). The cap is config-driven via `ViewLimits.maxStringLength`.
  */
 import type { Report, StateGraph, Workflow, WorkflowMap } from "@flowscout/domain";
-import type { SafeHtml } from "./html.js";
 import { safeAnchorId } from "./html.js";
+import {
+  deriveAnnotations,
+  EMPTY_ANNOTATIONS,
+  UNKNOWN_SCREEN_LABEL,
+  type WorkflowAnnotations,
+} from "./annotations.js";
+
+// The annotation seam (ADR-0009 §4) is owned by annotations.ts since #88; the type and
+// the shared fallback label are re-exported here for the section/view consumers.
+export { UNKNOWN_SCREEN_LABEL } from "./annotations.js";
+export type { WorkflowAnnotations } from "./annotations.js";
 
 /** Catch-all group label (design spec §2.2 — absent and "Ungrouped" merge here). */
 export const UNGROUPED_LABEL = "Ungrouped";
-
-/** Placeholder screen label when a step's stateId is missing from the graph (NFR4). */
-export const UNKNOWN_SCREEN_LABEL = "Unknown screen";
 
 /** Screenshots default open when a workflow has ≤ this many steps (design spec §4). */
 export const SCREENSHOT_OPEN_MAX_STEPS = 6;
@@ -42,34 +49,6 @@ const PERCENT = 100;
 
 export interface ViewLimits {
   readonly maxStringLength: number;
-}
-
-/**
- * The #88 annotation-slot seam (ADR-0009 §4): index badges (TOC rows), detail badges
- * (workflow header) and callouts (between header and steps), all SafeHtml. #87 renders
- * the slots; deriveAnnotations returns them EMPTY. #88 fills them without touching
- * the section structure.
- */
-export interface WorkflowAnnotations {
-  readonly indexBadges: readonly SafeHtml[];
-  readonly detailBadges: readonly SafeHtml[];
-  readonly callouts: readonly SafeHtml[];
-}
-
-const EMPTY_ANNOTATIONS: WorkflowAnnotations = Object.freeze({
-  indexBadges: [],
-  detailBadges: [],
-  callouts: [],
-});
-
-/**
- * #87: empty annotations for every workflow (also the `duplicateGroups`-absent edge case).
- * #88 replaces this derivation with hidden-path badges + convergence callouts.
- */
-export function deriveAnnotations(
-  workflowMap: WorkflowMap,
-): ReadonlyMap<string, WorkflowAnnotations> {
-  return new Map(workflowMap.workflows.map((workflow) => [workflow.id, EMPTY_ANNOTATIONS]));
 }
 
 export interface StepActionView {
@@ -220,7 +199,7 @@ export function buildReportView(
   stateGraph: StateGraph,
   limits: ViewLimits = { maxStringLength: DEFAULT_MAX_STRING_LENGTH },
 ): ReportView {
-  const annotations = deriveAnnotations(workflowMap);
+  const annotations = deriveAnnotations(workflowMap, stateGraph, limits);
   return {
     header: toHeaderView(report, workflowMap, limits),
     groups: groupByFeature(workflowMap.workflows, limits, stateGraph, annotations),

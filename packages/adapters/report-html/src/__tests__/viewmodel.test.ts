@@ -5,12 +5,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReportView,
-  deriveAnnotations,
   groupByFeature,
   DEFAULT_MAX_STRING_LENGTH,
   UNGROUPED_LABEL,
   UNKNOWN_SCREEN_LABEL,
 } from "../viewmodel.js";
+import { deriveAnnotations } from "../annotations.js";
 import {
   DEFAULT_NODES,
   makeGraph,
@@ -37,7 +37,12 @@ describe("groupByFeature (FR3)", () => {
       makeWorkflow("wf-2", { featureGroup: "Authentication" }),
       makeWorkflow("wf-4", { featureGroup: "Ungrouped" }),
     ];
-    const groups = groupByFeature(workflows, limits, graph, deriveAnnotations(makeMap(workflows)));
+    const groups = groupByFeature(
+      workflows,
+      limits,
+      graph,
+      deriveAnnotations(makeMap(workflows), graph, limits),
+    );
     expect(groups.map((g) => g.name)).toEqual(["Checkout", "Authentication", UNGROUPED_LABEL]);
     // absent featureGroup and literal "Ungrouped" merge into one catch-all
     expect(groups[2]?.workflows.map((w) => w.id)).toEqual(["wf-1", "wf-4"]);
@@ -48,7 +53,12 @@ describe("groupByFeature (FR3)", () => {
       makeWorkflow("wf-b", { featureGroup: "Checkout" }),
       makeWorkflow("wf-a", { featureGroup: "Checkout" }),
     ];
-    const groups = groupByFeature(workflows, limits, graph, deriveAnnotations(makeMap(workflows)));
+    const groups = groupByFeature(
+      workflows,
+      limits,
+      graph,
+      deriveAnnotations(makeMap(workflows), graph, limits),
+    );
     expect(groups[0]?.workflows.map((w) => w.id)).toEqual(["wf-a", "wf-b"]);
   });
 
@@ -61,7 +71,7 @@ describe("groupByFeature (FR3)", () => {
       [...many, ...small],
       limits,
       graph,
-      deriveAnnotations(makeMap([...many, ...small])),
+      deriveAnnotations(makeMap([...many, ...small]), graph, limits),
     );
     expect(groups.find((g) => g.name === "Big")?.collapsible).toBe(true);
     expect(groups.find((g) => g.name === "Small")?.collapsible).toBe(false);
@@ -122,25 +132,6 @@ describe("header view (FR2)", () => {
     const unknown = view([], { appPurpose: "Unknown", appPurposeConfidence: null }).header;
     expect(unknown.purpose).toBeNull();
     expect(unknown.confidencePct).toBeNull();
-  });
-});
-
-describe("deriveAnnotations — the #88 seam (ADR-0009 §4)", () => {
-  it("returns empty annotation slots for every workflow", () => {
-    const map = makeMap([makeWorkflow("wf-1"), makeWorkflow("wf-2")]);
-    const annotations = deriveAnnotations(map);
-    expect(annotations.size).toBe(2);
-    for (const slots of annotations.values()) {
-      expect(slots.indexBadges).toEqual([]);
-      expect(slots.detailBadges).toEqual([]);
-      expect(slots.callouts).toEqual([]);
-    }
-  });
-
-  it("is empty regardless of duplicateGroups being absent or []", () => {
-    const absent = deriveAnnotations(makeMap([makeWorkflow("wf-1")]));
-    const empty = deriveAnnotations(makeMap([makeWorkflow("wf-1")], { duplicateGroups: [] }));
-    expect([...absent.values()]).toEqual([...empty.values()]);
   });
 });
 

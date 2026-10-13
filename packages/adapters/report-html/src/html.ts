@@ -136,7 +136,9 @@ export function safeAnchorId(raw: string): string {
 /** Rendering mode for screenshot sources (mirrors RenderOptions.embedScreenshots). */
 export type ImageSrcMode = "embed" | "reference";
 
-const DATA_IMAGE_SRC = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]*={0,2}$/;
+// Non-empty base64 payload required (arch-review #92 advisory: an empty-body data URI
+// is never a URI this package generates, so it is rejected like any other foreign src).
+const DATA_IMAGE_SRC = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 // Visible ASCII only (no whitespace/control chars) …
 const VISIBLE_ASCII = /^[\x21-\x7e]+$/;
 // … and none of the characters that are markup- or shell-significant in a URL attribute.

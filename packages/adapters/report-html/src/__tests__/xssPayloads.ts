@@ -32,6 +32,8 @@ export const XSS_PAYLOADS: readonly XssPayload[] = [
   { id: "unicode-escaped", value: "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e" },
   { id: "template-literal", value: "`${alert(1)}`" },
   { id: "null-byte", value: "before\u0000<script>alert(1)</script>after" },
+  // M88.2 gate payload (#88): id/name attribute breakout against anchor generation.
+  { id: "anchor-breakout", value: '#"><svg onload=alert(1)>' },
 ];
 
 /** Hostile screenshotUri values for the T2/M87.3 scheme-allowlist matrix. */

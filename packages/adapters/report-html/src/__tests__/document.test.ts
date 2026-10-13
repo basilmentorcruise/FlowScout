@@ -11,7 +11,7 @@ import { PURPOSE_PLACEHOLDER } from "../sections/header.js";
 import { EMPTY_MAP_MESSAGE } from "../sections/toc.js";
 import { NO_SCREENSHOT_MESSAGE } from "../sections/screenshot.js";
 import type { Report, StateGraph, WorkflowMap } from "@flowscout/domain";
-import { makeConfidenceScore } from "@flowscout/domain";
+import { makeConfidenceScore, makeStateIdentity } from "@flowscout/domain";
 import {
   DEFAULT_NODES,
   makeEdge,
@@ -248,7 +248,14 @@ describe("self-containment (M87.5 / NFR2)", () => {
   });
 });
 
-/** Build inputs where EVERY untrusted field carries the payload (incl. actionPayload). */
+/**
+ * Build inputs where EVERY untrusted field carries the payload (incl. actionPayload).
+ *
+ * Extended for #88 (M88.1/M88.2): a second converging workflow whose Workflow.id, name
+ * and outcome StateNode.label are ALL hostile, bound by a hostile DuplicatePathGroup —
+ * so the hidden-badge, TOC echo and convergence-callout markup (incl. in-page anchors)
+ * are driven with the same payload set as the #87 baseline.
+ */
 function makeHostileInputs(payload: string): { map: WorkflowMap; graph: StateGraph } {
   const hostileWorkflow = makeWorkflow("wf-1", {
     name: payload,
@@ -263,14 +270,41 @@ function makeHostileInputs(payload: string): { map: WorkflowMap; graph: StateGra
       makeStep(1, "state-evil", { description: payload, edge: null }),
     ],
   });
-  const map = makeMap([hostileWorkflow], { appPurpose: payload });
-  const graph = makeGraph([makeNode("state-evil", { label: payload, screenshotUri: payload })]);
+  const hostileId = `wf-2-${payload}`;
+  const convergingHidden = makeWorkflow(hostileId, {
+    name: payload,
+    description: payload,
+    featureGroup: payload,
+    isHiddenPath: true,
+    steps: [makeStep(0, "state-evil", { description: payload, edge: null })],
+  });
+  const map = makeMap([hostileWorkflow, convergingHidden], {
+    appPurpose: payload,
+    duplicateGroups: [
+      {
+        outcomeIdentity: makeStateIdentity(`outcome-${payload}`),
+        workflowIds: ["wf-1", hostileId],
+        canonicalWorkflowId: "wf-1",
+        hiddenWorkflowIds: [hostileId],
+      },
+    ],
+  });
+  const graph = makeGraph([
+    makeNode("state-evil", { label: payload, screenshotUri: payload }),
+    makeNode(`outcome-${payload}`, { label: payload }),
+  ]);
   return { map, graph };
 }
 
+const ANCHOR_TOKEN = /^[A-Za-z0-9_-]+$/;
+
 /** M87.2 core assertion: the parsed output DOM carries zero active markup. */
 function expectInertDom(doc: Document): void {
-  expect(doc.querySelectorAll("script, iframe, object, embed, svg").length).toBe(0);
+  // The only allowed <svg>s are the package-static aria-hidden badge/callout glyphs (#88).
+  expect(doc.querySelectorAll("script, iframe, object, embed, svg:not(.fs-icon)").length).toBe(0);
+  for (const icon of Array.from(doc.querySelectorAll("svg.fs-icon"))) {
+    expect(icon.getAttribute("aria-hidden")).toBe("true");
+  }
   for (const el of Array.from(doc.querySelectorAll("*"))) {
     for (const attr of Array.from(el.attributes)) {
       expect(attr.name.startsWith("on")).toBe(false);
@@ -283,14 +317,35 @@ function expectInertDom(doc: Document): void {
   }
 }
 
-describe("T7-xss-payload-suite — document level (M87.2)", () => {
+/** M88.2: every id / in-page href is a charset-allowlisted derived token that resolves. */
+function expectSafeAnchors(doc: Document): void {
+  for (const el of Array.from(doc.querySelectorAll("[id]"))) {
+    expect(el.getAttribute("id") ?? "").toMatch(ANCHOR_TOKEN);
+  }
+  for (const link of Array.from(doc.querySelectorAll('a[href^="#"]'))) {
+    const href = link.getAttribute("href") ?? "";
+    expect(href.slice(1)).toMatch(ANCHOR_TOKEN);
+    expect(doc.getElementById(href.slice(1))).not.toBeNull();
+  }
+}
+
+describe("T7-xss-payload-suite — document level incl. #88 badge/callout markup (M87.2/M88.1/M88.2)", () => {
   it.each(XSS_PAYLOADS.map((p) => [p.id, p.value] as const))(
     "payload %s injected into every untrusted field renders inert",
     (_id, payload) => {
       const { map, graph } = makeHostileInputs(payload);
       const doc = parse(renderDoc(map, graph, makeReport(map)));
 
+      // The #88 markup under test is actually present: a callout on BOTH converging
+      // workflows and the hidden badge in TOC + detail (never suppressed by hostility).
+      expect(doc.querySelectorAll("aside.fs-duplicate-callout").length).toBe(2);
+      expect(doc.querySelectorAll(".fs-toc .fs-badge-hidden").length).toBe(1);
+      expect(doc.querySelectorAll("article .fs-badge-hidden").length).toBe(1);
+
       expectInertDom(doc);
+      // M88.2: no raw Workflow.id / group id spliced into id=/href= — the allowlisted
+      // token charset structurally excludes every attribute-breakout character.
+      expectSafeAnchors(doc);
       // The payload is preserved as inert visible text in the workflow title.
       const title = doc.querySelector("article h3");
       expect(title?.textContent).toBe(payload.replaceAll("\u0000", "\uFFFD"));
