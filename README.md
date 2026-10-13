@@ -146,4 +146,7 @@ See `.env.example` for the full, annotated list with placeholder values. Key var
 | [`docs/sdlc/architecture/`](docs/sdlc/architecture/)                            | ADR-0001 through ADR-0004                             |
 | [`STATUS.md`](STATUS.md)                                                        | Per-epic progress snapshot                            |
 | [GitHub Project board #4](https://github.com/orgs/basilmentorcruise/projects/4) | Live ticket tracking                                  |
-| [`CLAUDE.md`](CLAUDE.md)                                                        | Project context for the autonomous SDLC agent system  |
+
+## License
+
+[MIT](LICENSE)

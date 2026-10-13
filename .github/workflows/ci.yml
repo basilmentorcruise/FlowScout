@@ -1,5 +1,5 @@
 name: CI
-# Required check for auto-merge (see .claude/AGENT_SYSTEM.md merge policy).
+# Required check for auto-merge.
 # Pipeline: install → SCA → lint(+SAST) → typecheck → boundaries/cycles → dup → test+coverage → build → gitleaks
 on:
   pull_request:
