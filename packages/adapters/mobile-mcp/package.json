@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@flowscout/domain": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "mobile-mcp": "0.0.7"
   },
   "devDependencies": {
